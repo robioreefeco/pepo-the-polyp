@@ -508,7 +508,7 @@ export function UserProfileDashboard() {
         <div className="relative z-10 flex items-center justify-center py-4 border-t border-[#ffffff08]">
           <span className="[font-family:'Inter',Helvetica] text-[#d4e9f333] text-[10px]">
             MesoReef DAO · Powered by{" "}
-            <a href="https://bonfires.ai" target="_blank" rel="noopener noreferrer" className="underline text-[#d4e9f355] hover:text-[#d4e9f3]">
+            <a href="https://bonfires.ai" target="_blank" rel="noopener noreferrer" className="text-[#d4e9f355] hover:text-[#d4e9f3] transition-colors">
               Bonfires.ai
             </a>
           </span>

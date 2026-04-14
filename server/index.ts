@@ -74,6 +74,8 @@ app.use(
     // X-Frame-Options: SAMEORIGIN (default ON — we still set frameAncestors in CSP for belt-and-suspenders)
     // X-XSS-Protection: disabled (modern browsers use CSP instead)
     xssFilter: false,
+    // Cross-Origin-Opener-Policy: must NOT be same-origin to allow wallet popup flows (Privy/WalletConnect)
+    crossOriginOpenerPolicy: false,
     // Referrer-Policy
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     // Don't advertise the server stack

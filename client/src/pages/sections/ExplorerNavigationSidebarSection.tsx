@@ -89,10 +89,11 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
                 ? "bg-[#83eef01a] border border-solid border-[#83eef033]"
                 : "hover:bg-[#83eef00d]"
             }`}
+            style={item.active ? { boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" } : {}}
           >
             <img className="flex-shrink-0" alt="Container" src={item.icon} />
             <span
-              className={`[font-family:'Plus_Jakarta_Sans',Helvetica] text-base tracking-[0] leading-6 underline whitespace-pre-line ${
+              className={`[font-family:'Plus_Jakarta_Sans',Helvetica] text-base tracking-[0] leading-6 whitespace-pre-line ${
                 item.active
                   ? "font-bold text-[#83eef0]"
                   : "font-medium text-[#d4e9f380]"
@@ -111,6 +112,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
               ? "bg-[#83eef01a] border border-solid border-[#83eef033]"
               : "hover:bg-[#83eef00d]"
           }`}
+          style={location === "/profile" ? { boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" } : {}}
         >
           <div className={`flex-shrink-0 w-5 h-5 flex items-center justify-center ${location === "/profile" ? "text-[#83eef0]" : "text-[#d4e9f380]"}`}>
             <UserIcon />
@@ -160,7 +162,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
                 href={TELEGRAM_WEB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="[font-family:'Inter',Helvetica] font-normal text-[#d4e9f366] text-[10px] text-center tracking-[0] underline hover:text-[#d4e9f3] transition-colors"
+                className="[font-family:'Inter',Helvetica] font-normal text-[#d4e9f366] text-[10px] text-center tracking-[0] hover:text-[#d4e9f3] transition-colors"
               >
                 Open in Telegram Web
               </a>

@@ -112,6 +112,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
               ? "bg-[#83eef01a] border border-[#83eef033] text-[#83eef0]"
               : "text-[#d4e9f380] border border-transparent"
           }`}
+          style={mobileTab === "chat" ? { boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" } : {}}
         >
           <MessageCircle size={14} />
           Chat
@@ -123,6 +124,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
               ? "bg-[#83eef01a] border border-[#83eef033] text-[#83eef0]"
               : "text-[#d4e9f380] border border-transparent"
           }`}
+          style={mobileTab === "graph" ? { boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" } : {}}
         >
           <Network size={14} />
           Graph
@@ -187,7 +189,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
                           {msg.insight.detail}
                         </p>
                       </div>
-                      <span className="relative flex items-center justify-center w-fit [font-family:'Inter',Helvetica] font-normal text-[#f9a414] text-xs text-center underline whitespace-nowrap cursor-pointer flex-shrink-0">
+                      <span className="relative flex items-center justify-center w-fit [font-family:'Inter',Helvetica] font-normal text-[#f9a414] text-xs text-center whitespace-nowrap cursor-pointer flex-shrink-0 hover:opacity-80 transition-opacity">
                         Export
                       </span>
                     </div>
@@ -270,7 +272,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
                 {footerLinks.map((link) => (
                   <a
                     key={link.label}
-                    className="relative flex items-center w-fit [font-family:'Inter',Helvetica] font-normal text-[#d4e9f366] text-[9px] md:text-[10px] tracking-[1.00px] leading-[15px] underline whitespace-nowrap"
+                    className="relative flex items-center w-fit [font-family:'Inter',Helvetica] font-normal text-[#d4e9f366] text-[9px] md:text-[10px] tracking-[1.00px] leading-[15px] whitespace-nowrap hover:text-[#d4e9f3] transition-colors"
                     href={link.href}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -286,7 +288,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
                 <div className="inline-flex items-center gap-1.5 relative flex-[0_0_auto]">
                   <span className="[font-family:'Inter',Helvetica] font-normal text-[#d4e9f3] text-[8px] text-center leading-3">
                     Powered by{" "}
-                    <a href="https://bonfires.ai/" rel="noopener noreferrer" target="_blank" className="underline">
+                    <a href="https://bonfires.ai/" rel="noopener noreferrer" target="_blank" className="hover:text-[#d4e9f3] transition-colors">
                       Bonfires.ai
                     </a>
                   </span>

@@ -38,7 +38,7 @@ export const ApplicationHeaderSection = (): JSX.Element => {
         {navLinks.map((link) => (
           <a
             key={link.label}
-            className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 underline whitespace-nowrap"
+            className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 whitespace-nowrap hover:text-[#d4e9f3] transition-colors"
             href={link.href}
             rel="noopener noreferrer"
             target="_blank"
