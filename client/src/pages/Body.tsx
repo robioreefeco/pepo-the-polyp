@@ -8,9 +8,11 @@ export const Body = (): JSX.Element => {
       {/* Background image covering the entire screen */}
       <img
         className="absolute w-full h-full top-0 left-0 object-cover pointer-events-none"
-        alt="Fragmented"
-        src="/figmaAssets/fragmented-background.svg"
+        alt="Background"
+        src="/figmaAssets/coral-microbiome-bg.jpg"
       />
+      {/* Dark overlay to keep UI readable */}
+      <div className="absolute w-full h-full top-0 left-0 pointer-events-none bg-[#00080c]/70" />
       {/* Application header at the top */}
       <ApplicationHeaderSection />
       {/* Main content area: sidebar + dashboard side by side */}
