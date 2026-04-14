@@ -101,14 +101,14 @@ export async function registerRoutes(
     if (!query) return res.status(400).json({ error: "query must be a non-empty string under 500 characters" });
 
     try {
-      const response = await fetch(`${BONFIRES_BASE}/graph/search`, {
+      const response = await fetch(`${BONFIRES_BASE}/api/graph/query`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${PEPO_API_KEY}`,
           "Content-Type": "application/json",
           "x-api-key": PEPO_API_KEY,
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ bonfire_id: BONFIRE_ID, query }),
       });
 
       if (!response.ok) {
@@ -127,29 +127,29 @@ export async function registerRoutes(
     if (!message) return res.status(400).json({ error: "message must be a non-empty string under 2000 characters" });
 
     try {
-      const response = await fetch(`${BONFIRES_BASE}/api/bonfires/${BONFIRE_ID}/chat`, {
+      const response = await fetch(`${BONFIRES_BASE}/api/graph/query`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${PEPO_API_KEY}`,
           "Content-Type": "application/json",
           "x-api-key": PEPO_API_KEY,
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ bonfire_id: BONFIRE_ID, query: message }),
       });
 
-      const rawText = await response.text();
-      console.log("[Pepo API] status:", response.status, "content-type:", response.headers.get("content-type"), "body:", rawText.slice(0, 500));
-
       if (!response.ok) {
+        console.log("[Pepo API] graph/query failed:", response.status);
         return res.json({ response: generatePepoResponse(message), source: "local" });
       }
 
-      let data: any = {};
-      try { data = JSON.parse(rawText); } catch { /* not JSON */ }
-      return res.json({
-        response: data.response || data.message || data.answer || data.text || data.content || data.reply || generatePepoResponse(message),
-        source: "bonfires",
-      });
+      const data = await response.json() as any;
+
+      if (data.success && Array.isArray(data.episodes) && data.episodes.length > 0) {
+        const reply = buildPepoReply(message, data.episodes);
+        return res.json({ response: reply, source: "bonfires" });
+      }
+
+      return res.json({ response: generatePepoResponse(message), source: "local" });
     } catch (err) {
       console.log("[Pepo API] error:", err);
       return res.json({ response: generatePepoResponse(message), source: "local" });
@@ -251,6 +251,33 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+function buildPepoReply(query: string, episodes: any[]): string {
+  const top = episodes.slice(0, 3);
+  const names = top.map((e: any) => e.name).filter(Boolean);
+  const summaries = top
+    .map((e: any) => {
+      const c = e.content?.content || e.summary || "";
+      return c ? c.slice(0, 300).replace(/\s+/g, " ").trim() : "";
+    })
+    .filter(Boolean);
+
+  let reply = `I've queried the MesoAmerican Reef knowledge graph for "${query}" and found ${episodes.length} relevant knowledge nodes.\n\n`;
+
+  if (names.length > 0) {
+    reply += `Top insights from the graph:\n`;
+    names.forEach((name: string, i: number) => {
+      reply += `• ${name}`;
+      if (summaries[i]) {
+        reply += `\n  ${summaries[i].slice(0, 200)}...`;
+      }
+      reply += "\n";
+    });
+  }
+
+  reply += `\nWould you like me to expand on any of these nodes or explore a related cluster?`;
+  return reply;
 }
 
 function generatePepoResponse(userMessage: string): string {
