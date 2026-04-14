@@ -215,7 +215,7 @@ export function UserProfileDashboard() {
                 <StatCard label="Reef Score" value="742" sub="Top 12%" />
                 <StatCard label="Contributions" value="28" sub="This month" />
                 <StatCard label="DAO Votes" value="14" sub="Lifetime" />
-                <StatCard label="Tokens" value="1,240" sub="$MESO" />
+                <StatCard label="Points" value="1,240" sub="Lifetime" />
               </div>
 
               {/* Linked accounts + Activity */}
