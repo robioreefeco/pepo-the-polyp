@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
+import { rateLimit } from "express-rate-limit";
 
 const PEPO_API_KEY = process.env.PEPO_API_KEY || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
@@ -9,11 +10,38 @@ const BONFIRES_BASE = "https://pepo.app.bonfires.ai";
 const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
 const ORCID_CLIENT_SECRET = process.env.ORCID_CLIENT_SECRET || "";
 const ORCID_BASE = "https://orcid.org";
-const ORCID_API_BASE = "https://pub.orcid.org/v3.0";
 
 const orcidStateStore = new Map<string, { createdAt: number }>();
 
-// Verify Privy JWT token server-side (optional auth check)
+// ─── Rate limiters ─────────────────────────────────────────────────────────────
+// General API: 120 requests per 15 minutes per IP
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
+
+// Chat endpoint: 20 requests per 15 minutes per IP (calls external AI API)
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Chat rate limit reached. Please wait a few minutes before sending more messages." },
+});
+
+// Auth endpoints: 10 per 15 minutes (prevent brute-force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many auth attempts. Please try again later." },
+});
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 async function verifyPrivyToken(token: string): Promise<boolean> {
   if (!PRIVY_APP_SECRET || !PRIVY_APP_ID || !token) return false;
   try {
@@ -29,10 +57,21 @@ async function verifyPrivyToken(token: string): Promise<boolean> {
   }
 }
 
+function sanitizeString(value: unknown, maxLength = 2000): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) return null;
+  return trimmed;
+}
+
+// ─── Routes ────────────────────────────────────────────────────────────────────
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Apply general rate limiting to all /api routes
+  app.use("/api", generalLimiter);
 
   // Proxy: fetch knowledge graph data
   app.get("/api/graph", async (_req: Request, res: Response) => {
@@ -46,21 +85,21 @@ export async function registerRoutes(
       });
       if (!response.ok) {
         const text = await response.text();
-        return res.status(response.status).json({ error: text });
+        return res.status(response.status).json({ error: "Graph unavailable" });
       }
       const data = await response.json();
       return res.json(data);
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+    } catch {
+      return res.status(500).json({ error: "Graph unavailable" });
     }
   });
 
   // Proxy: search knowledge graph
   app.post("/api/graph/search", async (req: Request, res: Response) => {
-    try {
-      const { query } = req.body;
-      if (!query) return res.status(400).json({ error: "query is required" });
+    const query = sanitizeString(req.body?.query, 500);
+    if (!query) return res.status(400).json({ error: "query must be a non-empty string under 500 characters" });
 
+    try {
       const response = await fetch(`${BONFIRES_BASE}/graph/search`, {
         method: "POST",
         headers: {
@@ -72,22 +111,21 @@ export async function registerRoutes(
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        return res.status(response.status).json({ error: text });
+        return res.status(response.status).json({ error: "Search unavailable" });
       }
       const data = await response.json();
       return res.json(data);
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+    } catch {
+      return res.status(500).json({ error: "Search unavailable" });
     }
   });
 
-  // Chat endpoint: query Pepo AI via Bonfires
-  app.post("/api/chat", async (req: Request, res: Response) => {
-    try {
-      const { message } = req.body;
-      if (!message) return res.status(400).json({ error: "message is required" });
+  // Chat endpoint: query Pepo AI via Bonfires (stricter rate limit)
+  app.post("/api/chat", chatLimiter, async (req: Request, res: Response) => {
+    const message = sanitizeString(req.body?.message, 2000);
+    if (!message) return res.status(400).json({ error: "message must be a non-empty string under 2000 characters" });
 
+    try {
       const response = await fetch(`${BONFIRES_BASE}/chat`, {
         method: "POST",
         headers: {
@@ -104,11 +142,11 @@ export async function registerRoutes(
 
       const data = await response.json();
       return res.json({
-        response: data.response || data.message || data.answer || JSON.stringify(data),
+        response: data.response || data.message || data.answer || generatePepoResponse(message),
         source: "bonfires",
       });
     } catch {
-      return res.json({ response: generatePepoResponse(req.body?.message || ""), source: "local" });
+      return res.json({ response: generatePepoResponse(message), source: "local" });
     }
   });
 
@@ -132,11 +170,11 @@ export async function registerRoutes(
   });
 
   // ORCID OAuth: initiate login
-  app.get("/api/auth/orcid", (req: Request, res: Response) => {
+  app.get("/api/auth/orcid", authLimiter, (req: Request, res: Response) => {
     if (!ORCID_CLIENT_ID) {
       return res.status(500).json({ error: "ORCID not configured" });
     }
-    const state = crypto.randomBytes(16).toString("hex");
+    const state = crypto.randomBytes(32).toString("hex"); // upgraded from 16 to 32 bytes
     orcidStateStore.set(state, { createdAt: Date.now() });
     // Clean up stale states (older than 10 minutes)
     for (const [k, v] of orcidStateStore.entries()) {
@@ -157,14 +195,18 @@ export async function registerRoutes(
 
   // ORCID OAuth: callback
   app.get("/api/auth/orcid/callback", async (req: Request, res: Response) => {
-    const { code, state } = req.query as { code?: string; state?: string };
+    const code = typeof req.query.code === "string" ? req.query.code : null;
+    const state = typeof req.query.state === "string" ? req.query.state : null;
+
     if (!code || !state || !orcidStateStore.has(state)) {
       return res.redirect("/?orcid_error=invalid_state");
     }
     orcidStateStore.delete(state);
+
     const host = req.headers.host || "";
     const protocol = host.includes("localhost") ? "http" : "https";
     const redirectUri = `${protocol}://${host}/api/auth/orcid/callback`;
+
     try {
       const tokenRes = await fetch(`${ORCID_BASE}/oauth/token`, {
         method: "POST",
@@ -178,8 +220,6 @@ export async function registerRoutes(
         }),
       });
       if (!tokenRes.ok) {
-        const err = await tokenRes.text();
-        console.error("ORCID token error:", err);
         return res.redirect("/profile?orcid_error=token_failed");
       }
       const token = await tokenRes.json() as { access_token: string; orcid: string; name: string };
@@ -187,16 +227,15 @@ export async function registerRoutes(
       const name = token.name || "";
       const params = new URLSearchParams({ orcid_id: orcid, orcid_name: encodeURIComponent(name) });
       return res.redirect(`/profile?${params.toString()}`);
-    } catch (err: any) {
-      console.error("ORCID callback error:", err);
+    } catch {
       return res.redirect("/profile?orcid_error=server_error");
     }
   });
 
-  // Privy token verification endpoint (used by frontend to validate session)
-  app.post("/api/auth/verify", async (req: Request, res: Response) => {
+  // Privy token verification endpoint
+  app.post("/api/auth/verify", authLimiter, async (req: Request, res: Response) => {
     try {
-      const token = req.headers.authorization?.replace("Bearer ", "") || req.body?.token;
+      const token = req.headers.authorization?.replace("Bearer ", "") || sanitizeString(req.body?.token, 4096);
       if (!token) return res.status(401).json({ valid: false, error: "No token provided" });
       const valid = await verifyPrivyToken(token);
       return res.json({ valid });
