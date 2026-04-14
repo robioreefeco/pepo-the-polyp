@@ -1,10 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 
 const PEPO_API_KEY = process.env.PEPO_API_KEY || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID || "";
 const BONFIRES_BASE = "https://pepo.app.bonfires.ai";
+const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
+const ORCID_CLIENT_SECRET = process.env.ORCID_CLIENT_SECRET || "";
+const ORCID_BASE = "https://orcid.org";
+const ORCID_API_BASE = "https://pub.orcid.org/v3.0";
+
+const orcidStateStore = new Map<string, { createdAt: number }>();
 
 // Verify Privy JWT token server-side (optional auth check)
 async function verifyPrivyToken(token: string): Promise<boolean> {
@@ -121,6 +128,68 @@ export async function registerRoutes(
       return res.json(data);
     } catch {
       return res.json({ knowledgeDensity: "8.4 TB", networkHealth: "99.2%", nodeConnections: 3420 });
+    }
+  });
+
+  // ORCID OAuth: initiate login
+  app.get("/api/auth/orcid", (req: Request, res: Response) => {
+    if (!ORCID_CLIENT_ID) {
+      return res.status(500).json({ error: "ORCID not configured" });
+    }
+    const state = crypto.randomBytes(16).toString("hex");
+    orcidStateStore.set(state, { createdAt: Date.now() });
+    // Clean up stale states (older than 10 minutes)
+    for (const [k, v] of orcidStateStore.entries()) {
+      if (Date.now() - v.createdAt > 10 * 60 * 1000) orcidStateStore.delete(k);
+    }
+    const host = req.headers.host || "";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const redirectUri = `${protocol}://${host}/api/auth/orcid/callback`;
+    const params = new URLSearchParams({
+      client_id: ORCID_CLIENT_ID,
+      response_type: "code",
+      scope: "/authenticate",
+      redirect_uri: redirectUri,
+      state,
+    });
+    return res.redirect(`${ORCID_BASE}/oauth/authorize?${params.toString()}`);
+  });
+
+  // ORCID OAuth: callback
+  app.get("/api/auth/orcid/callback", async (req: Request, res: Response) => {
+    const { code, state } = req.query as { code?: string; state?: string };
+    if (!code || !state || !orcidStateStore.has(state)) {
+      return res.redirect("/?orcid_error=invalid_state");
+    }
+    orcidStateStore.delete(state);
+    const host = req.headers.host || "";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const redirectUri = `${protocol}://${host}/api/auth/orcid/callback`;
+    try {
+      const tokenRes = await fetch(`${ORCID_BASE}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          client_id: ORCID_CLIENT_ID,
+          client_secret: ORCID_CLIENT_SECRET,
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: redirectUri,
+        }),
+      });
+      if (!tokenRes.ok) {
+        const err = await tokenRes.text();
+        console.error("ORCID token error:", err);
+        return res.redirect("/profile?orcid_error=token_failed");
+      }
+      const token = await tokenRes.json() as { access_token: string; orcid: string; name: string };
+      const orcid = token.orcid;
+      const name = token.name || "";
+      const params = new URLSearchParams({ orcid_id: orcid, orcid_name: encodeURIComponent(name) });
+      return res.redirect(`/profile?${params.toString()}`);
+    } catch (err: any) {
+      console.error("ORCID callback error:", err);
+      return res.redirect("/profile?orcid_error=server_error");
     }
   });
 

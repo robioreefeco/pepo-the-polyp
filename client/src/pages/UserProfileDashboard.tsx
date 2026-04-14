@@ -1,7 +1,7 @@
 import { usePrivy } from "@privy-io/react-auth";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { PRIVY_ENABLED } from "@/lib/privy";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function BackIcon() {
   return (
@@ -106,6 +106,27 @@ export function UserProfileDashboard() {
     : { ready: true, authenticated: false, user: null, login: () => {}, logout: () => {} };
 
   const [copied, setCopied] = useState(false);
+  const [orcidId, setOrcidId] = useState<string | null>(null);
+  const [orcidName, setOrcidName] = useState<string | null>(null);
+  const [orcidError, setOrcidError] = useState<string | null>(null);
+
+  const searchStr = useSearch();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchStr);
+    const id = params.get("orcid_id");
+    const name = params.get("orcid_name");
+    const err = params.get("orcid_error");
+    if (id) {
+      setOrcidId(id);
+      setOrcidName(name ? decodeURIComponent(name) : null);
+      window.history.replaceState({}, "", "/profile");
+    }
+    if (err) {
+      setOrcidError(err);
+      window.history.replaceState({}, "", "/profile");
+    }
+  }, [searchStr]);
 
   const walletAddr = user?.wallet?.address ?? null;
   const email = user?.email?.address ?? null;
@@ -118,6 +139,10 @@ export function UserProfileDashboard() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  }
+
+  function connectOrcid() {
+    window.location.href = "/api/auth/orcid";
   }
 
   function getActivityIcon(type: string) {
@@ -251,7 +276,40 @@ export function UserProfileDashboard() {
                         <span className="text-[#83eef0] text-[10px] [font-family:'Inter',Helvetica]">Connected</span>
                       </div>
                     )}
-                    {!email && !walletAddr && (
+                    {/* ORCID */}
+                    {orcidId ? (
+                      <div className="flex items-center justify-between py-2 border-b border-[#ffffff08]">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-[#a6ce3920] flex items-center justify-center">
+                            <span className="text-[#a6ce39] font-bold text-[10px]">iD</span>
+                          </div>
+                          <div className="flex flex-col">
+                            {orcidName && <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3] text-xs">{orcidName}</span>}
+                            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] font-mono">{orcidId}</span>
+                          </div>
+                        </div>
+                        <span className="text-[#a6ce39] text-[10px] [font-family:'Inter',Helvetica]">ORCID</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between py-2 border-b border-[#ffffff08]">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-[#a6ce3920] flex items-center justify-center">
+                            <span className="text-[#a6ce39] font-bold text-[10px]">iD</span>
+                          </div>
+                          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f380] text-sm">ORCID iD</span>
+                        </div>
+                        <button
+                          onClick={connectOrcid}
+                          className="px-3 py-1 rounded-full bg-[#a6ce3920] border border-[#a6ce3933] text-[#a6ce39] [font-family:'Inter',Helvetica] text-[10px] hover:bg-[#a6ce3930] transition-colors"
+                        >
+                          Connect
+                        </button>
+                      </div>
+                    )}
+                    {orcidError && (
+                      <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px]">ORCID error: {orcidError}</p>
+                    )}
+                    {!email && !walletAddr && !orcidId && (
                       <p className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-xs">No linked accounts yet.</p>
                     )}
                   </div>
