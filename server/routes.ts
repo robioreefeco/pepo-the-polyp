@@ -7,6 +7,7 @@ const PEPO_API_KEY = process.env.PEPO_API_KEY || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID || "";
 const BONFIRES_BASE = "https://pepo.app.bonfires.ai";
+const BONFIRE_ID = "69372cce6b69184280de3a89";
 const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
 const ORCID_CLIENT_SECRET = process.env.ORCID_CLIENT_SECRET || "";
 const ORCID_BASE = "https://orcid.org";
@@ -126,8 +127,7 @@ export async function registerRoutes(
     if (!message) return res.status(400).json({ error: "message must be a non-empty string under 2000 characters" });
 
     try {
-      // Try: /api/bonfires/pepo/chat (service API with bearer key)
-      const response = await fetch(`${BONFIRES_BASE}/api/bonfires/pepo/chat`, {
+      const response = await fetch(`${BONFIRES_BASE}/api/bonfires/${BONFIRE_ID}/chat`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${PEPO_API_KEY}`,
