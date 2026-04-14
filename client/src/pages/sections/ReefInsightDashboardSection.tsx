@@ -276,24 +276,26 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
 
       {/* Right Panel: Graph + Stats + Footer */}
       <div className="flex flex-col w-[400px] items-start gap-6 relative self-stretch">
-        {/* Graph visualization */}
-        <a
-          href="https://pepo.app.bonfires.ai/graph"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="relative flex-1 self-stretch w-full grow block group"
-        >
-          <img
-            className="relative flex-1 self-stretch w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-            alt="Main graph view"
-            src="/figmaAssets/main-graph-view.svg"
+        {/* Live Knowledge Graph from Bonfires.ai */}
+        <div className="relative flex-1 self-stretch w-full grow rounded-[32px] overflow-hidden border border-solid border-[#83eef01a] bg-[#00080c]">
+          <iframe
+            src="https://pepo.app.bonfires.ai/graph"
+            title="Pepo Knowledge Graph"
+            className="w-full h-full border-none"
+            allow="fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
           />
-          <div className="absolute bottom-4 right-4 px-3 py-1.5 bg-[#00000099] rounded-full border border-solid border-[#83eef033] backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-xs">
-              Open Knowledge Graph →
+          <a
+            href="https://pepo.app.bonfires.ai/graph"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-3 right-3 px-3 py-1.5 bg-[#00000099] rounded-full border border-solid border-[#83eef033] backdrop-blur-sm hover:bg-[#00000099] transition-colors no-underline"
+          >
+            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-xs whitespace-nowrap">
+              Open Full Graph →
             </span>
-          </div>
-        </a>
+          </a>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 grid-rows-[93px] h-fit gap-4 w-full">
