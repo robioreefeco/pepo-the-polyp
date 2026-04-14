@@ -150,12 +150,19 @@ export async function registerRoutes(
       }
 
       // No Bonfires episodes — still enrich with all knowledge sources
-      const [wikiCtx, mesoCtx, journalCtx] = await Promise.all([
+      const [wikiCtx, mesoCtx, journalCtx, botCtx] = await Promise.all([
         fetchWikipediaContext(message),
         fetchMesoReefContext(message),
         fetchJournalKnowledge(message),
+        fetchBotKnowledge(message),
       ]);
       let fallbackReply = generatePepoResponse(message);
+      if (botCtx.length > 0) {
+        fallbackReply += `\n\n🤖 **@PepothePolyp_bot Knowledge:**\n`;
+        botCtx.forEach(tax => {
+          fallbackReply += `• **${tax.name}**: ${tax.description}\n`;
+        });
+      }
       if (journalCtx.length > 0) {
         fallbackReply += `\n\n📚 **Peer-Reviewed Science:**\n`;
         journalCtx.slice(0, 3).forEach(paper => {
@@ -370,9 +377,141 @@ async function fetchMesoReefContext(query: string): Promise<string> {
     "coral", "reef", "bleach", "conservation", "restoration", "monitoring", "iot", "ai", "marine",
     "mesophotic", "biotechnology", "token", "blockchain", "fund"];
   if (!keywords.some(k => lc.includes(k))) return "";
-
-  // Return a relevant excerpt from the curated DAO knowledge
   return MESOREEFDAO_KNOWLEDGE;
+}
+
+// ─── @PepothePolyp_bot Telegram Knowledge Taxonomy ────────────────────────────
+// All 10 knowledge categories from 165 Telegram bot episodes (auto-updated from Bonfires)
+
+interface BonfireTaxonomy {
+  name: string;
+  description: string;
+  category: string;
+  keywords: string[];
+}
+
+const TELEGRAM_TAXONOMY_SEED: BonfireTaxonomy[] = [
+  {
+    name: "Coral Ecology and Functional Restoration",
+    description: "Scientific research on coral holobionts, heat-resistant genotypes, and multi-trophic strategies including microfragmentation, probiotics, and mesophotic refugia to prevent functional extinction.",
+    category: "scientific_research",
+    keywords: ["coral", "holobiont", "genotype", "microfragment", "probiotic", "mesophotic", "refugia", "bleach", "restor", "ecology", "heat", "therma", "symbiodinium", "zooxanth", "polyp"],
+  },
+  {
+    name: "Marine Biotechnology and Omics",
+    description: "Molecular biology focusing on CRISPR, multi-omics, and assisted evolution, including research on bioactive compounds (SCRiPs, Galaxin) for pharmaceuticals and gene function validation.",
+    category: "scientific_research",
+    keywords: ["biotech", "crispr", "omics", "genomic", "evolution", "scrip", "galaxin", "molecular", "pharmac", "gene", "rna", "protein", "bioactive", "sequenc"],
+  },
+  {
+    name: "Decentralized Science (DeSci) and IP-NFTs",
+    description: "Blockchain frameworks for managing biodiversity patents, IP-NFTs, and open-access protocols to ensure data transparency, decentralized research funding, and on-chain verification.",
+    category: "web3_infrastructure",
+    keywords: ["desci", "ip-nft", "ipnft", "nft", "patent", "blockchain", "decentralized", "open-access", "open access", "protocol", "verification", "on-chain", "funding"],
+  },
+  {
+    name: "Regenerative Finance (ReFi) and Blue Economy",
+    description: "Market-based conservation using biodiversity credits, tokenized assets, and carbon credits to monetize ecosystem services and support sustainable marine livelihoods.",
+    category: "economic_models",
+    keywords: ["refi", "blue economy", "biodiversity credit", "carbon credit", "token", "asset", "monetize", "ecosystem services", "livelihood", "market", "credit", "offset", "finance", "fund"],
+  },
+  {
+    name: "Digital Twins and dMRV Systems",
+    description: "Integration of AI, IoT, and blockchain for decentralized Monitoring, Reporting, and Verification (dMRV) using virtual replicas, eDNA, and real-time sensors.",
+    category: "technology_systems",
+    keywords: ["digital twin", "dmrv", "mrv", "iot", "sensor", "edna", "monitor", "report", "verify", "real-time", "data", "ai", "blockchain", "virtual", "replica"],
+  },
+  {
+    name: "DAO Governance and $POLYP Tokenomics",
+    description: "Organizational structures for decentralized decision-making, featuring dual-entity legal frameworks, $POLYP tokenomics, and community-driven stewardship models.",
+    category: "governance",
+    keywords: ["dao", "governance", "polyp", "tokenomics", "token", "vote", "proposal", "stewardship", "decision", "legal", "community", "decentralized", "entity"],
+  },
+  {
+    name: "AI Agents and Knowledge Graphs",
+    description: "Human-AI collaboration using agentic workflows (c0ralGPT) and decentralized knowledge graphs to automate data verification, scientific discovery, and information coordination.",
+    category: "technology_systems",
+    keywords: ["ai agent", "knowledge graph", "c0ralgpt", "coralgpt", "agentic", "workflow", "automate", "discovery", "coordination", "llm", "machine learning", "nlp"],
+  },
+  {
+    name: "Open-Source Hardware and Citizen Science",
+    description: "Development of accessible underwater monitoring tools, including CoralAID kits, modular wetlabs, and open-source toolkits for community-led ocean science.",
+    category: "community_operations",
+    keywords: ["coralaid", "coral aid", "wetlab", "open-source", "open source", "hardware", "citizen science", "underwater", "toolkit", "monitoring", "modular", "community-led"],
+  },
+  {
+    name: "Community Engagement and Cultural Stewardship",
+    description: "Fostering stewardship through social media, digital culture (GM/GN), and the integration of arts, music, and ocean literacy to build community cohesion.",
+    category: "community_operations",
+    keywords: ["community", "social media", "telegram", "discord", "culture", "arts", "music", "ocean literacy", "education", "outreach", "engagement", "stewardship", "cohesion"],
+  },
+  {
+    name: "Global Policy and Strategic Alignment",
+    description: "Alignment with international frameworks like the High Seas Treaty and Davos themes, focusing on equitable restoration and global ocean stewardship.",
+    category: "governance",
+    keywords: ["policy", "high seas", "treaty", "davos", "global", "international", "framework", "equitable", "strategic", "alignment", "ocean stewardship", "conservation policy"],
+  },
+];
+
+// Live taxonomy cache from Bonfires (refreshed every 60 min)
+let liveTaxonomyCache: { taxonomies: BonfireTaxonomy[]; fetchedAt: number } | null = null;
+
+async function fetchLiveTaxonomies(): Promise<BonfireTaxonomy[]> {
+  if (liveTaxonomyCache && Date.now() - liveTaxonomyCache.fetchedAt < 60 * 60 * 1000) {
+    return liveTaxonomyCache.taxonomies;
+  }
+  try {
+    const res = await fetch(`${BONFIRES_BASE}/api/bonfires/${BONFIRE_ID}`, {
+      headers: { "Authorization": `Bearer ${PEPO_API_KEY}`, "x-api-key": PEPO_API_KEY },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return TELEGRAM_TAXONOMY_SEED;
+    const data = await res.json() as any;
+    const raw = data.latest_taxonomies as any[] || [];
+    if (raw.length === 0) return TELEGRAM_TAXONOMY_SEED;
+
+    const merged: BonfireTaxonomy[] = raw.map((t: any) => {
+      const seed = TELEGRAM_TAXONOMY_SEED.find(s =>
+        s.name.toLowerCase().includes(t.name?.toLowerCase().slice(0, 10))
+      );
+      return {
+        name: t.name || seed?.name || "Knowledge Category",
+        description: t.description || seed?.description || "",
+        category: t.category || seed?.category || "general",
+        keywords: seed?.keywords || [],
+      };
+    });
+    liveTaxonomyCache = { taxonomies: merged, fetchedAt: Date.now() };
+    return merged;
+  } catch {
+    return TELEGRAM_TAXONOMY_SEED;
+  }
+}
+
+function matchTaxonomies(query: string, taxonomies: BonfireTaxonomy[], maxMatches = 3): BonfireTaxonomy[] {
+  const lc = query.toLowerCase();
+  const scored = taxonomies.map(t => {
+    const score = t.keywords.filter(kw => lc.includes(kw)).length;
+    return { t, score };
+  }).filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, maxMatches).map(({ t }) => t);
+}
+
+async function fetchBotKnowledge(query: string): Promise<BonfireTaxonomy[]> {
+  // Use seed immediately for fast response; refresh live cache in background
+  const seedMatches = matchTaxonomies(query, TELEGRAM_TAXONOMY_SEED);
+  // Kick off a background live refresh (non-blocking — updates cache for next call)
+  fetchLiveTaxonomies().then(live => {
+    if (live !== TELEGRAM_TAXONOMY_SEED) {
+      liveTaxonomyCache = { taxonomies: live, fetchedAt: Date.now() };
+    }
+  }).catch(() => {});
+  // If we have a warm cache from a prior live fetch, prefer it
+  if (liveTaxonomyCache) {
+    return matchTaxonomies(query, liveTaxonomyCache.taxonomies);
+  }
+  return seedMatches;
 }
 
 // ─── Scientific Journal Aggregator ───────────────────────────────────────────
@@ -475,11 +614,12 @@ async function fetchJournalKnowledge(query: string): Promise<JournalPaper[]> {
 
 // ─── Reply builder ────────────────────────────────────────────────────────────
 async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
-  // Fetch all knowledge sources in parallel
-  const [wikiContext, mesoContext, journalPapers] = await Promise.all([
+  // Fetch all five knowledge sources in parallel
+  const [wikiContext, mesoContext, journalPapers, botTaxonomies] = await Promise.all([
     fetchWikipediaContext(query),
     fetchMesoReefContext(query),
     fetchJournalKnowledge(query),
+    fetchBotKnowledge(query),
   ]);
 
   const top = episodes.slice(0, 3);
@@ -493,6 +633,7 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
 
   let reply = `I've searched the Reef Knowledge Network for **"${query}"** and found ${episodes.length} community knowledge nodes`;
   const sources: string[] = ["Pepo Knowledge Graph"];
+  if (botTaxonomies.length) sources.push("@PepothePolyp_bot");
   if (wikiContext) sources.push("Wikipedia");
   if (journalPapers.length) sources.push("Scientific Journals");
   if (mesoContext) sources.push("MesoReefDAO Docs");
@@ -509,10 +650,23 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
     reply += "\n";
   }
 
+  // @PepothePolyp_bot Telegram taxonomy knowledge
+  if (botTaxonomies.length > 0) {
+    reply += `🤖 **@PepothePolyp_bot Knowledge (${botTaxonomies.length} topic${botTaxonomies.length > 1 ? "s" : ""}):**\n`;
+    botTaxonomies.forEach(tax => {
+      const catEmoji: Record<string, string> = {
+        scientific_research: "🔬", web3_infrastructure: "⛓️", economic_models: "💱",
+        technology_systems: "🛰️", governance: "🏛️", community_operations: "🤝",
+      };
+      const emoji = catEmoji[tax.category] || "📌";
+      reply += `${emoji} **${tax.name}**\n  ${tax.description}\n\n`;
+    });
+  }
+
   // Scientific journals section
   if (journalPapers.length > 0) {
     reply += `📚 **Peer-Reviewed Science:**\n`;
-    journalPapers.forEach((paper, i) => {
+    journalPapers.forEach((paper) => {
       const oaBadge = paper.isOA ? " 🔓" : "";
       reply += `• **${paper.title}**${oaBadge}\n`;
       reply += `  _${paper.journal}${paper.year ? `, ${paper.year}` : ""}_\n`;
