@@ -805,7 +805,7 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
     reply += `🎮 **Memento Mori (DeSci Game):**\n${mementoContext.slice(0, 800)}...\n\n`;
   }
 
-  reply += `Want me to expand on any of these knowledge nodes, dive into a specific paper, or explore a related cluster?\n\n🛠️ [github.com/robioreefeco/memento-mori](https://github.com/robioreefeco/memento-mori)`;
+  reply += `🛠️ [github.com/robioreefeco/memento-mori](https://github.com/robioreefeco/memento-mori)`;
   return reply;
 }
 
