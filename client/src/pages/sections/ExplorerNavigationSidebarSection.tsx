@@ -318,8 +318,6 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           </div>
         )}
 
-        {/* Wallet section — smart auth-aware */}
-        {PRIVY_ENABLED && <WalletNavItem />}
       </div>
 
       {/* Bottom: Bonfires AI attribution */}
