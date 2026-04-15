@@ -741,14 +741,7 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
     })
     .filter(Boolean);
 
-  let reply = `I've searched the Reef Knowledge Network for **"${query}"** and found ${episodes.length} community knowledge nodes`;
-  const sources: string[] = ["Pepo Knowledge Graph"];
-  if (botTaxonomies.length) sources.push("@PepothePolyp_bot");
-  if (wikiContext) sources.push("Wikipedia");
-  if (journalPapers.length) sources.push("Scientific Journals");
-  if (mesoContext) sources.push("MesoReefDAO Docs");
-  if (mementoContext) sources.push("Memento Mori");
-  reply += ` across ${sources.join(", ")}.\n\n`;
+  let reply = ``;
 
   // Community knowledge graph results
   if (names.length > 0) {

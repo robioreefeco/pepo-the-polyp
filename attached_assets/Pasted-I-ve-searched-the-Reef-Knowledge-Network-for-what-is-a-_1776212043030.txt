@@ -1,0 +1,33 @@
+I've searched the Reef Knowledge Network for **"what is a coral reef?"** and found 16 community knowledge nodes across Pepo Knowledge Graph, @PepothePolyp_bot, Wikipedia, Scientific Journals, MesoReefDAO Docs.
+
+🔬 **Community Knowledge Graph:**
+• **Introduction to MesoReefDAO: Coral Conservation, Biotechnology, and Regenerative Finance**
+  Rodotriton1 initiated a conversation with Pepo the Polyp, the AI guide for MesoReefDAO, beginning an educational journey into decentralized coral reef restoration and regenerative marine conservation. The episode opens with the user starting the bo...
+• **Damselfish Impact on Coral Reef Ecosystems**
+  A brief but scientifically relevant exchange occurred regarding the ecological impact of damselfish on coral reef health. User andersonmayfield initiated the discussion by asserting that damselfish are detrimental to reef ecosystems in many locations...
+• **Introduction to MesoReefDAO and Bio Creation**
+  This episode captures an introductory conversation about MesoReefDAO, a decentralized autonomous organization focused on coral reef restoration through innovative technology and governance. The conversation began with Rodotriton1 seeking fundamental...
+
+🤖 **@PepothePolyp_bot Knowledge (1 topic):**
+🔬 **Coral Ecology and Functional Restoration**
+  Scientific research on coral holobionts, heat-resistant genotypes, and multi-trophic strategies including microfragmentation, probiotics, and mesophotic refugia to prevent functional extinction.
+
+📚 **Peer-Reviewed Science:**
+• **Diversity in Tropical Rain Forests and Coral Reefs**
+  _Science, 1978_
+  The commonly observed high diversity of trees in tropical rain forests and corals on tropical reefs is a nonequilibrium state which, if not disturbed further, will progress toward a low-diversity equilibrium community. T...
+  DOI: https://doi.org/10.1126/science.199.4335.1302
+
+🌐 **Wikipedia Reference:**
+**Coral reef**: A coral reef is an underwater ecosystem characterized by reef-building corals. Reefs are formed of colonies of coral polyps held together by calcium carbonate. Most coral reefs are built from stony corals, whose polyps cluster in groups.
+
+**Coral reef protection**: Coral reef protection is the process of modifying human activities to avoid damage to healthy coral reefs and to help damaged reefs recover. The key strategies used in reef protection include defining measurable goals ...
+
+🐠 **MesoReefDAO Context:**
+MesoReefDAO is a decentralized science (DeSci) initiative dedicated to the conservation and regeneration of the Mesoamerican Barrier Reef — the world's second-largest coral reef system, stretching 1,000 km along the coasts of Mexico, Belize, Guatemala, and Honduras.
+**Mission**: Scale global coral reef restoration by combining decentralized science, marine biotechnology, community innovation, and blockchain-based governance.
+- **Regen Reef Projects**: Field-based coral restoration and biotech research on the Mesoamerican and Mesophotic reefs (below 40m depth).
+- **Modular Wetlabs**: Mobile laboratory units for coral and fish biotechnology, enabling in-situ research and assisted evolution experiments.
+- **Mesophotic Reefs**: Focus on reefs below 40m as thermal refugia — less studied but critically important for coral survival under climate change.
+
+Want me to expand on any of these knowledge nodes, dive into a specific paper, or explore a related cluster?
