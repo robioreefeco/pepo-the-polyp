@@ -340,6 +340,36 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/profiles/ceramic — save Ceramic stream ID + DID to profile
+  app.post("/api/profiles/ceramic", async (req: Request, res: Response) => {
+    const token = (req.headers["x-privy-token"] as string) || "";
+    const verify = await verifyPrivyToken(token);
+    if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+
+    const streamId = sanitizeString(req.body?.ceramicStreamId, 200) || "";
+    const ceramicDid = sanitizeString(req.body?.ceramicDid, 200) || "";
+    if (!streamId) return res.status(400).json({ error: "ceramicStreamId required" });
+
+    try {
+      const profile = await storage.saveCeramic(verify.userId!, streamId, ceramicDid);
+
+      // Award points first time decentralised storage is activated
+      const existing = await storage.getProfile(verify.userId!);
+      if (existing && !existing.ceramicStreamId) {
+        await storage.addContribution({
+          profileId: verify.userId!,
+          type: "resource",
+          description: "Activated Ceramic decentralised profile storage",
+          points: 30,
+        });
+      }
+      return res.json({ profile });
+    } catch (err) {
+      console.error("[saveCeramic]", err);
+      return res.status(500).json({ error: "Failed to save Ceramic data" });
+    }
+  });
+
   // GET /api/contributions/:id
   app.get("/api/contributions/:id", async (req: Request, res: Response) => {
     try {

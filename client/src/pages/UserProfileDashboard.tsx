@@ -4,6 +4,8 @@ import { PRIVY_ENABLED } from "@/lib/privy";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { useCeramicProfile } from "@/hooks/use-ceramic-profile";
+import { ceramicStreamUrl } from "@/lib/ceramic";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function BackIcon() {
@@ -358,6 +360,10 @@ export function UserProfileDashboard() {
     ? useWallets()
     : { wallets: [] as any[] };
 
+  const ceramic = PRIVY_ENABLED
+    ? useCeramicProfile()
+    : { did: null, isAuthenticated: false, authenticate: async () => null, saveProfile: async () => null, loadProfile: async () => null, authLoading: false, syncLoading: false, error: null };
+
   const searchStr = useSearch();
 
   // ── Local state ──
@@ -374,17 +380,24 @@ export function UserProfileDashboard() {
   const [orcidName, setOrcidName] = useState<string | null>(null);
   const [orcidError, setOrcidError] = useState<string | null>(null);
 
+  // Ceramic + IDX
+  const [ceramicStreamId, setCeramicStreamId] = useState<string | null>(null);
+  const [ceramicSynced, setCeramicSynced] = useState(false);
+
   // Load persisted profile (including ORCID) from backend
   const { data: savedProfile } = useQuery<any>({
     queryKey: ["/api/profiles", user?.id],
     enabled: !!user?.id,
   });
 
-  // Hydrate ORCID from DB on mount (if not coming from OAuth redirect)
+  // Hydrate ORCID + Ceramic from DB on mount
   useEffect(() => {
     if (savedProfile?.profile?.orcidId && !orcidId) {
       setOrcidId(savedProfile.profile.orcidId);
       setOrcidName(savedProfile.profile.orcidName || null);
+    }
+    if (savedProfile?.profile?.ceramicStreamId) {
+      setCeramicStreamId(savedProfile.profile.ceramicStreamId);
     }
   }, [savedProfile]);
 
@@ -462,6 +475,31 @@ export function UserProfileDashboard() {
     localStorage.setItem("pepo_tags", JSON.stringify(selectedTags));
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+  }
+
+  async function handleSyncToCeramic() {
+    if (!user?.id) return;
+    const streamId = await ceramic.saveProfile(
+      { displayName, bio, location, website, tags: selectedTags, orcidId: orcidId || "", orcidName: orcidName || "" },
+      ceramicStreamId
+    );
+    if (!streamId) return;
+    setCeramicStreamId(streamId);
+    // Persist stream ID + DID to backend
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      await fetch("/api/profiles/ceramic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-privy-token": token },
+        body: JSON.stringify({ ceramicStreamId: streamId, ceramicDid: ceramic.did || "" }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+      setCeramicSynced(true);
+      setTimeout(() => setCeramicSynced(false), 4000);
+    } catch {
+      // non-blocking
+    }
   }
 
   return (
@@ -705,6 +743,83 @@ export function UserProfileDashboard() {
                         </a>
                       )}
                       {orcidError && <p className="text-red-400 text-[10px] [font-family:'Inter',Helvetica]">Error: {orcidError}</p>}
+                    </div>
+
+                    {/* ── Ceramic + IDX Storage ─────────────────────────────── */}
+                    <div className="flex flex-col gap-3 pt-3 border-t border-[#ffffff08]">
+                      <div className="flex items-center justify-between">
+                        <label className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3b2] text-xs uppercase tracking-wider flex items-center gap-2">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          Ceramic Storage
+                        </label>
+                        {ceramicStreamId && (
+                          <span className="px-2 py-0.5 rounded-full bg-[#83eef015] border border-[#83eef033] text-[#83eef0] [font-family:'Inter',Helvetica] text-[9px] font-semibold">
+                            DECENTRALISED
+                          </span>
+                        )}
+                      </div>
+
+                      {ceramic.did && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#83eef008] border border-[#83eef020]">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#83eef0" strokeWidth="2"/><path d="M12 8v4l3 3" stroke="#83eef0" strokeWidth="2" strokeLinecap="round"/></svg>
+                          <span className="[font-family:'Inter',Helvetica] text-[#83eef0b2] text-[9px] font-mono truncate flex-1" data-testid="text-ceramic-did">
+                            {ceramic.did}
+                          </span>
+                        </div>
+                      )}
+
+                      {ceramicStreamId ? (
+                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#83eef00d] border border-[#83eef020]">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#83eef0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium">Profile synced</span>
+                            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[9px] font-mono truncate" data-testid="text-ceramic-stream-id">
+                              {ceramicStreamId}
+                            </span>
+                          </div>
+                          <a
+                            href={ceramicStreamUrl(ceramicStreamId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="link-ceramic-explorer"
+                            className="text-[#83eef066] hover:text-[#83eef0] transition-colors"
+                            title="View on Cerscan"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[10px] leading-4">
+                          Sync your profile to Ceramic to store it on a decentralised network that you own and control.
+                        </p>
+                      )}
+
+                      {ceramic.error && (
+                        <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px]">{ceramic.error}</p>
+                      )}
+
+                      <button
+                        onClick={handleSyncToCeramic}
+                        disabled={ceramic.authLoading || ceramic.syncLoading}
+                        data-testid="button-sync-ceramic"
+                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl [font-family:'Inter',Helvetica] text-xs font-medium transition-all border ${
+                          ceramicSynced
+                            ? "bg-[#83eef015] border-[#83eef033] text-[#83eef0]"
+                            : ceramic.authLoading || ceramic.syncLoading
+                            ? "bg-[#83eef008] border-[#83eef015] text-[#83eef050] cursor-not-allowed"
+                            : "bg-[#83eef010] border-[#83eef030] text-[#83eef0b2] hover:bg-[#83eef01a] hover:text-[#83eef0] hover:border-[#83eef05a]"
+                        }`}
+                      >
+                        {ceramic.authLoading ? (
+                          <><div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin" />Signing in…</>
+                        ) : ceramic.syncLoading ? (
+                          <><div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin" />Syncing…</>
+                        ) : ceramicSynced ? (
+                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Synced to Ceramic!</>
+                        ) : (
+                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>{ceramicStreamId ? "Re-sync to Ceramic" : "Sync to Ceramic"}</>
+                        )}
+                      </button>
                     </div>
                   </div>
 

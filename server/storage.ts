@@ -31,6 +31,9 @@ export interface IStorage {
 
   // ORCID
   saveOrcid(profileId: string, orcidId: string, orcidName: string): Promise<Profile>;
+
+  // Ceramic + IDX
+  saveCeramic(profileId: string, ceramicStreamId: string, ceramicDid: string): Promise<Profile>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -126,6 +129,25 @@ export class DbStorage implements IStorage {
     const [row] = await db
       .update(profiles)
       .set({ orcidId, orcidName, updatedAt: now })
+      .where(eq(profiles.id, profileId))
+      .returning();
+    return row;
+  }
+
+  // ── Ceramic + IDX ─────────────────────────────────────────────────────────
+  async saveCeramic(profileId: string, ceramicStreamId: string, ceramicDid: string): Promise<Profile> {
+    const now = Math.floor(Date.now() / 1000);
+    const existing = await this.getProfile(profileId);
+    if (!existing) {
+      const [row] = await db
+        .insert(profiles)
+        .values({ id: profileId, ceramicStreamId, ceramicDid, createdAt: now, updatedAt: now })
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .update(profiles)
+      .set({ ceramicStreamId, ceramicDid, updatedAt: now })
       .where(eq(profiles.id, profileId))
       .returning();
     return row;

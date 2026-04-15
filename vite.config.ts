@@ -2,11 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 const root = path.resolve(import.meta.dirname, "client");
 
 export default defineConfig({
   plugins: [
+    nodePolyfills({ protocolImports: true }),
     react(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
@@ -51,6 +53,21 @@ export default defineConfig({
       "@privy-io/react-auth",
       "wagmi",
       "viem",
+      "@ceramicnetwork/http-client",
+      "@ceramicnetwork/stream-tile",
+      "dids",
+      "@didtools/pkh-ethereum",
+      "did-session",
     ],
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+        "process.browser": "true",
+        "process.env.NODE_ENV": '"development"',
+        "process.version": '"v18.0.0"',
+        "process.versions": "{}",
+        "process.nextTick": "setTimeout",
+      },
+    },
   },
 });

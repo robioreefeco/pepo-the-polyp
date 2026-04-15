@@ -30,6 +30,9 @@ export const profiles = pgTable("profiles", {
   isPublic: boolean("is_public").notNull().default(true),
   orcidId: text("orcid_id").notNull().default(""),
   orcidName: text("orcid_name").notNull().default(""),
+  // Ceramic + IDX decentralized storage
+  ceramicStreamId: text("ceramic_stream_id").default(""),
+  ceramicDid: text("ceramic_did").default(""),
   createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
   updatedAt: integer("updated_at").notNull().default(sql`extract(epoch from now())::int`),
 });
