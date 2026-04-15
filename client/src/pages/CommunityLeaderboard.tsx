@@ -4,6 +4,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { PRIVY_ENABLED } from "@/lib/privy";
 import { Trophy, MessageCircle, Star, Users, ArrowLeft, Globe } from "lucide-react";
 import type { LeaderboardEntry } from "@shared/schema";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 // ─── ORCID badge ──────────────────────────────────────────────────────────────
 function OrcidBadge({ orcidId }: { orcidId: string }) {
@@ -240,11 +241,11 @@ export function CommunityLeaderboard() {
       }}
     >
       {/* Top bar */}
-      <div className="flex items-center gap-4 px-6 py-4 border-b border-[#ffffff08]">
+      <div className="flex items-center gap-4 px-4 md:px-6 py-3 md:py-4 border-b border-[#ffffff08]">
         <Link
           href="/"
           data-testid="link-back-home"
-          className="flex items-center gap-2 text-[#d4e9f380] hover:text-[#d4e9f3] transition-colors no-underline"
+          className="flex items-center gap-2 text-[#d4e9f380] hover:text-[#d4e9f3] transition-colors no-underline min-h-[44px] px-1"
         >
           <ArrowLeft size={16} />
           <span className="[font-family:'Inter',Helvetica] text-sm">Back</span>
@@ -280,7 +281,7 @@ export function CommunityLeaderboard() {
       </div>
 
       {/* Main layout: left = leaderboard, right = profile cards */}
-      <div className="flex flex-col md:flex-row gap-6 px-4 md:px-8 pb-16 max-w-6xl mx-auto">
+      <div className="flex flex-col md:flex-row gap-6 px-4 md:px-8 pb-28 md:pb-16 max-w-6xl mx-auto">
 
         {/* Left: Leaderboard */}
         {isLoading ? (
@@ -330,6 +331,8 @@ export function CommunityLeaderboard() {
           )}
         </div>
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useCeramicProfile } from "@/hooks/use-ceramic-profile";
 import { ceramicStreamUrl } from "@/lib/ceramic";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function BackIcon() {
@@ -856,6 +857,8 @@ export function UserProfileDashboard() {
           </span>
         </div>
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }
