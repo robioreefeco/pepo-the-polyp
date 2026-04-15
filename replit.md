@@ -64,7 +64,7 @@ client/public/figmaAssets/            — Exported Figma assets (SVGs, PNGs)
 ## Integrations
 
 ### Privy.io (Auth)
-- Supports: email, wallet, Google, Twitter, Telegram login
+- Supports: email, Google, X/Twitter, LinkedIn, wallet login
 - Conditionally active — set `VITE_PRIVY_APP_ID` to enable
 - Get your App ID at: https://dashboard.privy.io
 

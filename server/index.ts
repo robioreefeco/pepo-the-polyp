@@ -45,8 +45,6 @@ app.use(
           "https://privy.io",
           "https://accounts.google.com",
           "https://*.google.com",
-          "https://telegram.org",
-          "https://oauth.telegram.org",
         ],
         // Allow outbound fetch/XHR to known services
         connectSrc: [

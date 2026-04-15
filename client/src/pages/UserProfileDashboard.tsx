@@ -97,13 +97,6 @@ function LinkedInIcon() {
     </svg>
   );
 }
-function TelegramIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="#229ED9">
-      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.19 13.67l-2.948-.924c-.64-.203-.652-.64.136-.954l11.5-4.433c.536-.194 1.006.131.836.862z"/>
-    </svg>
-  );
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SPECIALIZATIONS = [
@@ -259,7 +252,6 @@ function LinkedAccountsRow({ user }: { user: any }) {
     { type: "google_oauth", icon: <GoogleIcon />, label: "Google", onLink: linkGoogle },
     { type: "twitter_oauth", icon: <XIcon />, label: "X", onLink: linkTwitter },
     { type: "linkedin_oauth", icon: <LinkedInIcon />, label: "LinkedIn", onLink: linkLinkedIn },
-    { type: "telegram", icon: <TelegramIcon />, label: "Telegram", onLink: () => {} },
     { type: "wallet", icon: <WalletIcon />, label: "Wallet", onLink: () => linkWallet() },
   ];
 
