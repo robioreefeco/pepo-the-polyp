@@ -13,6 +13,25 @@
     </style></head>
   <body>
     <div id="root"></div>
+    <!-- Intercept Privy "not allowed" rejections before Vite's runtime-error overlay -->
+    <script>
+      (function () {
+        function privyRejectionGuard(event) {
+          var msg = (event && event.reason && (event.reason.message || String(event.reason))) || "";
+          if (
+            msg.indexOf("not allowed") !== -1 ||
+            msg.indexOf("Login with") !== -1 ||
+            msg.indexOf("privy") !== -1 ||
+            msg.indexOf("Privy") !== -1
+          ) {
+            event.preventDefault();
+            console.warn("[Privy guard] suppressed:", msg);
+          }
+        }
+        window.addEventListener("unhandledrejection", privyRejectionGuard, true);
+        window.addEventListener("unhandledrejection", privyRejectionGuard, false);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

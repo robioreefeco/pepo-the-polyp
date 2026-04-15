@@ -1,4 +1,4 @@
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useLoginWithOAuth } from "@privy-io/react-auth";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -61,23 +61,72 @@ function ChevronDownIcon({ open }: { open: boolean }) {
 
 function ProviderIcon({ user }: { user: any }) {
   const linked = user?.linkedAccounts ?? [];
-  if (linked.some((a: any) => a.type === "google_oauth"))  return <GoogleIcon />;
-  if (linked.some((a: any) => a.type === "twitter_oauth")) return <XIcon />;
+  if (linked.some((a: any) => a.type === "google_oauth"))   return <GoogleIcon />;
+  if (linked.some((a: any) => a.type === "twitter_oauth"))  return <XIcon />;
   if (linked.some((a: any) => a.type === "linkedin_oauth")) return <LinkedInIcon />;
-  if (linked.some((a: any) => a.type === "email"))         return <EmailIcon />;
+  if (linked.some((a: any) => a.type === "email"))          return <EmailIcon />;
   return <WalletIcon />;
 }
 
 // ─── Login dropdown ───────────────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "email",    label: "Continue with Email",    Icon: EmailIcon,    bg: "bg-[#83eef010] hover:bg-[#83eef01a] border-[#83eef025]" },
-  { id: "google",   label: "Continue with Google",   Icon: GoogleIcon,   bg: "bg-[#4285F410] hover:bg-[#4285F41a] border-[#4285F425]" },
-  { id: "twitter",  label: "Continue with X",        Icon: XIcon,        bg: "bg-[#00000030] hover:bg-[#00000050] border-[#ffffff18]" },
-  { id: "linkedin", label: "Continue with LinkedIn", Icon: LinkedInIcon, bg: "bg-[#0A66C210] hover:bg-[#0A66C21a] border-[#0A66C225]" },
-  { id: "wallet",   label: "Connect a Wallet",       Icon: WalletIcon,   bg: "bg-[#ffffff08] hover:bg-[#ffffff10] border-[#ffffff12]" },
+type OAuthProvider = "google" | "twitter" | "linkedin";
+
+interface ProviderConfig {
+  id: string;
+  label: string;
+  Icon: () => JSX.Element;
+  bg: string;
+  oauthProvider?: OAuthProvider;
+  isEmail?: boolean;
+  isWallet?: boolean;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    id: "email",
+    label: "Continue with Email",
+    Icon: EmailIcon,
+    bg: "bg-[#83eef010] hover:bg-[#83eef01a] border-[#83eef025]",
+    isEmail: true,
+  },
+  {
+    id: "google",
+    label: "Continue with Google",
+    Icon: GoogleIcon,
+    bg: "bg-[#4285F410] hover:bg-[#4285F41a] border-[#4285F425]",
+    oauthProvider: "google",
+  },
+  {
+    id: "twitter",
+    label: "Continue with X",
+    Icon: XIcon,
+    bg: "bg-[#00000030] hover:bg-[#00000050] border-[#ffffff18]",
+    oauthProvider: "twitter",
+  },
+  {
+    id: "linkedin",
+    label: "Continue with LinkedIn",
+    Icon: LinkedInIcon,
+    bg: "bg-[#0A66C210] hover:bg-[#0A66C21a] border-[#0A66C225]",
+    oauthProvider: "linkedin",
+  },
+  {
+    id: "wallet",
+    label: "Connect a Wallet",
+    Icon: WalletIcon,
+    bg: "bg-[#ffffff08] hover:bg-[#ffffff10] border-[#ffffff12]",
+    isWallet: true,
+  },
 ];
 
-function LoginDropdown({ onLogin, onClose }: { onLogin: () => void; onClose: () => void }) {
+interface LoginDropdownProps {
+  onOAuth: (provider: OAuthProvider) => void;
+  onEmail: () => void;
+  onWallet: () => void;
+  onClose: () => void;
+}
+
+function LoginDropdown({ onOAuth, onEmail, onWallet, onClose }: LoginDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,6 +137,17 @@ function LoginDropdown({ onLogin, onClose }: { onLogin: () => void; onClose: () 
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  function handleClick(p: ProviderConfig) {
+    onClose();
+    if (p.oauthProvider) {
+      onOAuth(p.oauthProvider);
+    } else if (p.isEmail) {
+      onEmail();
+    } else if (p.isWallet) {
+      onWallet();
+    }
+  }
+
   return (
     <div
       ref={ref}
@@ -96,22 +156,22 @@ function LoginDropdown({ onLogin, onClose }: { onLogin: () => void; onClose: () 
       <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] uppercase tracking-widest px-1 pb-1">
         Sign in with
       </p>
-      {PROVIDERS.map(({ id, label, Icon, bg }) => (
+      {PROVIDERS.map((p) => (
         <button
-          key={id}
-          onClick={onLogin}
-          data-testid={`button-login-${id}`}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border transition-colors text-left ${bg}`}
+          key={p.id}
+          onClick={() => handleClick(p)}
+          data-testid={`button-login-${p.id}`}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border transition-colors text-left ${p.bg}`}
         >
           <span className="flex-shrink-0 w-5 flex items-center justify-center">
-            <Icon />
+            <p.Icon />
           </span>
-          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3cc] text-sm">{label}</span>
+          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3cc] text-sm">{p.label}</span>
         </button>
       ))}
       <div className="mt-1 pt-2 border-t border-[#ffffff08]">
         <p className="[font-family:'Inter',Helvetica] text-[#d4e9f333] text-[9px] text-center px-2">
-          Secured by Privy · All methods via OAuth
+          Secured by Privy · Non-custodial
         </p>
       </div>
     </div>
@@ -124,20 +184,50 @@ export function PrivyLoginButton() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
-  async function safeLogin() {
-    try {
-      await login();
-    } catch (err: any) {
-      const msg: string = err?.message ?? String(err);
-      if (msg.toLowerCase().includes("not allowed") || msg.toLowerCase().includes("rejected")) {
+  // Privy's documented hook for headless OAuth — catches errors via onError
+  const { initOAuth } = useLoginWithOAuth({
+    onComplete: () => {
+      setOpen(false);
+    },
+    onError: (err: any) => {
+      const msg: string = err?.message ?? String(err ?? "Unknown error");
+      const isDomainIssue =
+        msg.toLowerCase().includes("not allowed") ||
+        msg.toLowerCase().includes("invalid_origin") ||
+        msg.toLowerCase().includes("origin");
+
+      if (isDomainIssue) {
         toast({
-          title: "Login unavailable",
-          description: "Please open the app directly in your browser (not inside the Replit preview) to sign in, or whitelist this domain in the Privy dashboard.",
+          title: "Domain not whitelisted",
+          description:
+            "Add this domain to your Privy Dashboard → Allowed Origins, and enable each OAuth provider under Authentication → Login Methods.",
           variant: "destructive",
         });
       } else {
-        console.warn("[PrivyLoginButton] login error:", msg);
+        toast({
+          title: "Sign-in error",
+          description: msg,
+          variant: "destructive",
+        });
       }
+    },
+  });
+
+  async function handleOAuth(provider: OAuthProvider) {
+    try {
+      await initOAuth({ provider });
+    } catch {
+      // onError above handles user-facing feedback; swallow here to
+      // prevent unhandled rejections from reaching the Vite overlay.
+    }
+  }
+
+  async function handleEmailOrWallet() {
+    try {
+      await login();
+    } catch {
+      // same — swallow silently; the HTML-level guard already suppressed
+      // any Privy unhandledrejection before this point.
     }
   }
 
@@ -149,7 +239,7 @@ export function PrivyLoginButton() {
         className="relative inline-flex items-center justify-center px-6 py-2 h-auto rounded-full bg-[linear-gradient(170deg,rgba(131,238,240,0.5)_0%,rgba(63,176,179,0.5)_100%)] border-none shadow-none opacity-60"
       >
         <span className="relative [font-family:'Inter',Helvetica] font-normal text-[#00585a] text-sm leading-6">
-          Loading...
+          Loading…
         </span>
       </Button>
     );
@@ -181,7 +271,7 @@ export function PrivyLoginButton() {
           </span>
         </div>
         <Button
-          onClick={logout}
+          onClick={() => logout().catch(() => {})}
           data-testid="button-sign-out"
           className="relative inline-flex items-center justify-center px-4 md:px-5 py-2 h-auto rounded-full bg-[#83eef01a] border border-solid border-[#83eef033] shadow-none hover:bg-[#83eef033] transition-colors"
         >
@@ -210,7 +300,9 @@ export function PrivyLoginButton() {
 
       {open && (
         <LoginDropdown
-          onLogin={() => { setOpen(false); safeLogin(); }}
+          onOAuth={handleOAuth}
+          onEmail={handleEmailOrWallet}
+          onWallet={handleEmailOrWallet}
           onClose={() => setOpen(false)}
         />
       )}
