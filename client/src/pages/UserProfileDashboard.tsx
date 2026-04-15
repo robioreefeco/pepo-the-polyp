@@ -2,6 +2,8 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { Link, useSearch } from "wouter";
 import { PRIVY_ENABLED } from "@/lib/privy";
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function BackIcon() {
@@ -349,9 +351,9 @@ function WalletsRow({ wallets }: { wallets: any[] }) {
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 export function UserProfileDashboard() {
-  const { ready, authenticated, user, login, logout } = PRIVY_ENABLED
+  const { ready, authenticated, user, login, logout, getAccessToken } = PRIVY_ENABLED
     ? usePrivy()
-    : { ready: true, authenticated: false, user: null, login: () => {}, logout: () => {} };
+    : { ready: true, authenticated: false, user: null, login: () => {}, logout: () => {}, getAccessToken: async () => null };
   const { wallets } = PRIVY_ENABLED
     ? useWallets()
     : { wallets: [] as any[] };
@@ -367,10 +369,24 @@ export function UserProfileDashboard() {
   const [website, setWebsite] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // ORCID from URL callback
+  // ORCID from URL callback or persisted DB
   const [orcidId, setOrcidId] = useState<string | null>(null);
   const [orcidName, setOrcidName] = useState<string | null>(null);
   const [orcidError, setOrcidError] = useState<string | null>(null);
+
+  // Load persisted profile (including ORCID) from backend
+  const { data: savedProfile } = useQuery<any>({
+    queryKey: ["/api/profiles", user?.id],
+    enabled: !!user?.id,
+  });
+
+  // Hydrate ORCID from DB on mount (if not coming from OAuth redirect)
+  useEffect(() => {
+    if (savedProfile?.profile?.orcidId && !orcidId) {
+      setOrcidId(savedProfile.profile.orcidId);
+      setOrcidName(savedProfile.profile.orcidName || null);
+    }
+  }, [savedProfile]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -386,7 +402,30 @@ export function UserProfileDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(searchStr);
     const id = params.get("orcid_id"), name = params.get("orcid_name"), err = params.get("orcid_error");
-    if (id) { setOrcidId(id); setOrcidName(name ? decodeURIComponent(name) : null); window.history.replaceState({}, "", "/profile"); }
+    if (id) {
+      const decoded = name ? decodeURIComponent(name) : null;
+      setOrcidId(id);
+      setOrcidName(decoded);
+      window.history.replaceState({}, "", "/profile");
+
+      // Auto-persist to backend if authenticated
+      (async () => {
+        try {
+          const token = await getAccessToken();
+          if (!token) return;
+          await fetch("/api/profiles/orcid", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-privy-token": token },
+            body: JSON.stringify({ orcidId: id, orcidName: decoded || "" }),
+          });
+          // Refresh leaderboard so the ORCID badge appears there too
+          queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+        } catch {
+          // non-blocking — local state is already set
+        }
+      })();
+    }
     if (err) { setOrcidError(err); window.history.replaceState({}, "", "/profile"); }
   }, [searchStr]);
 

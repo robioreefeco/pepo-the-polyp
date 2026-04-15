@@ -2,8 +2,31 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { usePrivy } from "@privy-io/react-auth";
 import { PRIVY_ENABLED } from "@/lib/privy";
-import { Trophy, MessageCircle, Star, Users, ArrowLeft, Globe, MapPin } from "lucide-react";
+import { Trophy, MessageCircle, Star, Users, ArrowLeft, Globe } from "lucide-react";
 import type { LeaderboardEntry } from "@shared/schema";
+
+// ─── ORCID badge ──────────────────────────────────────────────────────────────
+function OrcidBadge({ orcidId }: { orcidId: string }) {
+  if (!orcidId) return null;
+  return (
+    <a
+      href={`https://orcid.org/${orcidId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`ORCID iD: ${orcidId}`}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full no-underline flex-shrink-0"
+      style={{ background: "#a6ce3920", border: "1px solid #a6ce3940" }}
+    >
+      <svg width="10" height="10" viewBox="0 0 256 256" fill="none">
+        <circle cx="128" cy="128" r="128" fill="#A6CE39"/>
+        <path d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1c0-5.6 4.5-10.1 10.1-10.1s10.1 4.5 10.1 10.1z" fill="white"/>
+      </svg>
+      <span className="[font-family:'Inter',Helvetica] text-[9px] font-semibold" style={{ color: "#a6ce39" }}>
+        ORCID
+      </span>
+    </a>
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function rankBadge(rank: number) {
@@ -80,7 +103,7 @@ function LeaderboardPanel({ entries, currentUserId }: { entries: LeaderboardEntr
 
               {/* Name + stats */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm truncate">
                     {entry.displayName}
                   </span>
@@ -89,6 +112,7 @@ function LeaderboardPanel({ entries, currentUserId }: { entries: LeaderboardEntr
                       you
                     </span>
                   )}
+                  <OrcidBadge orcidId={entry.orcidId} />
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-xs font-semibold">
@@ -141,9 +165,12 @@ function ProfileCard({ entry, rank }: { entry: LeaderboardEntry; rank: number })
         </div>
 
         <div className="flex-1 min-w-0">
-          <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-base block truncate">
-            {entry.displayName}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-base truncate">
+              {entry.displayName}
+            </span>
+            <OrcidBadge orcidId={entry.orcidId} />
+          </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-xs font-semibold">
               {entry.points} pts

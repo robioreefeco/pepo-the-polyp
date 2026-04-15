@@ -305,6 +305,41 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/profiles/orcid — save ORCID iD to authenticated user's profile
+  app.post("/api/profiles/orcid", async (req: Request, res: Response) => {
+    const token = (req.headers["x-privy-token"] as string) || "";
+    const verify = await verifyPrivyToken(token);
+    if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+
+    const orcidId = sanitizeString(req.body?.orcidId, 32);
+    const orcidName = sanitizeString(req.body?.orcidName, 200) || "";
+    if (!orcidId || !orcidId.match(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/)) {
+      return res.status(400).json({ error: "Invalid ORCID iD format" });
+    }
+
+    try {
+      // Ensure profile exists first
+      const existing = await storage.getProfile(verify.userId!);
+      if (!existing) return res.status(404).json({ error: "Profile not found — log in first" });
+
+      const profile = await storage.saveOrcid(verify.userId!, orcidId, orcidName);
+
+      // Award bonus points for linking ORCID (one-time)
+      if (!existing.orcidId) {
+        await storage.addContribution({
+          profileId: verify.userId!,
+          type: "resource",
+          description: `Linked ORCID iD ${orcidId}`,
+          points: 25,
+        });
+      }
+      return res.json(profile);
+    } catch (err) {
+      console.error("[saveOrcid]", err);
+      return res.status(500).json({ error: "Failed to save ORCID" });
+    }
+  });
+
   // GET /api/contributions/:id
   app.get("/api/contributions/:id", async (req: Request, res: Response) => {
     try {

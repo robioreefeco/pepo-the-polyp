@@ -28,6 +28,8 @@ export const profiles = pgTable("profiles", {
   tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
   points: integer("points").notNull().default(0),
   isPublic: boolean("is_public").notNull().default(true),
+  orcidId: text("orcid_id").notNull().default(""),
+  orcidName: text("orcid_name").notNull().default(""),
   createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
   updatedAt: integer("updated_at").notNull().default(sql`extract(epoch from now())::int`),
 });
@@ -65,4 +67,6 @@ export interface LeaderboardEntry {
   points: number;
   questionCount: number;
   createdAt: number;
+  orcidId: string;
+  orcidName: string;
 }

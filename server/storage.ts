@@ -28,6 +28,9 @@ export interface IStorage {
 
   // leaderboard
   getLeaderboard(): Promise<LeaderboardEntry[]>;
+
+  // ORCID
+  saveOrcid(profileId: string, orcidId: string, orcidName: string): Promise<Profile>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -117,6 +120,17 @@ export class DbStorage implements IStorage {
     return rows.length > 0;
   }
 
+  // ── ORCID ─────────────────────────────────────────────────────────────────
+  async saveOrcid(profileId: string, orcidId: string, orcidName: string): Promise<Profile> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .update(profiles)
+      .set({ orcidId, orcidName, updatedAt: now })
+      .where(eq(profiles.id, profileId))
+      .returning();
+    return row;
+  }
+
   // ── Leaderboard ───────────────────────────────────────────────────────────
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
     const rows = await db
@@ -127,6 +141,8 @@ export class DbStorage implements IStorage {
         tags: profiles.tags,
         points: profiles.points,
         createdAt: profiles.createdAt,
+        orcidId: profiles.orcidId,
+        orcidName: profiles.orcidName,
         questionCount: sql<number>`count(${contributions.id}) filter (where ${contributions.type} = 'question')`,
       })
       .from(profiles)
@@ -143,6 +159,8 @@ export class DbStorage implements IStorage {
       points: r.points,
       questionCount: Number(r.questionCount),
       createdAt: r.createdAt,
+      orcidId: r.orcidId,
+      orcidName: r.orcidName,
     }));
   }
 }
