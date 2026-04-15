@@ -11,12 +11,13 @@ A full-stack DeSci/marine conservation web app for MesoReef DAO. Pepo is an AI g
 - **Database**: PostgreSQL via Drizzle ORM
 - **Auth**: Privy.io (wallet/email/social login) — conditionally loaded when `VITE_PRIVY_APP_ID` is set
 - **Knowledge Graph**: Bonfires.ai (`https://pepo.app.bonfires.ai`) proxied server-side
-- **Multi-Source Knowledge**: Five parallel knowledge sources fused into every chat response:
+- **Multi-Source Knowledge**: Six parallel knowledge sources fused into every chat response:
   1. **Pepo Knowledge Graph** (Bonfires.ai) — 165+ community research episodes from the Telegram bot
   2. **@PepothePolyp_bot Taxonomy** — 10 curated knowledge categories extracted from 165 Telegram bot episodes; keywords match the user query to surface the right category; live-refreshed from Bonfires every 60 min
-  3. **Scientific Journals** (OpenAlex + Europe PMC) — peer-reviewed papers from Nature, Science, Frontiers, PLOS ONE, Global Change Biology, PeerJ, PNAS, Royal Society, and thousands more — free API, no key required, results cached 15 min
+  3. **Scientific Journals** (OpenAlex + Europe PMC) — peer-reviewed papers from Nature, Science, Frontiers, PLOS ONE, Global Change Biology, PeerJ, PNAS, Royal Society, and thousands more — free API, no key required, results cached 15 min; coral-reef-only filtering (title/abstract relevance guard + medical/human biology exclusion list)
   4. **Wikipedia** — scientific reference summaries; keyword extracted + cached 10 min
   5. **MesoReefDAO Documentation** — curated DAO knowledge (mission, programs, tech stack)
+  6. **Memento Mori** — curated knowledge from https://github.com/robioreefeco/memento-mori — permadeath MUD / DeSci game by robioreefeco; covers architecture (CrewAI engine, FastAPI gateway, TypeScript/Bun client, Bonfires KG, Redstone L2), game design (permadeath, onchain state, NPC agents), and its DeSci-gaming connection to MesoReefDAO. Triggered by keywords: game, MUD, permadeath, CrewAI, memento, mori, NPC, quest, dungeon, robioreefeco, etc.
 
 ### Key directories
 ```

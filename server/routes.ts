@@ -380,6 +380,66 @@ async function fetchMesoReefContext(query: string): Promise<string> {
   return MESOREEFDAO_KNOWLEDGE;
 }
 
+// ─── Memento Mori knowledge ───────────────────────────────────────────────────
+const MEMENTO_MORI_KNOWLEDGE = `
+**Memento Mori** is a permadeath MUD (multi-user dungeon) and DeSci gaming experiment by the MesoReefDAO / robioreefeco team. It is a dark fantasy world where death is permanent, the world lives in a knowledge graph, and AI agents collaboratively narrate every action.
+
+**Core Concept**: Players enter a living world powered by the Bonfires Knowledge Graph. Every character, item, location, NPC, and quest exists as a node in the graph with temporal edges. When a character dies — it dies permanently. Dead characters become lore. The world remembers.
+
+**Architecture**:
+- **Client** (TypeScript / Bun): Rich terminal-style MUD interface with virtualized scrolling (Pretext), wallet gate (EIP-1193 / MetaMask), codex entity browser, optimistic inventory updates.
+- **Gateway** (FastAPI / Python): WebSocket hub, Matrix transport bridge (one Matrix room per game location), 30 MCP tool endpoints for NPC agents, REST routes for session, inventory, codex, and onchain state.
+- **Engine** (CrewAI / Python): 31 AI crews across 10 subsystems — context gathering, event detection, combat, world generation, NPC generation, item generation, quest design, narrative, faction, and enrichment. 12 orchestration flows.
+- **Data** (Bonfires KG / Neo4j + LadybugDB, Matrix / Synapse): World graph with bi-temporal edges (valid_at, expired_at), episodic memory via Graphiti.
+- **Chain** (MUD framework, Solidity, Redstone L2): Onchain canonical state for characters, deaths, items, and epochs. Dual-write to KG + blockchain on every world mutation.
+- **LLM** (OpenRouter / Gemini Flash): All AI reasoning for narration, NPC design, world generation, and enrichment.
+
+**Game Loop**: Player types action → Gateway posts to Matrix room → Engine's RoundController runs context crew, plausibility check, event detection, NPC response window (15s), narration crew, memory consolidation → Narrative posted back → Client renders with rich text.
+
+**Permadeath System**: On death — character node stays in KG forever (append-only), HAS_STATUS:DEAD and DIED_AT edges are created, death recorded onchain (immutable), NPCs remember the fallen, items drop at death location, death feed announces to all players.
+
+**Onchain Integration (Redstone L2)**: MUD tables store Characters (name, wallet, level, alive/dead), Deaths (cause, location, level), Items (rarity, slot, quantity, owner), Epochs (state root, IPFS CID). Chain is the canonicality gate — entities only appear in-client if they exist onchain.
+
+**Knowledge Graph Schema**:
+Player --[CARRIES {valid_at, expired_at}]--> Item
+Player --[LOCATED_IN]--> Location --[EXIT_TO]--> Location
+NPC --[LOCATED_IN]--> Location, NPC --[MEMBER_OF]--> Faction
+Player --[HAS_QUEST]--> Quest, Player --[DIED_AT]--> Location
+
+**NPC Agents**: Each NPC is a Bonfires AI agent with its own Matrix identity. Agents access 30 engine tools (KG search, world mutation, inventory, combat) via MCP HTTP. Tool access is gated by KG entity labels.
+
+**Entity Archetypes** (player classes): warrior (heavy armor, swordsmanship), rogue (stealth, lockpicking, daggers), mage (spellcraft, arcane lore), ranger (archery, tracking, foraging).
+
+**AI Crews** (31 total): Context assembly, action classification, combat (5 crews), world generation (4 crews), NPC generation (4 crews), item generation (3 crews), quest design (3 crews), narration + memory (2 crews), faction (2 crews), enrichment.
+
+**Development Status**: Phases 0–10 complete (full game loop, UI, inventory, codex, onchain). Next phases: Matrix end-to-end deployment, world seeding via WorldGenFlow, rich state updates (damage numbers, visual effects), faction integration, narrative art generation.
+
+**Connection to MesoReefDAO**: Memento Mori is an experimental DeSci gaming project by the robioreefeco collective — the same team behind Pepo the Polyp and MesoReefDAO. It explores how Bonfires Knowledge Graphs, onchain canonical state, and AI agent orchestration can power persistent decentralized worlds, a pattern directly applicable to on-chain reef monitoring, conservation incentives, and DAO-governed science.
+
+**Repository**: https://github.com/robioreefeco/memento-mori
+`.trim();
+
+const MEMENTO_MORI_KEYWORDS = [
+  "memento", "mori", "mud", "permadeath", "dungeon", "dark fantasy", "game",
+  "rpg", "npc", "quest", "combat", "narrative", "crewai", "crew", "agent",
+  "matrix", "synapse", "redstone", "bun", "pretext", "codex", "inventory",
+  "character", "faction", "robioreef", "robioreefeco", "bonfires game",
+  "world gen", "world generation", "knowledge graph game", "desci game",
+  "blockchain game", "onchain game", "ai game", "permadeath",
+];
+
+async function fetchMementoMoriContext(query: string): Promise<string> {
+  const lc = query.toLowerCase();
+  if (!MEMENTO_MORI_KEYWORDS.some(k => lc.includes(k))) return "";
+  // Return the most relevant paragraphs
+  const paragraphs = MEMENTO_MORI_KNOWLEDGE.split("\n\n");
+  const relevant = paragraphs.filter(p => {
+    const words = lc.split(/\s+/).filter(w => w.length > 3);
+    return words.some(w => p.toLowerCase().includes(w));
+  });
+  return (relevant.length ? relevant.slice(0, 5).join("\n\n") : paragraphs.slice(0, 3).join("\n\n"));
+}
+
 // ─── @PepothePolyp_bot Telegram Knowledge Taxonomy ────────────────────────────
 // All 10 knowledge categories from 165 Telegram bot episodes (auto-updated from Bonfires)
 
@@ -663,10 +723,11 @@ async function fetchJournalKnowledge(query: string): Promise<JournalPaper[]> {
 
 // ─── Reply builder ────────────────────────────────────────────────────────────
 async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
-  // Fetch all five knowledge sources in parallel
-  const [wikiContext, mesoContext, journalPapers, botTaxonomies] = await Promise.all([
+  // Fetch all six knowledge sources in parallel
+  const [wikiContext, mesoContext, mementoContext, journalPapers, botTaxonomies] = await Promise.all([
     fetchWikipediaContext(query),
     fetchMesoReefContext(query),
+    fetchMementoMoriContext(query),
     fetchJournalKnowledge(query),
     fetchBotKnowledge(query),
   ]);
@@ -686,6 +747,7 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
   if (wikiContext) sources.push("Wikipedia");
   if (journalPapers.length) sources.push("Scientific Journals");
   if (mesoContext) sources.push("MesoReefDAO Docs");
+  if (mementoContext) sources.push("Memento Mori");
   reply += ` across ${sources.join(", ")}.\n\n`;
 
   // Community knowledge graph results
@@ -743,6 +805,11 @@ async function buildPepoReply(query: string, episodes: any[]): Promise<string> {
     if (relevantLines.trim()) {
       reply += `🐠 **MesoReefDAO Context:**\n${relevantLines.trim()}\n\n`;
     }
+  }
+
+  // Memento Mori context
+  if (mementoContext) {
+    reply += `🎮 **Memento Mori (DeSci Game):**\n${mementoContext.slice(0, 800)}...\n\n`;
   }
 
   reply += `Want me to expand on any of these knowledge nodes, dive into a specific paper, or explore a related cluster?`;
