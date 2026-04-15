@@ -525,38 +525,23 @@ export function UserProfileDashboard() {
                       )}
                     </div>
 
-                    {/* Status badges */}
-                    <div className="flex flex-wrap gap-1.5 justify-center w-full pt-2 border-t border-[#ffffff08]">
-                      <span className="px-2.5 py-1 rounded-full bg-[#83eef01a] border border-[#83eef033] text-[#83eef0] [font-family:'Inter',Helvetica] text-[10px]">
-                        Active Member
-                      </span>
-                      {wallets.length > 0 && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffffff0a] border border-[#ffffff12] text-[#d4e9f380] [font-family:'Inter',Helvetica] text-[10px]">
-                          <WalletIcon />{wallets.length} Wallet{wallets.length > 1 ? "s" : ""}
-                        </span>
-                      )}
-                      {orcidId && (
-                        <span className="px-2.5 py-1 rounded-full bg-[#a6ce3915] border border-[#a6ce3933] text-[#a6ce39] [font-family:'Inter',Helvetica] text-[10px] font-semibold">
-                          ORCID iD
-                        </span>
-                      )}
-                    </div>
+                    {/* Status badges — real data only */}
+                    {(wallets.length > 0 || orcidId) && (
+                      <div className="flex flex-wrap gap-1.5 justify-center w-full pt-2 border-t border-[#ffffff08]">
+                        {wallets.length > 0 && (
+                          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffffff0a] border border-[#ffffff12] text-[#d4e9f380] [font-family:'Inter',Helvetica] text-[10px]">
+                            <WalletIcon />{wallets.length} Wallet{wallets.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {orcidId && (
+                          <span className="px-2.5 py-1 rounded-full bg-[#a6ce3915] border border-[#a6ce3933] text-[#a6ce39] [font-family:'Inter',Helvetica] text-[10px] font-semibold">
+                            ORCID iD
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: "Reef Score", value: "742" },
-                      { label: "Points", value: "1,240" },
-                      { label: "Contributions", value: "28" },
-                      { label: "DAO Votes", value: "14" },
-                    ].map((s) => (
-                      <div key={s.label} className="flex flex-col gap-0.5 px-3 py-3 rounded-2xl bg-[#ffffff08] border border-[#83eef01a]">
-                        <span className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[10px]">{s.label}</span>
-                        <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#83eef0] text-xl">{s.value}</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
                 {/* RIGHT — Edit form */}
