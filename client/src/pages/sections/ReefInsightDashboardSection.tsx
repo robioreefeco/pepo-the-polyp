@@ -134,7 +134,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
                   {TELEGRAM_BOT_NAME}
                 </span>
                 <p className="[font-family:'Inter',Helvetica] font-normal text-[#9aaeb8] text-sm max-w-[260px] leading-5 mt-1">
-                  Your AI guide to the MesoAmerican Reef knowledge network. Ask about coral ecology, DeSci, bleaching events, and more.
+                  Your AI guide to the Coral Reef knowledge network. Ask about coral ecology, DeSci, bleaching events, and more.
                 </p>
               </div>
 
