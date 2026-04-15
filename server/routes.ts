@@ -2,10 +2,11 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { rateLimit } from "express-rate-limit";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const PEPO_API_KEY = process.env.PEPO_API_KEY || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
-const PRIVY_APP_ID = process.env.PRIVY_APP_ID || "";
+const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || process.env.PRIVY_APP_ID || "";
 const BONFIRES_BASE = "https://pepo.app.bonfires.ai";
 const BONFIRE_ID = "69372cce6b69184280de3a89";
 const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
@@ -42,19 +43,37 @@ const authLimiter = rateLimit({
   message: { error: "Too many auth attempts. Please try again later." },
 });
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-async function verifyPrivyToken(token: string): Promise<boolean> {
-  if (!PRIVY_APP_SECRET || !PRIVY_APP_ID || !token) return false;
+// ─── Privy JWKS verification (cached, no per-request API call) ─────────────────
+let privyJWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getPrivyJWKS() {
+  if (!privyJWKS && PRIVY_APP_ID) {
+    privyJWKS = createRemoteJWKSet(
+      new URL(`https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`)
+    );
+  }
+  return privyJWKS;
+}
+
+interface PrivyVerifyResult {
+  valid: boolean;
+  userId?: string;
+  appId?: string;
+  error?: string;
+}
+
+async function verifyPrivyToken(token: string): Promise<PrivyVerifyResult> {
+  if (!PRIVY_APP_ID || !token) return { valid: false, error: "Missing app ID or token" };
+  const jwks = getPrivyJWKS();
+  if (!jwks) return { valid: false, error: "JWKS not initialized" };
   try {
-    const res = await fetch(`https://auth.privy.io/api/v1/users/me`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "privy-app-id": PRIVY_APP_ID,
-      },
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: "privy.io",
+      audience: PRIVY_APP_ID,
     });
-    return res.ok;
-  } catch {
-    return false;
+    return { valid: true, userId: payload.sub as string, appId: PRIVY_APP_ID };
+  } catch (err: any) {
+    return { valid: false, error: err?.message || "Token verification failed" };
   }
 }
 
@@ -266,16 +285,28 @@ export async function registerRoutes(
     }
   });
 
-  // Privy token verification endpoint
+  // Privy token verification endpoint — verifies JWT via JWKS (no API round-trip)
   app.post("/api/auth/verify", authLimiter, async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.replace("Bearer ", "") || sanitizeString(req.body?.token, 4096);
       if (!token) return res.status(401).json({ valid: false, error: "No token provided" });
-      const valid = await verifyPrivyToken(token);
-      return res.json({ valid });
+      const result = await verifyPrivyToken(token);
+      if (!result.valid) return res.status(401).json(result);
+      return res.json(result);
     } catch {
-      return res.status(500).json({ valid: false });
+      return res.status(500).json({ valid: false, error: "Internal error" });
     }
+  });
+
+  // Privy config info endpoint (for client diagnostics)
+  app.get("/api/auth/config", (_req: Request, res: Response) => {
+    return res.json({
+      privyAppId: PRIVY_APP_ID || null,
+      privyConfigured: Boolean(PRIVY_APP_ID && PRIVY_APP_SECRET),
+      jwksUrl: PRIVY_APP_ID
+        ? `https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`
+        : null,
+    });
   });
 
   return httpServer;
