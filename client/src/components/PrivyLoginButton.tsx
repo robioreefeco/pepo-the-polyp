@@ -1,6 +1,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Provider icons ───────────────────────────────────────────────────────────
 function GoogleIcon() {
@@ -120,7 +121,25 @@ function LoginDropdown({ onLogin, onClose }: { onLogin: () => void; onClose: () 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function PrivyLoginButton() {
   const { ready, authenticated, login, logout, user } = usePrivy();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
+
+  async function safeLogin() {
+    try {
+      await login();
+    } catch (err: any) {
+      const msg: string = err?.message ?? String(err);
+      if (msg.toLowerCase().includes("not allowed") || msg.toLowerCase().includes("rejected")) {
+        toast({
+          title: "Login unavailable",
+          description: "Please open the app directly in your browser (not inside the Replit preview) to sign in, or whitelist this domain in the Privy dashboard.",
+          variant: "destructive",
+        });
+      } else {
+        console.warn("[PrivyLoginButton] login error:", msg);
+      }
+    }
+  }
 
   if (!ready) {
     return (
@@ -191,7 +210,7 @@ export function PrivyLoginButton() {
 
       {open && (
         <LoginDropdown
-          onLogin={() => { setOpen(false); login(); }}
+          onLogin={() => { setOpen(false); safeLogin(); }}
           onClose={() => setOpen(false)}
         />
       )}
