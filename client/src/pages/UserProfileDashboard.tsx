@@ -505,7 +505,7 @@ export function UserProfileDashboard() {
         emailAcct?.address ?? googleAcct?.email?.split("@")[0] ??
         (walletAddr ? walletAddr.slice(0, 6) + "…" + walletAddr.slice(-4) : "");
 
-  const shownName = displayName || authName || "Explorer";
+  const shownName = displayName || authName || "";
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
