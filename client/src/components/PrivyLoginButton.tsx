@@ -1,9 +1,35 @@
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
+function MetaMaskIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 35 33" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M32.958 1L19.48 10.858l2.45-5.813L32.958 1z" fill="#E17726" stroke="#E17726" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2.042 1l13.365 9.957-2.33-5.912L2.042 1z" fill="#E27625" stroke="#E27625" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M28.178 23.533l-3.588 5.487 7.677 2.114 2.202-7.48-6.291-.121zM1.55 23.654l2.19 7.48 7.666-2.114-3.577-5.487-6.279.121z" fill="#E27625" stroke="#E27625" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M10.978 14.537l-2.14 3.233 7.617.34-.252-8.194-5.225 4.621zM24.022 14.537l-5.291-4.72-.176 8.293 7.617-.34-2.15-3.233z" fill="#E27625" stroke="#E27625" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M11.406 29.02l4.58-2.224-3.95-3.083-.63 5.307zM19.014 26.796l4.591 2.224-.642-5.307-3.95 3.083z" fill="#E27625" stroke="#E27625" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M23.605 29.02l-4.591-2.224.373 3.024-.044 1.342 4.262-2.142zM11.406 29.02l4.273 2.142-.033-1.342.362-3.024-4.602 2.224z" fill="#D5BFB2" stroke="#D5BFB2" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M15.744 22.01l-3.808-1.122 2.688-1.231 1.12 2.352zM19.256 22.01l1.12-2.352 2.699 1.23-3.82 1.122z" fill="#233447" stroke="#233447" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M11.406 29.02l.66-5.487-4.237.121 3.577 5.366zM23.605 29.02l-3.566-5.366-4.226.121.66 5.245h7.132zM26.267 17.77l-7.617.34.704 3.9 1.12-2.352 2.699 1.23 3.094-3.118zM11.936 20.888l2.688-1.23 1.12 2.352.703-3.9-7.617-.34 3.106 3.118z" fill="#CC6228" stroke="#CC6228" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M8.838 17.77l3.193 6.236-.11-3.118-3.083-3.118zM23.09 20.888l-.121 3.118 3.193-6.236-3.072 3.118zM16.447 18.11l-.703 3.9.88 4.543.198-5.987-.375-2.456zM18.553 18.11l-.363 2.445.187 5.998.88-4.544-.704-3.9z" fill="#E27525" stroke="#E27525" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M19.256 22.01l-.88 4.544.627.44 3.95-3.083.12-3.118-3.817 1.217zM15.744 22.01l-3.808-1.218.099 3.118 3.95 3.083.638-.44-.88-4.543z" fill="#F5841F" stroke="#F5841F" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M19.311 31.162l.044-1.342-.34-.297h-4.031l-.319.297.033 1.342-4.273-2.142 1.496 1.22 3.027 2.102h5.137l3.04-2.103 1.484-1.219-4.298 2.142z" fill="#C0AC9D" stroke="#C0AC9D" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M19.014 26.796l-.627-.44h-3.774l-.638.44-.362 3.024.32-.297h4.03l.341.297-.29-3.024z" fill="#161616" stroke="#161616" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M33.519 11.32l1.1-5.366L32.958 1l-13.944 10.363 5.368 4.533 7.59 2.222 1.672-1.957-.726-.528 1.155-1.056-.89-.693 1.155-.88-.879-.693zM.38 5.954l1.1 5.366-.704.495 1.155.88-.88.693 1.155 1.056-.726.528 1.661 1.957 7.59-2.222 5.369-4.533L2.355 1 .38 5.954z" fill="#763E1A" stroke="#763E1A" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M32.012 16.44l-7.59-2.222 2.15 3.233-3.193 6.236 4.215-.055h6.29l-1.872-7.192zM10.978 14.218l-7.59 2.222-1.86 7.192h6.28l4.204.055-3.193-6.236 2.16-3.233zM18.65 18.11l.484-8.294-2.22-5.99H18.12l-2.21 5.99.483 8.294.176 2.465.011 5.975h.869l.012-5.975.187-2.465z" fill="#F5841F" stroke="#F5841F" strokeWidth=".25" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
 
 function ProviderIcon({ user }: { user: any }) {
   const linked = user?.linkedAccounts ?? [];
+  const { wallets } = useWallets();
+  const metamaskWallet = wallets.find((w) => w.walletClientType === "metamask");
+
+  if (metamaskWallet) {
+    return <MetaMaskIcon size={16} />;
+  }
 
   if (linked.some((a: any) => a.type === "google_oauth")) {
     return (
