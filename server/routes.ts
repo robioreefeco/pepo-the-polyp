@@ -5,6 +5,16 @@ import { rateLimit } from "express-rate-limit";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { storage } from "./storage";
 
+declare module "express-session" {
+  interface SessionData {
+    orcid?: {
+      orcidId: string;
+      orcidName: string;
+      profileId: string;
+    };
+  }
+}
+
 const PEPO_API_KEY = process.env.PEPO_API_KEY || "";
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET || "";
 const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || process.env.PRIVY_APP_ID || "";
@@ -14,7 +24,7 @@ const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
 const ORCID_CLIENT_SECRET = process.env.ORCID_CLIENT_SECRET || "";
 const ORCID_BASE = "https://orcid.org";
 
-const orcidStateStore = new Map<string, { createdAt: number }>();
+const orcidStateStore = new Map<string, { createdAt: number; mode: "auth" | "link" }>();
 
 // ─── Rate limiters ─────────────────────────────────────────────────────────────
 // General API: 120 requests per 15 minutes per IP
@@ -428,12 +438,14 @@ export async function registerRoutes(
   });
 
   // ORCID OAuth: initiate login
+  // mode defaults to "auth" (standalone sign-in); pass ?link=1 to only link ORCID to an existing Privy profile
   app.get("/api/auth/orcid", authLimiter, (req: Request, res: Response) => {
     if (!ORCID_CLIENT_ID) {
       return res.status(500).json({ error: "ORCID not configured" });
     }
-    const state = crypto.randomBytes(32).toString("hex"); // upgraded from 16 to 32 bytes
-    orcidStateStore.set(state, { createdAt: Date.now() });
+    const mode: "auth" | "link" = req.query.link === "1" ? "link" : "auth";
+    const state = crypto.randomBytes(32).toString("hex");
+    orcidStateStore.set(state, { createdAt: Date.now(), mode });
     // Clean up stale states (older than 10 minutes)
     for (const [k, v] of Array.from(orcidStateStore.entries())) {
       if (Date.now() - v.createdAt > 10 * 60 * 1000) orcidStateStore.delete(k);
@@ -459,6 +471,7 @@ export async function registerRoutes(
     if (!code || !state || !orcidStateStore.has(state)) {
       return res.redirect("/?orcid_error=invalid_state");
     }
+    const stateData = orcidStateStore.get(state)!;
     orcidStateStore.delete(state);
 
     const host = req.headers.host || "";
@@ -483,10 +496,94 @@ export async function registerRoutes(
       const token = await tokenRes.json() as { access_token: string; orcid: string; name: string };
       const orcid = token.orcid;
       const name = token.name || "";
-      const params = new URLSearchParams({ orcid_id: orcid, orcid_name: encodeURIComponent(name) });
-      return res.redirect(`/profile?${params.toString()}`);
-    } catch {
+
+      if (stateData.mode === "link") {
+        // Legacy linking mode: return ORCID data as URL params for the frontend to save
+        const params = new URLSearchParams({ orcid_id: orcid, orcid_name: encodeURIComponent(name) });
+        return res.redirect(`/profile?${params.toString()}`);
+      }
+
+      // Auth mode: create/update a standalone ORCID profile and establish a session
+      const profileId = `orcid:${orcid}`;
+      const existing = await storage.getProfile(profileId);
+
+      // Upsert the profile
+      const profile = await storage.upsertProfile({
+        id: profileId,
+        displayName: name || "ORCID Researcher",
+        bio: existing?.bio || "",
+        location: existing?.location || "",
+        website: existing?.website || "",
+        avatarUrl: existing?.avatarUrl || "",
+        tags: existing?.tags || [],
+        points: existing?.points || 0,
+        isPublic: existing?.isPublic ?? true,
+        orcidId: orcid,
+        orcidName: name,
+        ceramicStreamId: existing?.ceramicStreamId || "",
+        ceramicDid: existing?.ceramicDid || "",
+      });
+
+      // Award first-login bonus (10 pts, once per day)
+      const alreadyToday = await storage.hasContributionToday(profileId, "login");
+      if (!alreadyToday) {
+        await storage.addContribution({ profileId, type: "login", description: "ORCID sign-in", points: 10 });
+      }
+
+      // Establish session
+      req.session.orcid = { orcidId: orcid, orcidName: name, profileId };
+      await new Promise<void>((resolve, reject) => req.session.save((err) => err ? reject(err) : resolve()));
+
+      return res.redirect("/profile?orcid_auth=success");
+    } catch (err) {
+      console.error("[orcid callback]", err);
       return res.redirect("/profile?orcid_error=server_error");
+    }
+  });
+
+  // GET /api/auth/orcid/session — return current ORCID session user
+  app.get("/api/auth/orcid/session", (req: Request, res: Response) => {
+    if (!req.session?.orcid) {
+      return res.json({ authenticated: false });
+    }
+    const { orcidId, orcidName, profileId } = req.session.orcid;
+    return res.json({ authenticated: true, orcidId, orcidName, profileId });
+  });
+
+  // POST /api/auth/orcid/logout — destroy ORCID session
+  app.post("/api/auth/orcid/logout", (req: Request, res: Response) => {
+    req.session.destroy(() => {});
+    res.json({ ok: true });
+  });
+
+  // POST /api/profiles/session — update profile for ORCID-session-authenticated users
+  app.post("/api/profiles/session", async (req: Request, res: Response) => {
+    if (!req.session?.orcid) {
+      return res.status(401).json({ error: "No active ORCID session" });
+    }
+    const { profileId } = req.session.orcid;
+    const { displayName, bio, location, website, avatarUrl, tags, isPublic } = req.body;
+    try {
+      const existing = await storage.getProfile(profileId);
+      const profile = await storage.upsertProfile({
+        id: profileId,
+        displayName: sanitizeString(displayName) || existing?.displayName || "Researcher",
+        bio: sanitizeString(bio, 500) || existing?.bio || "",
+        location: sanitizeString(location, 100) || existing?.location || "",
+        website: sanitizeString(website, 200) || existing?.website || "",
+        avatarUrl: sanitizeString(avatarUrl, 500) || existing?.avatarUrl || "",
+        tags: Array.isArray(tags) ? tags.slice(0, 10).map(String) : (existing?.tags || []),
+        points: existing?.points || 0,
+        isPublic: isPublic !== false,
+        orcidId: existing?.orcidId || req.session.orcid.orcidId,
+        orcidName: existing?.orcidName || req.session.orcid.orcidName,
+        ceramicStreamId: existing?.ceramicStreamId || "",
+        ceramicDid: existing?.ceramicDid || "",
+      });
+      return res.json(profile);
+    } catch (err) {
+      console.error("[sessionProfile]", err);
+      return res.status(500).json({ error: "Failed to save profile" });
     }
   });
 

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PrivyLoginButton } from "@/components/PrivyLoginButton";
+import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 import { PRIVY_ENABLED } from "@/lib/privy";
 import { usePrivy } from "@privy-io/react-auth";
+import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 
 const navLinks = [
   { label: "MesoReef DAO", href: "https://mesoreefdao.org/" },
@@ -25,7 +27,8 @@ function PlainLoginButton({ onClick }: { onClick?: () => void }) {
 }
 
 function MobileOverlayAuthSection({ onClose }: { onClose: () => void }) {
-  const { authenticated, user, login, logout } = usePrivy();
+  const { authenticated: privyAuthenticated, user, login, logout: privyLogout } = usePrivy();
+  const { orcidAuthenticated, orcidName, orcidId, logout: orcidLogout } = useOrcidAuth();
 
   const linked = user?.linkedAccounts ?? [];
   const emailAcct   = linked.find((a: any) => a.type === "email") as any;
@@ -33,13 +36,13 @@ function MobileOverlayAuthSection({ onClose }: { onClose: () => void }) {
   const twitterAcct = linked.find((a: any) => a.type === "twitter_oauth") as any;
   const walletAddr  = user?.wallet?.address;
 
-  const displayName = twitterAcct?.username
+  const privyDisplayName = twitterAcct?.username
     ? `@${twitterAcct.username}`
     : emailAcct?.address
     ?? googleAcct?.email?.split("@")[0]
     ?? (walletAddr ? walletAddr.slice(0, 6) + "…" + walletAddr.slice(-4) : "Explorer");
 
-  if (authenticated) {
+  if (privyAuthenticated) {
     return (
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#83eef008] border border-[#83eef018]">
@@ -49,10 +52,32 @@ function MobileOverlayAuthSection({ onClose }: { onClose: () => void }) {
               <circle cx="12" cy="9" r="4" stroke="#83eef0" strokeWidth="2"/>
             </svg>
           </div>
-          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3b2] text-sm flex-1 truncate">{displayName}</span>
+          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3b2] text-sm flex-1 truncate">{privyDisplayName}</span>
         </div>
         <button
-          onClick={() => { onClose(); logout().catch(() => {}); }}
+          onClick={() => { onClose(); privyLogout().catch(() => {}); }}
+          className="flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-2xl bg-[#ff4a4a0d] border border-[#ff4a4a20] text-[#ff8a8a] [font-family:'Inter',Helvetica] text-sm font-medium active:bg-[#ff4a4a18] transition-colors"
+        >
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+
+  if (orcidAuthenticated) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#a6ce3908] border border-[#a6ce3920]">
+          <div className="w-8 h-8 rounded-full bg-[#a6ce3920] border border-[#a6ce3940] flex items-center justify-center flex-shrink-0">
+            <span className="text-[#a6ce39] font-bold text-[10px] [font-family:'Inter',Helvetica]">iD</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3b2] text-sm truncate">{orcidName || "Researcher"}</span>
+            <span className="[font-family:'Inter',Helvetica] text-[#a6ce39] text-[10px] font-mono truncate">{orcidId}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => { onClose(); orcidLogout(); }}
           className="flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-2xl bg-[#ff4a4a0d] border border-[#ff4a4a20] text-[#ff8a8a] [font-family:'Inter',Helvetica] text-sm font-medium active:bg-[#ff4a4a18] transition-colors"
         >
           Sign Out
@@ -62,12 +87,20 @@ function MobileOverlayAuthSection({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <button
-      onClick={() => { onClose(); setTimeout(() => { try { login(); } catch { /* suppress */ } }, 150); }}
-      className="flex items-center justify-center gap-2 w-full px-5 py-3.5 min-h-[48px] rounded-2xl bg-[linear-gradient(170deg,rgba(131,238,240,1)_0%,rgba(63,176,179,1)_100%)] text-[#00585a] [font-family:'Inter',Helvetica] text-base font-semibold active:opacity-80 transition-opacity shadow-[0_4px_20px_rgba(131,238,240,0.2)]"
-    >
-      Log in to MesoReef DAO
-    </button>
+    <div className="flex flex-col gap-3">
+      <button
+        onClick={() => { onClose(); setTimeout(() => { try { login(); } catch { } }, 150); }}
+        className="flex items-center justify-center gap-2 w-full px-5 py-3.5 min-h-[48px] rounded-2xl bg-[linear-gradient(170deg,rgba(131,238,240,1)_0%,rgba(63,176,179,1)_100%)] text-[#00585a] [font-family:'Inter',Helvetica] text-base font-semibold active:opacity-80 transition-opacity shadow-[0_4px_20px_rgba(131,238,240,0.2)]"
+      >
+        Log in to MesoReef DAO
+      </button>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-[#ffffff10]" />
+        <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-xs">or</span>
+        <div className="flex-1 h-px bg-[#ffffff10]" />
+      </div>
+      <OrcidLoginButton className="w-full" label="Sign in with ORCID iD" size="md" />
+    </div>
   );
 }
 
@@ -179,7 +212,15 @@ export const ApplicationHeaderSection = (): JSX.Element => {
               {PRIVY_ENABLED ? (
                 <MobileOverlayAuthSection onClose={() => setMobileMenuOpen(false)} />
               ) : (
-                <PlainLoginButton onClick={() => setMobileMenuOpen(false)} />
+                <div className="flex flex-col gap-3">
+                  <PlainLoginButton onClick={() => setMobileMenuOpen(false)} />
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-[#ffffff10]" />
+                    <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-xs">or</span>
+                    <div className="flex-1 h-px bg-[#ffffff10]" />
+                  </div>
+                  <OrcidLoginButton className="w-full" label="Sign in with ORCID iD" size="md" />
+                </div>
               )}
             </div>
           </div>

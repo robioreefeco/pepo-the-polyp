@@ -76,6 +76,10 @@ export class DbStorage implements IStorage {
           avatarUrl: profile.avatarUrl,
           tags: profile.tags,
           isPublic: profile.isPublic,
+          orcidId: profile.orcidId,
+          orcidName: profile.orcidName,
+          ceramicStreamId: profile.ceramicStreamId,
+          ceramicDid: profile.ceramicDid,
           updatedAt: now,
         },
       })

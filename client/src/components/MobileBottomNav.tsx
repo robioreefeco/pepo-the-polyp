@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { usePrivy } from "@privy-io/react-auth";
 import { PRIVY_ENABLED } from "@/lib/privy";
+import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 
 function TelegramNavItem() {
   return (
@@ -20,17 +21,18 @@ function TelegramNavItem() {
 }
 
 function PrivyAwareLoginNavItem() {
-  const { authenticated, login } = usePrivy();
+  const { authenticated: privyAuthenticated, login } = usePrivy();
+  const { orcidAuthenticated } = useOrcidAuth();
 
-  if (authenticated) {
+  if (privyAuthenticated || orcidAuthenticated) {
     return <TelegramNavItem />;
   }
 
   return (
-    <button
-      onClick={() => { try { login(); } catch { /* suppress */ } }}
+    <Link
+      href="/profile"
       data-testid="nav-mobile-login"
-      className="flex flex-col items-center justify-center gap-1 flex-1 py-3 min-h-[56px] opacity-95 hover:opacity-100 transition-opacity"
+      className="flex flex-col items-center justify-center gap-1 flex-1 py-3 min-h-[56px] opacity-95 hover:opacity-100 transition-opacity no-underline"
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <circle cx="11" cy="8" r="4" stroke="#83eef0" strokeWidth="2"/>
@@ -38,7 +40,7 @@ function PrivyAwareLoginNavItem() {
         <path d="M17 14l3 3-3 3M20 17H14" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       <span className="text-[9px] font-semibold text-[#83eef0]">Log in</span>
-    </button>
+    </Link>
   );
 }
 

@@ -7,6 +7,8 @@ import { queryClient } from "@/lib/queryClient";
 import { useCeramicProfile } from "@/hooks/use-ceramic-profile";
 import { ceramicStreamUrl } from "@/lib/ceramic";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { useOrcidAuth } from "@/hooks/use-orcid-auth";
+import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function BackIcon() {
@@ -134,14 +136,23 @@ function GuestView({ onLogin }: { onLogin: () => void }) {
           </p>
         </div>
       </div>
-      <div className="flex flex-col sm:flex-row gap-3 items-center">
+      <div className="flex flex-col gap-3 items-center w-full max-w-xs">
         <button
           onClick={onLogin}
           data-testid="button-guest-login"
-          className="px-8 py-3 rounded-full bg-[linear-gradient(170deg,rgba(131,238,240,1)_0%,rgba(63,176,179,1)_100%)] hover:opacity-90 transition-opacity [font-family:'Inter',Helvetica] font-semibold text-[#00585a] text-sm shadow-lg"
+          className="w-full px-8 py-3 rounded-xl bg-[linear-gradient(170deg,rgba(131,238,240,1)_0%,rgba(63,176,179,1)_100%)] hover:opacity-90 transition-opacity [font-family:'Inter',Helvetica] font-semibold text-[#00585a] text-sm shadow-lg"
         >
           Log in / Sign up
         </button>
+        <div className="flex items-center gap-3 w-full">
+          <div className="flex-1 h-px bg-[#ffffff15]" />
+          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-xs">or</span>
+          <div className="flex-1 h-px bg-[#ffffff15]" />
+        </div>
+        <OrcidLoginButton className="w-full" label="Sign in with ORCID iD" size="md" />
+        <p className="[font-family:'Inter',Helvetica] text-[#d4e9f333] text-[10px] text-center leading-4">
+          ORCID provides researchers with a permanent digital identifier.
+        </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg w-full mt-4">
         {[
@@ -354,7 +365,7 @@ function WalletsRow({ wallets }: { wallets: any[] }) {
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 export function UserProfileDashboard() {
-  const { ready, authenticated, user, login, logout, getAccessToken } = PRIVY_ENABLED
+  const { ready, authenticated: privyAuthenticated, user, login, logout: privyLogout, getAccessToken } = PRIVY_ENABLED
     ? usePrivy()
     : { ready: true, authenticated: false, user: null, login: () => {}, logout: () => {}, getAccessToken: async () => null };
   const { wallets } = PRIVY_ENABLED
@@ -364,6 +375,21 @@ export function UserProfileDashboard() {
   const ceramic = PRIVY_ENABLED
     ? useCeramicProfile()
     : { did: null, isAuthenticated: false, authenticate: async () => null, saveProfile: async () => null, loadProfile: async () => null, authLoading: false, syncLoading: false, error: null };
+
+  const {
+    orcidAuthenticated,
+    orcidId: sessionOrcidId,
+    orcidName: sessionOrcidName,
+    profileId: orcidProfileId,
+    logout: orcidLogout,
+  } = useOrcidAuth();
+
+  const authenticated = privyAuthenticated || orcidAuthenticated;
+
+  function logout() {
+    if (orcidAuthenticated) orcidLogout();
+    if (privyAuthenticated) privyLogout();
+  }
 
   const searchStr = useSearch();
 
@@ -376,7 +402,7 @@ export function UserProfileDashboard() {
   const [website, setWebsite] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // ORCID from URL callback or persisted DB
+  // ORCID from URL callback, session, or persisted DB
   const [orcidId, setOrcidId] = useState<string | null>(null);
   const [orcidName, setOrcidName] = useState<string | null>(null);
   const [orcidError, setOrcidError] = useState<string | null>(null);
@@ -385,10 +411,15 @@ export function UserProfileDashboard() {
   const [ceramicStreamId, setCeramicStreamId] = useState<string | null>(null);
   const [ceramicSynced, setCeramicSynced] = useState(false);
 
+  // The active profile ID — Privy user ID, or ORCID-prefixed ID for ORCID-only logins
+  const activeProfileId = orcidAuthenticated && !privyAuthenticated
+    ? orcidProfileId
+    : user?.id;
+
   // Load persisted profile (including ORCID) from backend
   const { data: savedProfile } = useQuery<any>({
-    queryKey: ["/api/profiles", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["/api/profiles", activeProfileId],
+    enabled: !!activeProfileId,
   });
 
   // Hydrate ORCID + Ceramic from DB on mount
@@ -401,6 +432,14 @@ export function UserProfileDashboard() {
       setCeramicStreamId(savedProfile.profile.ceramicStreamId);
     }
   }, [savedProfile]);
+
+  // Hydrate from ORCID session (standalone ORCID login)
+  useEffect(() => {
+    if (sessionOrcidId && !orcidId) {
+      setOrcidId(sessionOrcidId);
+      setOrcidName(sessionOrcidName || null);
+    }
+  }, [sessionOrcidId, sessionOrcidName]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -416,13 +455,23 @@ export function UserProfileDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(searchStr);
     const id = params.get("orcid_id"), name = params.get("orcid_name"), err = params.get("orcid_error");
+    const authSuccess = params.get("orcid_auth");
+
+    // orcid_auth=success — returned from standalone ORCID login flow, refresh session
+    if (authSuccess === "success") {
+      window.history.replaceState({}, "", "/profile");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/orcid/session"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+    }
+
+    // orcid_id param — returned from ORCID link-only flow (Privy user linking ORCID)
     if (id) {
       const decoded = name ? decodeURIComponent(name) : null;
       setOrcidId(id);
       setOrcidName(decoded);
       window.history.replaceState({}, "", "/profile");
 
-      // Auto-persist to backend if authenticated
+      // Auto-persist to backend if authenticated with Privy
       (async () => {
         try {
           const token = await getAccessToken();
@@ -432,7 +481,6 @@ export function UserProfileDashboard() {
             headers: { "Content-Type": "application/json", "x-privy-token": token },
             body: JSON.stringify({ orcidId: id, orcidName: decoded || "" }),
           });
-          // Refresh leaderboard so the ORCID badge appears there too
           queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
           queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
         } catch {
@@ -451,9 +499,11 @@ export function UserProfileDashboard() {
   const walletAddr = wallets[0]?.address ?? user?.wallet?.address ?? null;
 
   const authName =
-    twitterAcct?.username ? `@${twitterAcct.username}` :
-    emailAcct?.address ?? googleAcct?.email?.split("@")[0] ??
-    (walletAddr ? walletAddr.slice(0, 6) + "…" + walletAddr.slice(-4) : "");
+    orcidAuthenticated && !privyAuthenticated
+      ? (sessionOrcidName || orcidId || "Researcher")
+      : twitterAcct?.username ? `@${twitterAcct.username}` :
+        emailAcct?.address ?? googleAcct?.email?.split("@")[0] ??
+        (walletAddr ? walletAddr.slice(0, 6) + "…" + walletAddr.slice(-4) : "");
 
   const shownName = displayName || authName || "Explorer";
 
@@ -468,12 +518,27 @@ export function UserProfileDashboard() {
     localStorage.setItem("pepo_profile_image", url);
   }
 
-  function handleSave() {
+  async function handleSave() {
     localStorage.setItem("pepo_display_name", displayName);
     localStorage.setItem("pepo_profile_bio", bio);
     localStorage.setItem("pepo_location", location);
     localStorage.setItem("pepo_website", website);
     localStorage.setItem("pepo_tags", JSON.stringify(selectedTags));
+
+    if (orcidAuthenticated && !privyAuthenticated) {
+      try {
+        await fetch("/api/profiles/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName, bio, location, website, tags: selectedTags }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/profiles", activeProfileId] });
+        queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      } catch {
+        // non-blocking — local save succeeded
+      }
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -734,7 +799,7 @@ export function UserProfileDashboard() {
                         </div>
                       ) : (
                         <a
-                          href="/api/auth/orcid"
+                          href="/api/auth/orcid?link=1"
                           data-testid="link-connect-orcid"
                           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#a6ce3908] border border-[#a6ce3920] hover:bg-[#a6ce3915] hover:border-[#a6ce3933] transition-colors no-underline"
                         >

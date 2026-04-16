@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -107,6 +108,19 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+
+// ─── Sessions (used for ORCID auth) ───────────────────────────────────────────
+app.use(session({
+  secret: process.env.SESSION_SECRET || "mesoreefdao-orcid-session-secret-dev",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
+}));
 
 // ─── Request logging ──────────────────────────────────────────────────────────
 export function log(message: string, source = "express") {
