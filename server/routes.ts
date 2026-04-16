@@ -156,6 +156,34 @@ export async function registerRoutes(
     const message = sanitizeString(req.body?.message, 2000);
     if (!message) return res.status(400).json({ error: "message must be a non-empty string under 2000 characters" });
 
+    // Identify authenticated user — Privy token takes precedence, then ORCID session
+    let chatProfileId: string | null = null;
+    const privyToken = (req.headers["x-privy-token"] as string) || "";
+    if (privyToken) {
+      const verify = await verifyPrivyToken(privyToken);
+      if (verify.valid && verify.userId) chatProfileId = verify.userId;
+    } else if ((req as any).session?.orcid?.profileId) {
+      chatProfileId = (req as any).session.orcid.profileId;
+    }
+
+    // Helper: award question points after the response is sent
+    const awardQuestionPoints = async (): Promise<number> => {
+      if (!chatProfileId) return 0;
+      try {
+        const alreadyToday = await storage.hasContributionToday(chatProfileId, "question");
+        if (alreadyToday) return 0;
+        await storage.addContribution({
+          profileId: chatProfileId,
+          type: "question",
+          description: message.slice(0, 200),
+          points: 10,
+        });
+        return 10;
+      } catch {
+        return 0;
+      }
+    };
+
     try {
       const response = await fetch(`${BONFIRES_BASE}/api/graph/query`, {
         method: "POST",
@@ -169,14 +197,16 @@ export async function registerRoutes(
 
       if (!response.ok) {
         console.log("[Pepo API] graph/query failed:", response.status);
-        return res.json({ response: generatePepoResponse(message), source: "local" });
+        const pointsAwarded = await awardQuestionPoints();
+        return res.json({ response: generatePepoResponse(message), source: "local", pointsAwarded });
       }
 
       const data = await response.json() as any;
 
       if (data.success && Array.isArray(data.episodes) && data.episodes.length > 0) {
         const reply = await buildPepoReply(message, data.episodes);
-        return res.json({ response: reply, source: "bonfires" });
+        const pointsAwarded = await awardQuestionPoints();
+        return res.json({ response: reply, source: "bonfires", pointsAwarded });
       }
 
       // No Bonfires episodes — still enrich with all knowledge sources
@@ -207,10 +237,11 @@ export async function registerRoutes(
           .slice(0, 4).join("\n");
         if (relevantLines.trim()) fallbackReply += `\n\n🐠 **MesoReefDAO:**\n${relevantLines.trim()}`;
       }
-      return res.json({ response: fallbackReply, source: "enriched-local" });
+      const pointsAwarded = await awardQuestionPoints();
+      return res.json({ response: fallbackReply, source: "enriched-local", pointsAwarded });
     } catch (err) {
       console.log("[Pepo API] error:", err);
-      return res.json({ response: generatePepoResponse(message), source: "local" });
+      return res.json({ response: generatePepoResponse(message), source: "local", pointsAwarded: 0 });
     }
   });
 
@@ -391,22 +422,31 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/contributions — award points for asking questions
+  // POST /api/contributions — award points (Privy token or ORCID session)
   app.post("/api/contributions", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
     const token = (req.headers["x-privy-token"] as string) || "";
-    const verify = await verifyPrivyToken(token);
-    if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+      profileId = verify.userId!;
+    } else if ((req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    } else {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     const { type = "question", description = "" } = req.body;
-    const allowed = ["question", "resource", "answer"];
+    const allowed = ["question", "resource", "answer", "verification"];
     if (!allowed.includes(type)) return res.status(400).json({ error: "Invalid contribution type" });
 
+    const pointsMap: Record<string, number> = { question: 10, resource: 15, answer: 10, verification: 20 };
+
     try {
-      // 1 question per day per user earns 10 pts (cap abuse)
-      const alreadyToday = await storage.hasContributionToday(verify.userId!, type);
-      const pts = alreadyToday ? 0 : 10;
+      const alreadyToday = await storage.hasContributionToday(profileId, type);
+      const pts = alreadyToday ? 0 : (pointsMap[type] ?? 10);
       const contrib = await storage.addContribution({
-        profileId: verify.userId!,
+        profileId,
         type,
         description: sanitizeString(description, 300) || "",
         points: pts,
@@ -524,7 +564,12 @@ export async function registerRoutes(
         ceramicDid: existing?.ceramicDid || "",
       });
 
-      // Award first-login bonus (10 pts, once per day)
+      // Award first-time verification bonus (25 pts, one-time for brand-new accounts)
+      if (!existing) {
+        await storage.addContribution({ profileId, type: "verification", description: "ORCID identity verified", points: 25 });
+      }
+
+      // Award daily login bonus (10 pts, once per day)
       const alreadyToday = await storage.hasContributionToday(profileId, "login");
       if (!alreadyToday) {
         await storage.addContribution({ profileId, type: "login", description: "ORCID sign-in", points: 10 });

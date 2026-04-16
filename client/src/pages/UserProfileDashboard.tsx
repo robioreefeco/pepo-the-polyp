@@ -677,6 +677,42 @@ export function UserProfileDashboard() {
                     )}
                   </div>
 
+                  {/* Reef Score widget */}
+                  <div className="flex flex-col gap-3 p-5 rounded-3xl bg-[#ffffff08] border border-[#83eef01a] backdrop-blur-sm" data-testid="card-reef-score">
+                    <div className="flex items-center justify-between">
+                      <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3b2] text-xs uppercase tracking-wider">Reef Score</span>
+                      <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#83eef0] text-lg" data-testid="text-total-points">
+                        {savedProfile?.profile?.points ?? 0} pts
+                      </span>
+                    </div>
+
+                    {/* Points breakdown rows */}
+                    <div className="flex flex-col gap-2 pt-1 border-t border-[#ffffff08]">
+                      {[
+                        { label: "First login", pts: "+50", note: "one-time", color: "#83eef0" },
+                        { label: "Daily sign-in", pts: "+10", note: "per day", color: "#83eef0" },
+                        { label: "Ask Pepo a question", pts: "+10", note: "per day", color: "#83eef0" },
+                        { label: "ORCID verification", pts: "+25", note: "one-time", color: "#a6ce39" },
+                        { label: "Link ORCID to profile", pts: "+25", note: "one-time", color: "#a6ce39" },
+                      ].map((row) => (
+                        <div key={row.label} className="flex items-center justify-between gap-2">
+                          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f380] text-[11px]">{row.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="[font-family:'Inter',Helvetica] font-semibold text-[11px]" style={{ color: row.color }}>{row.pts}</span>
+                            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-[10px]">{row.note}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!orcidId && (
+                      <a href="/api/auth/orcid" className="mt-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#a6ce3910] border border-[#a6ce3930] hover:bg-[#a6ce3920] transition-colors no-underline" data-testid="link-verify-orcid">
+                        <span className="[font-family:'Inter',Helvetica] font-semibold text-[#a6ce39] text-xs">Verify with ORCID iD</span>
+                        <span className="[font-family:'Inter',Helvetica] text-[#a6ce3980] text-xs">+25 pts</span>
+                      </a>
+                    )}
+                  </div>
+
                 </div>
 
                 {/* RIGHT — Edit form */}
