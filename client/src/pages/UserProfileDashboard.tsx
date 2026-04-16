@@ -691,6 +691,7 @@ export function UserProfileDashboard() {
                       {[
                         { label: "First login", pts: "+50", note: "one-time", color: "#83eef0" },
                         { label: "Daily sign-in", pts: "+10", note: "per day", color: "#83eef0" },
+                        { label: "🪸 Clean a Coral", pts: "+10", note: "per day", color: "#83eef0" },
                         { label: "Ask Pepo a question", pts: "+10", note: "per day", color: "#83eef0" },
                         { label: "ORCID verification", pts: "+25", note: "one-time", color: "#a6ce39" },
                         { label: "Link ORCID to profile", pts: "+25", note: "one-time", color: "#a6ce39" },

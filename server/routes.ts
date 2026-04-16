@@ -458,6 +458,55 @@ export async function registerRoutes(
     }
   });
 
+  // Daily clean-a-coral action — awards 10 pts once per day
+  app.post("/api/daily-clean", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+      profileId = verify.userId!;
+    } else if ((req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    } else {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const alreadyToday = await storage.hasContributionToday(profileId, "clean");
+      if (alreadyToday) {
+        return res.json({ pointsAwarded: 0, alreadyClaimed: true });
+      }
+      await storage.addContribution({ profileId, type: "clean", description: "Daily coral cleaning", points: 10 });
+      return res.json({ pointsAwarded: 10, alreadyClaimed: false });
+    } catch (err) {
+      console.error("[daily-clean]", err);
+      return res.status(500).json({ error: "Failed to record clean" });
+    }
+  });
+
+  // Check if user has already cleaned today
+  app.get("/api/daily-clean/status", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (!verify.valid) return res.json({ alreadyClaimed: false });
+      profileId = verify.userId!;
+    } else if ((req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    } else {
+      return res.json({ alreadyClaimed: false });
+    }
+
+    try {
+      const alreadyClaimed = await storage.hasContributionToday(profileId, "clean");
+      return res.json({ alreadyClaimed });
+    } catch {
+      return res.json({ alreadyClaimed: false });
+    }
+  });
+
   // Graph stats
   app.get("/api/stats", async (_req: Request, res: Response) => {
     try {
