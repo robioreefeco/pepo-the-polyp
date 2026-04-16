@@ -11,6 +11,8 @@ declare module "express-session" {
       orcidId: string;
       orcidName: string;
       profileId: string;
+      accessToken: string;
+      tokenExpiresAt: number; // unix ms
     };
   }
 }
@@ -545,7 +547,7 @@ export async function registerRoutes(
     const params = new URLSearchParams({
       client_id: ORCID_CLIENT_ID,
       response_type: "code",
-      scope: "/authenticate",
+      scope: "/authenticate /read-limited",
       redirect_uri: redirectUri,
       state,
     });
@@ -582,9 +584,20 @@ export async function registerRoutes(
       if (!tokenRes.ok) {
         return res.redirect("/profile?orcid_error=token_failed");
       }
-      const token = await tokenRes.json() as { access_token: string; orcid: string; name: string };
+      const token = await tokenRes.json() as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in?: number;
+        orcid: string;
+        name: string;
+      };
       const orcid = token.orcid;
       const name = token.name || "";
+      const accessToken = token.access_token;
+      // expires_in is in seconds; store as absolute unix ms timestamp
+      const tokenExpiresAt = token.expires_in
+        ? Date.now() + token.expires_in * 1000
+        : Date.now() + 20 * 365 * 24 * 60 * 60 * 1000; // ORCID tokens are long-lived; default 20 yr
 
       if (stateData.mode === "link") {
         // Legacy linking mode: return ORCID data as URL params for the frontend to save
@@ -596,10 +609,17 @@ export async function registerRoutes(
       const profileId = `orcid:${orcid}`;
       const existing = await storage.getProfile(profileId);
 
+      // Preserve existing custom display name — only use ORCID name for brand-new accounts
+      // or if the stored name is still the generic default
+      const resolvedDisplayName =
+        existing?.displayName && existing.displayName !== "ORCID Researcher"
+          ? existing.displayName
+          : name || "";
+
       // Upsert the profile
-      const profile = await storage.upsertProfile({
+      await storage.upsertProfile({
         id: profileId,
-        displayName: name || "ORCID Researcher",
+        displayName: resolvedDisplayName,
         bio: existing?.bio || "",
         location: existing?.location || "",
         website: existing?.website || "",
@@ -624,8 +644,8 @@ export async function registerRoutes(
         await storage.addContribution({ profileId, type: "login", description: "ORCID sign-in", points: 10 });
       }
 
-      // Establish session
-      req.session.orcid = { orcidId: orcid, orcidName: name, profileId };
+      // Establish session — store access token securely server-side (never sent to client)
+      req.session.orcid = { orcidId: orcid, orcidName: name, profileId, accessToken, tokenExpiresAt };
       await new Promise<void>((resolve, reject) => req.session.save((err) => err ? reject(err) : resolve()));
 
       return res.redirect("/profile?orcid_auth=success");
@@ -640,8 +660,10 @@ export async function registerRoutes(
     if (!req.session?.orcid) {
       return res.json({ authenticated: false });
     }
-    const { orcidId, orcidName, profileId } = req.session.orcid;
-    return res.json({ authenticated: true, orcidId, orcidName, profileId });
+    const { orcidId, orcidName, profileId, tokenExpiresAt } = req.session.orcid;
+    // Never expose the access token to the client — only share non-sensitive metadata
+    const tokenValid = tokenExpiresAt ? Date.now() < tokenExpiresAt : true;
+    return res.json({ authenticated: true, orcidId, orcidName, profileId, tokenValid });
   });
 
   // POST /api/auth/orcid/logout — destroy ORCID session

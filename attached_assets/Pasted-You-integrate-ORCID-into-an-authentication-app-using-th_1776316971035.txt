@@ -1,0 +1,92 @@
+You integrate ORCID into an authentication app using their OAuth 2.0 flow, treating ORCID as an external identity provider (like “Login with Google”) that returns the user’s ORCID iD and an access token. [info.orcid](https://info.orcid.org/documentation/integration-guide/orcid-oauth-sign-in-guidelines/)
+
+Below is a compact roadmap you can plug into a typical web‑based auth app (e.g., Node/Express, Django, Ruby on Rails, etc.).
+
+***
+
+### 1. Register your app on ORCID
+
+1. Go to **ORCID Developer Tools**:  
+   - Production: `https://orcid.org/developer-tools`  
+   - Sandbox (recommended for testing): `https://sandbox.orcid.org/developer-tools` [info.orcid](https://info.orcid.org/documentation/integration-and-api-faq/)
+2. Click “Register a client application” and fill in:
+   - **Application name** (shown to users on the OAuth screen)
+   - **Application URL** (your site)
+   - **Redirect URI(s)** (e.g., `https://yourapp.com/auth/orcid/callback`)
+   - **Scopes** (e.g., `/authenticate` to get the ORCID iD; `/read-limited` for public data, `/activities/update` if you are a member and want to write). [info.orcid](https://info.orcid.org/documentation/api-tutorials/api-tutorial-get-and-authenticated-orcid-id/)
+3. Note the **Client ID** and **Client Secret**.
+
+***
+
+### 2. Implement the OAuth “Login with ORCID” flow
+
+ORCID uses a standard 3‑legged OAuth 2.0 pattern: [info.orcid](https://info.orcid.org/hands-on-with-the-orcid-api/2-collect-authenticated-orcid-ids-and-permissions/)
+
+1. **Build the authorization URL**  
+   On your login page, render a button or link pointing to:
+
+   - Sandbox example:  
+     ```
+     https://sandbox.orcid.org/oauth/authorize
+       ?client_id=YOUR_CLIENT_ID
+       &response_type=code
+       &scope=/authenticate
+       &redirect_uri=https://yourapp.com/auth/orcid/callback
+     ```
+   - Production: swap `sandbox.orcid.org` → `orcid.org`. [info.orcid](https://info.orcid.org/documentation/api-tutorials/api-tutorial-get-and-authenticated-orcid-id/)
+
+   The `scope` controls what you request (typically `/authenticate` plus `/read-limited` at minimum). [orcidus.lyrasis](https://orcidus.lyrasis.org/2026/01/07/custom-integration-guide/)
+
+2. **Handle the redirect callback**  
+   When the user authorizes, ORCID sends them back to your `redirect_uri` with a `code` parameter.  
+   In your callback handler:
+
+   - Validate `code` and `state` (if you used a CSRF `state` parameter).
+   - Exchange the code for an access token and the authenticated ORCID iD:
+
+     POST to:
+     - Sandbox: `https://sandbox.orcid.org/oauth/token`
+     - Production: `https://orcid.org/oauth/token`  
+     with:
+     ```json
+     {
+       "client_id": "YOUR_CLIENT_ID",
+       "client_secret": "YOUR_CLIENT_SECRET",
+       "grant_type": "authorization_code",
+       "code": "THE_CODE_FROM_CALLBACK",
+       "redirect_uri": "https://yourapp.com/auth/orcid/callback"
+     }
+     ```  
+     ORCID returns a JSON with:
+     - `access_token`
+     - `orcid` (the authenticated ORCID iD)
+     - `expires_in`, `refresh_token` (if applicable) [info.orcid](https://info.orcid.org/hands-on-with-the-orcid-api/2-collect-authenticated-orcid-ids-and-permissions/)
+
+3. **Create or link the local user account**  
+   In your app’s backend:
+
+   - Look up a user by `orcid` in your DB.
+   - If found: log them in and optionally refresh/update their ORCID‑linked profile.
+   - If not found: create a local user record associated with that ORCID iD, again storing `orcid`, `access_token`, and expiry securely. [orcidus.lyrasis](https://orcidus.lyrasis.org/2026/01/07/custom-integration-guide/)
+
+***
+
+### 3. Refresh tokens and security considerations
+
+- Store the `access_token` and `refresh_token` (if obtained) in a **secure backend store**, not in cookies or client‑side localStorage. [info.orcid](https://info.orcid.org/hands-on-with-the-orcid-api/2-collect-authenticated-orcid-ids-and-permissions/)
+- If the token expires, call the token endpoint again with `grant_type=refresh_token` and the `refresh_token` to get a new one. [github](https://github.com/ORCID/orcid-api-tutorial/blob/master/docs/get.md)
+- Treat the ORCID iD as a unique identifier; never expose the access token on the client unless absolutely necessary.
+
+***
+
+### 4. Example identity‑flow diagram (conceptual)
+
+1. User clicks “Login with ORCID”  
+2. Browser → ORCID authorization URL  
+3. User logs into ORCID and consents  
+4. ORCID → your `/auth/orcid/callback?code=...`  
+5. Your backend → ORCID token endpoint with `code`  
+6. ORCID → `{"access_token", "orcid", ...}`  
+7. Your backend → creates/updates local user and logs them in. [info.orcid](https://info.orcid.org/documentation/api-tutorials/api-tutorial-get-and-authenticated-orcid-id/)
+
+If you tell me which framework you’re using (e.g., Node/Express, Django, Flask, Next.js, etc.), I can give you a concrete code snippet for that stack.
