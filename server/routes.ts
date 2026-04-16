@@ -543,7 +543,8 @@ export async function registerRoutes(
     }
     const host = req.headers.host || "";
     const protocol = host.includes("localhost") ? "http" : "https";
-    const redirectUri = `${protocol}://${host}/api/auth/orcid/callback`;
+    const baseUrl = process.env.ORCID_REDIRECT_BASE_URL || `${protocol}://${host}`;
+    const redirectUri = `${baseUrl}/api/auth/orcid/callback`;
     const params = new URLSearchParams({
       client_id: ORCID_CLIENT_ID,
       response_type: "code",
@@ -567,7 +568,8 @@ export async function registerRoutes(
 
     const host = req.headers.host || "";
     const protocol = host.includes("localhost") ? "http" : "https";
-    const redirectUri = `${protocol}://${host}/api/auth/orcid/callback`;
+    const baseUrl = process.env.ORCID_REDIRECT_BASE_URL || `${protocol}://${host}`;
+    const redirectUri = `${baseUrl}/api/auth/orcid/callback`;
 
     try {
       const tokenRes = await fetch(`${ORCID_BASE}/oauth/token`, {
