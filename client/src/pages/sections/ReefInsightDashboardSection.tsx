@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useState, useEffect, useCallback } from "react";
 import { Network, ExternalLink } from "lucide-react";
 import pepoPng from "@assets/MesoReefDAO_Pepo_The_Polyp_1776218616437.png";
+import coralBg from "@assets/coral_textures_1776303814463.jpg";
 import { usePrivy } from "@privy-io/react-auth";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -100,8 +101,12 @@ function CleanCoralPanel() {
       className="relative flex-1 self-stretch w-full flex flex-col rounded-[24px] md:rounded-[32px] overflow-hidden border border-solid border-[#83eef01a] bg-[#00080c]"
       style={{ minHeight: "320px", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" }}
     >
+      {/* Background image */}
+      <img src={coralBg} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none" />
+      {/* Dark overlay so content stays readable */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,8,12,0.72) 0%, rgba(0,8,12,0.58) 40%, rgba(0,8,12,0.80) 100%)" }} />
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#83eef01a] bg-[#001017bf] shrink-0">
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-[#83eef01a] bg-[#001017bf] shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full overflow-hidden border border-[#83eef066] shrink-0">
             <img src={pepoPng} alt="Pepo the Polyp" className="w-full h-full object-cover object-center" />
@@ -132,7 +137,7 @@ function CleanCoralPanel() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 py-8 relative">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-6 px-6 py-8">
         <CoralSparkle show={sparkle} />
 
         {/* Coral illustration */}
@@ -238,7 +243,7 @@ function CleanCoralPanel() {
 
       {/* Bottom strip — points earned context */}
       {isAuthenticated && !claimed && !checking && (
-        <div className="shrink-0 px-4 py-2 bg-[#83eef008] border-t border-[#83eef01a] flex items-center justify-center gap-1.5">
+        <div className="relative z-10 shrink-0 px-4 py-2 bg-[#83eef008] border-t border-[#83eef01a] flex items-center justify-center gap-1.5">
           <span className="text-[9px] [font-family:'Inter',Helvetica] text-[#d4e9f344]">Daily action</span>
           <span className="text-[9px] [font-family:'Inter',Helvetica] font-semibold text-[#83eef066]">·</span>
           <span className="text-[9px] [font-family:'Inter',Helvetica] font-semibold text-[#83eef0]">+10 reef pts</span>
