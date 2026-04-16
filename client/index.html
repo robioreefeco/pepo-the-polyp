@@ -13,23 +13,32 @@
     </style></head>
   <body>
     <div id="root"></div>
-    <!-- Intercept Privy "not allowed" rejections before Vite's runtime-error overlay -->
+    <!-- Suppress wallet-extension and Privy unhandled rejections before Vite's error overlay -->
     <script>
       (function () {
-        function privyRejectionGuard(event) {
-          var msg = (event && event.reason && (event.reason.message || String(event.reason))) || "";
-          if (
+        function walletRejectionGuard(event) {
+          var reason = event && event.reason;
+          var msg = (reason && (reason.message || String(reason))) || "";
+          var stack = (reason && reason.stack) || "";
+          var fromExtension =
+            stack.indexOf("chrome-extension://") !== -1 ||
+            stack.indexOf("moz-extension://") !== -1 ||
+            stack.indexOf("safari-web-extension://") !== -1;
+          var isWalletError =
+            msg.indexOf("MetaMask") !== -1 ||
+            msg.indexOf("Failed to connect") !== -1 ||
+            msg.indexOf("wallet_requestPermissions") !== -1 ||
+            msg.indexOf("Rabby") !== -1 ||
             msg.indexOf("not allowed") !== -1 ||
             msg.indexOf("Login with") !== -1 ||
             msg.indexOf("privy") !== -1 ||
-            msg.indexOf("Privy") !== -1
-          ) {
+            msg.indexOf("Privy") !== -1;
+          if (fromExtension || isWalletError) {
+            event.stopImmediatePropagation();
             event.preventDefault();
-            console.warn("[Privy guard] suppressed:", msg);
           }
         }
-        window.addEventListener("unhandledrejection", privyRejectionGuard, true);
-        window.addEventListener("unhandledrejection", privyRejectionGuard, false);
+        window.addEventListener("unhandledrejection", walletRejectionGuard, true);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
