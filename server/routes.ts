@@ -26,6 +26,16 @@ const ORCID_CLIENT_ID = process.env.ORCID_CLIENT_ID || "";
 const ORCID_CLIENT_SECRET = process.env.ORCID_CLIENT_SECRET || "";
 const ORCID_BASE = "https://orcid.org";
 
+// Derive the ORCID redirect URI from the incoming request host so the same
+// build works on every domain (thepolyp.xyz, pepothepolyp.replit.app, localhost, …).
+// Replit's reverse proxy sets X-Forwarded-Proto; fall back to host-based detection.
+function getOrcidRedirectUri(req: Request): string {
+  const host = req.headers.host || "";
+  const forwarded = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim();
+  const protocol = forwarded || (host.includes("localhost") ? "http" : "https");
+  return `${protocol}://${host}/api/auth/orcid/callback`;
+}
+
 const orcidStateStore = new Map<string, { createdAt: number; mode: "auth" | "link" }>();
 
 // ─── Rate limiters ─────────────────────────────────────────────────────────────
@@ -541,10 +551,7 @@ export async function registerRoutes(
     for (const [k, v] of Array.from(orcidStateStore.entries())) {
       if (Date.now() - v.createdAt > 10 * 60 * 1000) orcidStateStore.delete(k);
     }
-    const host = req.headers.host || "";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const baseUrl = process.env.ORCID_REDIRECT_BASE_URL || `${protocol}://${host}`;
-    const redirectUri = `${baseUrl}/api/auth/orcid/callback`;
+    const redirectUri = getOrcidRedirectUri(req);
     const params = new URLSearchParams({
       client_id: ORCID_CLIENT_ID,
       response_type: "code",
@@ -566,10 +573,7 @@ export async function registerRoutes(
     const stateData = orcidStateStore.get(state)!;
     orcidStateStore.delete(state);
 
-    const host = req.headers.host || "";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const baseUrl = process.env.ORCID_REDIRECT_BASE_URL || `${protocol}://${host}`;
-    const redirectUri = `${baseUrl}/api/auth/orcid/callback`;
+    const redirectUri = getOrcidRedirectUri(req);
 
     try {
       const tokenRes = await fetch(`${ORCID_BASE}/oauth/token`, {
