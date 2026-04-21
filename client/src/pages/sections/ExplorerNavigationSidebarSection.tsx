@@ -256,6 +256,7 @@ function WalletNavItem() {
 // ─── Main sidebar ─────────────────────────────────────────────────────────────
 export const ExplorerNavigationSidebarSection = (): JSX.Element => {
   const [telegramOpen, setTelegramOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [location] = useLocation();
   const isProfile = location === "/profile";
   const isCommunity = location === "/community";
@@ -359,15 +360,23 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
 
       {/* Reef Map */}
       <div className="w-full px-2 pb-2">
-        <div className="flex items-center gap-2 mb-2 px-1">
+        <button
+          data-testid="open-reef-map-popup"
+          onClick={() => setMapOpen(true)}
+          className="flex items-center gap-2 mb-2 px-1 w-full text-left group"
+          style={{ background: "none", border: "none", padding: "0 4px 0 4px", cursor: "pointer" }}
+        >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="#83eef0" strokeWidth="1.8"/>
             <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#83eef0" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
-          <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#83eef0cc] text-[10px] uppercase tracking-widest">
+          <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#83eef0cc] text-[10px] uppercase tracking-widest group-hover:text-[#83eef0] transition-colors flex-1">
             Coral Reef Network Map
           </span>
-        </div>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-40 group-hover:opacity-80 transition-opacity">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         <Suspense
           fallback={
             <div
@@ -378,10 +387,10 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
             </div>
           }
         >
-          <ReefMap compact />
+          <ReefMap compact expanded={mapOpen} onExpandChange={setMapOpen} />
         </Suspense>
         <p className="[font-family:'Inter',Helvetica] text-[#d4e9f344] text-[9px] leading-3 mt-1.5 px-1 text-center">
-          Allen Coral Atlas · members with location sharing
+          Allen Coral Atlas · members with location sharing · click to expand
         </p>
       </div>
 

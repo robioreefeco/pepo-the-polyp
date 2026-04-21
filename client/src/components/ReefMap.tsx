@@ -390,10 +390,21 @@ function LayerToggle({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export function ReefMap({ compact = false }: { compact?: boolean }) {
+export function ReefMap({
+  compact = false,
+  expanded: externalExpanded,
+  onExpandChange,
+}: {
+  compact?: boolean;
+  expanded?: boolean;
+  onExpandChange?: (v: boolean) => void;
+}) {
   const [showGcrmn, setShowGcrmn] = useState(true);
   const [showDhw,   setShowDhw]   = useState(false);
-  const [expanded,  setExpanded]  = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+
+  const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
+  const setExpanded = onExpandChange ?? setInternalExpanded;
 
   const { data: markers = [] } = useQuery<MapMarker[]>({
     queryKey: ["/api/map/markers"],
@@ -416,8 +427,20 @@ export function ReefMap({ compact = false }: { compact?: boolean }) {
           height: compact ? 200 : 280,
           borderRadius: 16,
           border: "1px solid rgba(131,238,240,0.12)",
+          cursor: compact ? "pointer" : "default",
         }}
       >
+        {/* Transparent click-to-expand overlay (compact mode only) */}
+        {compact && (
+          <div
+            data-testid="reef-map-click-overlay"
+            onClick={() => setExpanded(true)}
+            style={{
+              position: "absolute", inset: 0, zIndex: 600,
+              background: "transparent",
+            }}
+          />
+        )}
         <MapContainer
           center={[12, -80]}
           zoom={2}
