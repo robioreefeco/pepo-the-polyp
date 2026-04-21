@@ -5,6 +5,29 @@ import { rateLimit } from "express-rate-limit";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { storage } from "./storage";
 
+// ─── GCRMN regions GeoJSON cache (fetched once from GitHub, valid 24h) ─────────
+let _gcrmnCache: { geojson: object; expiresAt: number } | null = null;
+
+async function fetchGcrmnRegions(): Promise<object> {
+  const now = Date.now();
+  if (_gcrmnCache && now < _gcrmnCache.expiresAt) return _gcrmnCache.geojson;
+
+  const BASE = "https://raw.githubusercontent.com/GCRMN/gcrmn_regions/master/data/gcrmn-regions";
+  const [shpRes, dbfRes] = await Promise.all([
+    fetch(`${BASE}/gcrmn_regions.shp`),
+    fetch(`${BASE}/gcrmn_regions.dbf`),
+  ]);
+  if (!shpRes.ok || !dbfRes.ok) throw new Error("Failed to fetch GCRMN shapefiles");
+
+  const [shpBuf, dbfBuf] = await Promise.all([shpRes.arrayBuffer(), dbfRes.arrayBuffer()]);
+
+  const shapefile = await import("shapefile");
+  const geojson = await shapefile.read(Buffer.from(shpBuf), Buffer.from(dbfBuf));
+
+  _gcrmnCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
 declare module "express-session" {
   interface SessionData {
     orcid?: {
@@ -457,6 +480,18 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[mapMarkers]", err);
       return res.status(500).json({ error: "Failed to fetch markers" });
+    }
+  });
+
+  // GET /api/gcrmn/regions — GCRMN region polygons as GeoJSON (shapefile from GitHub)
+  app.get("/api/gcrmn/regions", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchGcrmnRegions();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[gcrmnRegions]", err);
+      return res.status(500).json({ error: "Failed to fetch GCRMN regions" });
     }
   });
 
