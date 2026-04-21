@@ -32,7 +32,7 @@ export async function getHelia(): Promise<{ helia: Helia; fs: UnixFS }> {
     datastore,
     blockBrokers: [],   // offline mode — no peer-to-peer networking
     routers: [],        // no DHT routing needed
-  } as any);
+  });
 
   _fs = unixfs(_helia);
   console.log("[IPFS] Helia node started (offline mode)");

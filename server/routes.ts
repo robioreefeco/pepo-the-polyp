@@ -406,7 +406,7 @@ export async function registerRoutes(
         avatarCid: sanitizeString(avatarCid, 200) || "",
         ipfsImages: Array.isArray(ipfsImages) ? ipfsImages.slice(0, 50).map(String) : [],
         tags: Array.isArray(tags) ? tags.slice(0, 10).map(String) : [],
-        points: undefined as any, // preserved by DB
+        points: undefined, // preserved by DB default
         isPublic: isPublic !== false,
       });
       return res.json(profile);
