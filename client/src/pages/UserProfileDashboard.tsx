@@ -480,9 +480,12 @@ export function UserProfileDashboard() {
     orcidName: sessionOrcidName,
     profileId: orcidProfileId,
     logout: orcidLogout,
+    isLoading: orcidLoading,
   } = useOrcidAuth();
 
   const authenticated = privyAuthenticated || orcidAuthenticated;
+  // Don't show guest view until both Privy SDK and ORCID session have resolved
+  const fullyReady = ready && !orcidLoading;
 
   function logout() {
     if (orcidAuthenticated) orcidLogout();
@@ -628,7 +631,15 @@ export function UserProfileDashboard() {
         await fetch("/api/profiles/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ displayName, bio, location, website, tags: selectedTags }),
+          body: JSON.stringify({
+            displayName,
+            bio,
+            location,
+            website,
+            tags: selectedTags,
+            avatarUrl: profileImage || "",
+            isPublic: true,
+          }),
         });
         queryClient.invalidateQueries({ queryKey: ["/api/profiles", activeProfileId] });
         queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
@@ -698,7 +709,7 @@ export function UserProfileDashboard() {
 
         {/* Content */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 py-8 flex flex-col gap-6 pb-24">
-          {!ready ? (
+          {!fullyReady ? (
             <div className="flex items-center justify-center py-20">
               <div className="w-8 h-8 rounded-full border-2 border-[#83eef0] border-t-transparent animate-spin" />
             </div>
