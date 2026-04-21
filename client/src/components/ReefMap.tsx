@@ -113,11 +113,10 @@ function ExpandedMapModal({
   onClose: () => void;
 }) {
   const [showGcrmn, setShowGcrmn] = useState(true);
-  const [showDhw,   setShowDhw]   = useState(false);
   const [showAca,   setShowAca]   = useState(true);
 
   const orcidCount = markers.filter((m) => !!m.orcidId).length;
-  const activeLayers = (showGcrmn ? 1 : 0) + (showDhw ? 1 : 0) + (showAca ? 1 : 0) + 1; // +1 basemap
+  const activeLayers = (showGcrmn ? 1 : 0) + (showAca ? 1 : 0) + 1; // +1 basemap
 
   return createPortal(
     <div
@@ -200,17 +199,6 @@ function ExpandedMapModal({
                 attribution="© Allen Coral Atlas"
               />
             )}
-            {showDhw && (
-              <WMSTileLayer
-                url="https://coastwatch.pfeg.noaa.gov/erddap/wms/NOAA_DHW/request"
-                layers="NOAA_DHW:CRW_DHW"
-                format="image/png"
-                transparent={true}
-                opacity={0.65}
-                version="1.3.0"
-                attribution="NOAA CRW"
-              />
-            )}
             {showGcrmn && gcrmnGeoJson && (
               <GeoJSON
                 key="gcrmn-expanded"
@@ -264,14 +252,6 @@ function ExpandedMapModal({
               color="#48dbfb"
               onClick={() => setShowAca((v) => !v)}
               testId="expanded-toggle-aca"
-            />
-            <LayerToggle
-              label="🌡 Degree Heating Weeks"
-              sublabel="NOAA CRW thermal stress"
-              active={showDhw}
-              color="#e05555"
-              onClick={() => setShowDhw((v) => !v)}
-              testId="expanded-toggle-dhw"
             />
           </SideSection>
 
@@ -400,7 +380,6 @@ export function ReefMap({
   onExpandChange?: (v: boolean) => void;
 }) {
   const [showGcrmn, setShowGcrmn] = useState(true);
-  const [showDhw,   setShowDhw]   = useState(false);
   const [internalExpanded, setInternalExpanded] = useState(false);
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
@@ -463,17 +442,6 @@ export function ReefMap({
             version="1.1.1"
             attribution="© Allen Coral Atlas"
           />
-          {showDhw && (
-            <WMSTileLayer
-              url="https://coastwatch.pfeg.noaa.gov/erddap/wms/NOAA_DHW/request"
-              layers="NOAA_DHW:CRW_DHW"
-              format="image/png"
-              transparent={true}
-              opacity={0.65}
-              version="1.3.0"
-              attribution="NOAA CRW"
-            />
-          )}
           {showGcrmn && gcrmnGeoJson && (
             <GeoJSON
               key="gcrmn"
@@ -518,19 +486,6 @@ export function ReefMap({
             }}
           >
             GCRMN
-          </button>
-          <button
-            data-testid="toggle-dhw-layer"
-            onClick={() => setShowDhw((v) => !v)}
-            style={{
-              background: showDhw ? "rgba(220,50,50,0.85)" : "rgba(0,19,28,0.75)",
-              border: `1px solid ${showDhw ? "#e05555" : "rgba(220,80,80,0.4)"}`,
-              borderRadius: 6, padding: "2px 7px", fontSize: 9,
-              color: showDhw ? "#fff" : "#e05555cc",
-              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
-            }}
-          >
-            🌡 DHW
           </button>
         </div>
 
