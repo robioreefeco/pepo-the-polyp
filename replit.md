@@ -9,77 +9,123 @@ A full-stack DeSci/marine conservation web app for MesoReef DAO. Pepo is an AI g
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 - **Backend**: Express 5 + TypeScript (served on port 5000)
 - **Database**: PostgreSQL via Drizzle ORM
-- **Auth**: Privy.io (wallet/email/social login) — conditionally loaded when `VITE_PRIVY_APP_ID` is set
+- **Auth (primary)**: ORCID OAuth2 — standalone login; session stored server-side via express-session
+- **Auth (secondary)**: Privy.io (wallet/email/social) — conditionally loaded when `VITE_PRIVY_APP_ID` is set
 - **Knowledge Graph**: Bonfires.ai (`https://pepo.app.bonfires.ai`) proxied server-side
-- **Multi-Source Knowledge**: Six parallel knowledge sources fused into every chat response:
-  1. **Pepo Knowledge Graph** (Bonfires.ai) — 165+ community research episodes from the Telegram bot
-  2. **@PepothePolyp_bot Taxonomy** — 10 curated knowledge categories extracted from 165 Telegram bot episodes; keywords match the user query to surface the right category; live-refreshed from Bonfires every 60 min
-  3. **Scientific Journals** (OpenAlex + Europe PMC) — peer-reviewed papers from Nature, Science, Frontiers, PLOS ONE, Global Change Biology, PeerJ, PNAS, Royal Society, and thousands more — free API, no key required, results cached 15 min; coral-reef-only filtering (title/abstract relevance guard + medical/human biology exclusion list)
-  4. **Wikipedia** — scientific reference summaries; keyword extracted + cached 10 min
-  5. **MesoReefDAO Documentation** — curated DAO knowledge (mission, programs, tech stack)
-  6. **Memento Mori** — curated knowledge from https://github.com/robioreefeco/memento-mori — permadeath MUD / DeSci game by robioreefeco; covers architecture (CrewAI engine, FastAPI gateway, TypeScript/Bun client, Bonfires KG, Redstone L2), game design (permadeath, onchain state, NPC agents), and its DeSci-gaming connection to MesoReefDAO. Triggered by keywords: game, MUD, permadeath, CrewAI, memento, mori, NPC, quest, dungeon, robioreefeco, etc.
+
+### Multi-Source Knowledge
+Six parallel knowledge sources fused into every chat response:
+1. **Pepo Knowledge Graph** (Bonfires.ai) — 165+ community research episodes from the Telegram bot
+2. **@PepothePolyp_bot Taxonomy** — 10 curated knowledge categories extracted from 165 Telegram bot episodes; keywords match the user query to surface the right category; live-refreshed from Bonfires every 60 min
+3. **Scientific Journals** (OpenAlex + Europe PMC) — peer-reviewed papers; coral-reef-only filtering; results cached 15 min
+4. **Wikipedia** — scientific reference summaries; keyword extracted + cached 10 min
+5. **MesoReefDAO Documentation** — curated DAO knowledge (mission, programs, tech stack)
+6. **Memento Mori** — curated knowledge from https://github.com/robioreefeco/memento-mori
 
 ### Key directories
 ```
 client/src/
   pages/
-    Body.tsx                          — Main layout (header + sidebar + dashboard)
-    CommunityLeaderboard.tsx          — Community page: Leaderboard (left) + Profile cards (right)
-    UserProfileDashboard.tsx          — My Profile edit page
+    Body.tsx                              — Main layout (header + sidebar + dashboard)
+    CommunityLeaderboard.tsx              — Community page: Leaderboard (left) + Profile cards (right); rows/cards are clickable divs navigating to /members/:id
+    PublicProfile.tsx                     — Public member profile at /members/:id; shows avatar, bio, ORCID badge, stats, activity feed
+    UserProfileDashboard.tsx              — My Profile edit page (bio, tags, links, ORCID linking)
     sections/
-      ApplicationHeaderSection.tsx    — Top nav with Privy auth button
+      ApplicationHeaderSection.tsx        — Top nav with Privy auth button
       ExplorerNavigationSidebarSection.tsx — Sidebar with nav, Telegram bot link
-      ReefInsightDashboardSection.tsx  — Bonfires Knowledge Graph iframe + Telegram Bot panel
+      ReefInsightDashboardSection.tsx      — Bonfires Knowledge Graph iframe + Telegram Bot panel
   components/
-    PrivyLoginButton.tsx              — Calls login() for Privy's native modal (Email/Google/X/LinkedIn/Wallet)
+    PrivyLoginButton.tsx                  — Calls login() for Privy's native modal
+    OrcidLoginButton.tsx                  — ORCID OAuth login button (redirects to /api/auth/orcid)
   hooks/
-    use-profile-sync.ts               — Auto-syncs Privy user to DB on login; awards first-login bonus points
+    use-profile-sync.ts                   — Auto-syncs Privy user to DB on login; awards first-login bonus points
   lib/
-    privy.ts                          — PRIVY_ENABLED / PRIVY_APP_ID constants
+    privy.ts                              — PRIVY_ENABLED / PRIVY_APP_ID constants
 server/
-  routes.ts                           — /api/chat, /api/graph, /api/leaderboard, /api/profiles, /api/contributions
-  storage.ts                          — DbStorage: profiles, contributions, leaderboard CRUD via Drizzle
-  db.ts                               — Drizzle + pg Pool connection
-  index.ts                            — Express server entry
+  routes.ts                               — All API routes; includes ORCID OAuth flow with dynamic redirect URI
+  storage.ts                              — DbStorage: profiles, contributions, leaderboard CRUD via Drizzle
+  db.ts                                   — Drizzle + pg Pool connection
+  index.ts                                — Express server entry
 shared/
-  schema.ts                           — Drizzle DB schema: users, profiles, contributions, LeaderboardEntry
-client/public/figmaAssets/            — Exported Figma assets (SVGs, PNGs)
+  schema.ts                               — Drizzle DB schema: users, profiles, contributions, LeaderboardEntry
+client/public/figmaAssets/                — Exported Figma assets (SVGs, PNGs)
 ```
+
+## Auth: ORCID OAuth2
+
+ORCID is the **primary** standalone auth method (no Privy required).
+
+### Flow
+1. User clicks "Login with ORCID" → GET `/api/auth/orcid?mode=auth`
+2. Server builds ORCID authorization URL with `redirect_uri` derived dynamically from the incoming request host (supports `thepolyp.xyz`, `pepothepolyp.replit.app`, and `localhost` with a single build)
+3. ORCID redirects to GET `/api/auth/orcid/callback?code=...&state=...`
+4. Server exchanges code for access token + ORCID iD, creates/updates profile, stores session
+5. Redirect to `/profile`
+
+### Profile ID format
+- Privy users: `did:privy:xxx`
+- ORCID-only users: `orcid:0000-0000-0000-0000`
+- URL-encode with `encodeURIComponent` when linking to `/members/:id`
+
+### ORCID app registration (orcid.org/developer-tools)
+App ID: `APP-7ZOOJ6V1LVQD5MBX`
+
+Registered redirect URIs:
+- `https://thepolyp.xyz/api/auth/orcid/callback`
+- `https://pepothepolyp.replit.app/api/auth/orcid/callback`
+
+## Auth: Privy.io
+
+- App ID: `cmnysfvqe00ff0cjmh15ba116`
+- Login methods: wallet, email, Google, Twitter, LinkedIn
+- EVM-only chains: mainnet, polygon, base, arbitrum, optimism, avalanche
+- `showWalletUIs: true` enables embedded wallet key export
+- Conditionally active — set `VITE_PRIVY_APP_ID` to enable
 
 ## Contribution Points System
 
-- **First login**: +50 points (awarded once via `/api/profiles/sync`)
-- **Asking a question**: +10 points per day per user (via `POST /api/contributions`)
+| Action | Points |
+|--------|--------|
+| First login | +50 |
+| Asking a question | +10 (once per day per user) |
+| Linking ORCID iD | +25 (once) |
+
 - Leaderboard auto-refreshes every 30 seconds on the Community page
-- Points stored persistently in PostgreSQL `profiles.points` column (updated atomically with each contribution)
+- Points stored persistently in PostgreSQL `profiles.points`
 
 ## Environment Variables / Secrets
 
-| Key | Where | Purpose |
-|-----|-------|---------|
-| `PEPO_API_KEY` | Secret | Authenticates calls to Bonfires.ai API |
-| `PRIVY_APP_ID` | Secret | Privy server-side app ID |
-| `VITE_PRIVY_APP_ID` | Env var (shared) | Privy app ID for the browser client |
-| `DATABASE_URL` | Secret (Replit) | PostgreSQL connection string |
-| `SESSION_SECRET` | Secret (Replit) | Express session secret |
-
-**Note**: If `VITE_PRIVY_APP_ID` is not set, the app runs without Privy auth (login button links to dashboard.privy.io).
+| Key | Purpose |
+|-----|---------|
+| `PEPO_API_KEY` | Authenticates calls to Bonfires.ai API |
+| `ORCID_CLIENT_ID` | ORCID OAuth2 client ID |
+| `ORCID_CLIENT_SECRET` | ORCID OAuth2 client secret |
+| `PRIVY_APP_SECRET` | Privy server-side secret |
+| `VITE_PRIVY_APP_ID` | Privy app ID for the browser client |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SESSION_SECRET` | Express session secret |
 
 ## API Endpoints (all prefixed `/api`)
 
 | Route | Method | Description |
 |-------|--------|-------------|
+| `/api/chat` | POST `{ message }` | Sends chat message to Pepo AI |
 | `/api/graph` | GET | Fetches full knowledge graph from Bonfires.ai |
 | `/api/graph/search` | POST `{ query }` | Searches the knowledge graph |
-| `/api/chat` | POST `{ message }` | Sends a chat message to Pepo AI |
 | `/api/stats` | GET | Returns network health stats |
+| `/api/leaderboard` | GET | Returns ranked list of members |
+| `/api/profiles/me` | GET | Returns current user's profile |
+| `/api/profiles/sync` | POST | Syncs Privy user to DB; awards first-login points |
+| `/api/profiles/update` | POST | Updates bio, tags, links, etc. |
+| `/api/profiles/orcid` | POST `{ orcidId, orcidName }` | Links ORCID iD to authenticated user |
+| `/api/profiles/:id` | GET | Public profile by member ID |
+| `/api/contributions` | POST `{ type, description }` | Records a contribution and awards points |
+| `/api/auth/orcid` | GET | Initiates ORCID OAuth2 flow |
+| `/api/auth/orcid/callback` | GET | ORCID OAuth2 callback (exchanges code for token) |
+| `/api/auth/orcid/session` | GET | Returns current ORCID session |
+| `/api/auth/orcid/logout` | POST | Destroys ORCID session |
 
-## Integrations
-
-### Privy.io (Auth)
-- Supports: email, Google, X/Twitter, LinkedIn, wallet login
-- Conditionally active — set `VITE_PRIVY_APP_ID` to enable
-- Get your App ID at: https://dashboard.privy.io
+## External Integrations
 
 ### Bonfires.ai Knowledge Graph
 - Base URL: `https://pepo.app.bonfires.ai`
@@ -90,6 +136,10 @@ client/public/figmaAssets/            — Exported Figma assets (SVGs, PNGs)
 - Bot: @PepothePolyp_bot
 - URL: https://t.me/PepothePolyp_bot
 - Linked from the sidebar's "Telegram Bot" section
+
+### GitHub
+- Repo: `github.com/robioreefeco/pepo-the-polyp`
+- Push via GitHub integration (`listConnections('github')` in code_execution)
 
 ## Running the App
 ```bash
