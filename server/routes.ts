@@ -178,7 +178,7 @@ export async function registerRoutes(
   // GET /api/ipfs/cat/:cid — serve a file from the local Helia blockstore
   app.get("/api/ipfs/cat/:cid", async (req: Request, res: Response) => {
     try {
-      const bytes = await getIPFSBytes(req.params.cid);
+      const bytes = await getIPFSBytes(String(req.params.cid));
       if (!bytes) return res.status(404).json({ error: "CID not found in local store" });
       // Detect content type from magic bytes
       let contentType = "application/octet-stream";
@@ -592,6 +592,8 @@ export async function registerRoutes(
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (!profileId) return res.status(401).json({ error: "Unauthorized" });
+
     const { type = "question", description = "" } = req.body;
     const allowed = ["question", "resource", "answer", "verification"];
     if (!allowed.includes(type)) return res.status(400).json({ error: "Invalid contribution type" });
@@ -628,6 +630,8 @@ export async function registerRoutes(
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (!profileId) return res.status(401).json({ error: "Unauthorized" });
+
     try {
       const alreadyToday = await storage.hasContributionToday(profileId, "clean");
       if (alreadyToday) {
@@ -654,6 +658,8 @@ export async function registerRoutes(
     } else {
       return res.json({ alreadyClaimed: false });
     }
+
+    if (!profileId) return res.json({ alreadyClaimed: false });
 
     try {
       const alreadyClaimed = await storage.hasContributionToday(profileId, "clean");
