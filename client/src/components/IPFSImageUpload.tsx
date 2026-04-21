@@ -67,8 +67,8 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
       const r = await uploadImageToIPFS(file);
       setResult(r);
       onUpload?.(r);
-    } catch (e: any) {
-      setError(e.message || "Upload failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
