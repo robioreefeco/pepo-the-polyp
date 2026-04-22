@@ -392,7 +392,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
             <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#83eef0" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#83eef0cc] text-[10px] uppercase tracking-widest group-hover:text-[#83eef0] transition-colors flex-1">
-            Coral Reef Network Map
+            Regen Reef Network Map
           </span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-40 group-hover:opacity-80 transition-opacity">
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

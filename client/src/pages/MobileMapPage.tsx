@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, BadgeCheck, Globe, Layers } from "lucide-react";
+import { ArrowLeft, Users, Globe, Layers } from "lucide-react";
 
 const ReefMap = lazy(() => import("@/components/ReefMap").then((m) => ({ default: m.ReefMap })));
 
@@ -68,8 +68,6 @@ export function MobileMapPage() {
     refetchInterval: 60_000,
   });
 
-  const orcidCount = markers.filter((m) => !!m.orcidId).length;
-
   return (
     <div
       style={{
@@ -102,7 +100,7 @@ export function MobileMapPage() {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "#83eef0", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-            Coral Reef Network Map
+            Regen Reef Network Map
           </div>
           <div style={{ fontSize: 9.5, color: "#d4e9f355", marginTop: 1 }}>
             Esri Ocean · Allen Coral Atlas · GCRMN · NOAA CRW
@@ -129,7 +127,6 @@ export function MobileMapPage() {
         flexShrink: 0,
       }}>
         <MetricCard icon={<Users size={14} color="#83eef0"/>} value={markers.length} label="Members" color="#83eef0" />
-        <MetricCard icon={<BadgeCheck size={14} color="#A6CE39"/>} value={orcidCount} label="Verified" color="#A6CE39" />
         <MetricCard icon={<Globe size={14} color="#1dd1a1"/>} value={10} label="GCRMN Zones" color="#1dd1a1" />
         <MetricCard icon={<Layers size={14} color="#c56cf0"/>} value={3} label="Active Layers" color="#c56cf0" />
       </div>
@@ -176,10 +173,6 @@ export function MobileMapPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ width: 13, height: 13, borderRadius: "50%", background: "#83eef0", border: "2px solid #83eef0", display: "inline-block" }}/>
                 <span style={{ fontSize: 11, color: "#d4e9f3bb" }}>DAO Member</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 13, height: 13, borderRadius: "50%", background: "#83eef0", border: "2.5px solid #A6CE39", display: "inline-block" }}/>
-                <span style={{ fontSize: 11, color: "#d4e9f3bb" }}>ORCID Verified</span>
               </div>
             </div>
 

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Maximize2, X, Users, BadgeCheck, Globe, Layers, Camera } from "lucide-react";
+import { Maximize2, X, Users, Globe, Layers, Camera } from "lucide-react";
 import type { Feature } from "geojson";
 
 // ─── Fix Leaflet default icon paths broken by Vite ────────────────────────────
@@ -42,8 +42,7 @@ const GCRMN_LONG: Record<string, string> = {
 };
 
 // ─── Custom coral-teal member pin ─────────────────────────────────────────────
-function makePin(hasOrcid = false) {
-  const border = hasOrcid ? "#A6CE39" : "#83eef0";
+function makePin() {
   return L.divIcon({
     className: "",
     iconSize: [22, 22],
@@ -52,7 +51,7 @@ function makePin(hasOrcid = false) {
     html: `<div style="
       width:22px;height:22px;border-radius:50%;
       background:#83eef0;
-      border:2.5px solid ${border};
+      border:2.5px solid #83eef0;
       box-shadow:0 0 6px #83eef088, 0 2px 6px #00000055;
     "></div>`,
   });
@@ -184,7 +183,6 @@ function ExpandedMapModal({
   const [showAca,   setShowAca]   = useState(true);
   const [showImgs,  setShowImgs]  = useState(true);
 
-  const orcidCount = markers.filter((m) => !!m.orcidId).length;
   const activeLayers = (showGcrmn ? 1 : 0) + (showAca ? 1 : 0) + (showImgs ? 1 : 0) + 1;
 
   return createPortal(
@@ -211,13 +209,12 @@ function ExpandedMapModal({
             <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#83eef0" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <span style={{ color: "#83eef0", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Coral Reef Network Map
+            Regen Reef Network Map
           </span>
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <MetricChip icon={<Users size={11} color="#83eef0"/>} label={`${markers.length} Members`} color="#83eef0"/>
-          <MetricChip icon={<BadgeCheck size={11} color="#A6CE39"/>} label={`${orcidCount} Verified`} color="#A6CE39"/>
           <MetricChip icon={<Camera size={11} color="#ff9f43"/>} label={`${reefImgs.length} Photos`} color="#ff9f43"/>
           <MetricChip icon={<Globe size={11} color="#1dd1a1"/>} label={`${Object.keys(GCRMN_COLORS).length} GCRMN Regions`} color="#1dd1a1"/>
           <MetricChip icon={<Layers size={11} color="#c56cf0"/>} label={`${activeLayers} Active Layers`} color="#c56cf0"/>
@@ -274,13 +271,10 @@ function ExpandedMapModal({
               />
             )}
             {markers.map((m) => (
-              <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin(!!m.orcidId)}>
+              <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin()}>
                 <Popup>
                   <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11 }}>
-                    {m.orcidId
-                      ? <span style={{ color: "#A6CE39", fontWeight: 600 }}>✓ ORCID Verified Researcher</span>
-                      : <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
-                    }
+                    <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
                   </div>
                 </Popup>
               </Marker>
@@ -353,10 +347,6 @@ function ExpandedMapModal({
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:11,height:11,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>DAO Member</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:11,height:11,borderRadius:"50%",background:"#83eef0",border:"2px solid #A6CE39",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>ORCID Verified Researcher</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
@@ -533,13 +523,10 @@ export function ReefMap({
             />
           )}
           {markers.map((m) => (
-            <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin(!!m.orcidId)}>
+            <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin()}>
               <Popup>
                 <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11 }}>
-                  {m.orcidId
-                    ? <span style={{ color: "#A6CE39", fontWeight: 600 }}>✓ ORCID Verified Researcher</span>
-                    : <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
-                  }
+                  <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
                 </div>
               </Popup>
             </Marker>
@@ -621,10 +608,6 @@ export function ReefMap({
           <div className="flex items-center gap-1.5">
             <span style={{ width:9,height:9,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>
             <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>Member</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span style={{ width:9,height:9,borderRadius:"50%",background:"#83eef0",border:"2px solid #A6CE39",display:"inline-block" }}/>
-            <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>ORCID verified</span>
           </div>
           {showImgs && reefImgs.length > 0 && (
             <div className="flex items-center gap-1.5">

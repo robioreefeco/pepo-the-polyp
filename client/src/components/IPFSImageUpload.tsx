@@ -156,7 +156,7 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ fontSize: 14 }}>🪸</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: "#ffb347" }}>
-            Pin this image to the Coral Reef Network Map?
+            Pin this image to the Regen Reef Network Map?
           </span>
         </div>
         <p style={{ fontSize: 10.5, color: "#d4e9f377", margin: 0, lineHeight: 1.5 }}>
@@ -280,7 +280,7 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
         <span style={{ fontSize: 14 }}>🌊</span>
         <div>
           <span style={{ fontSize: 11, fontWeight: 700, color: "#1dd1a1" }}>
-            Pinned to the Coral Reef Network Map!
+            Pinned to the Regen Reef Network Map!
           </span>
           <p style={{ fontSize: 10, color: "#83eef066", margin: "2px 0 0" }}>
             Your image is now publicly visible as a reef map marker.
