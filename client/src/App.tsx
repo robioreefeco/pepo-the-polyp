@@ -81,6 +81,7 @@ function App() {
           appearance: {
             theme: "dark",
             accentColor: "#83eef0",
+            logo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
             landingHeader: "Sign in to MesoReef DAO",
             loginMessage: "Access the Coral Reef Knowledge Network",
             walletChainType: "ethereum-only",
