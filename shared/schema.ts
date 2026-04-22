@@ -66,6 +66,24 @@ export const insertContributionSchema = createInsertSchema(contributions).omit({
 export type InsertContribution = z.infer<typeof insertContributionSchema>;
 export type Contribution = typeof contributions.$inferSelect;
 
+// ─── Reef Images (IPFS-pinned images with geo-coordinates) ────────────────────
+export const reefImages = pgTable("reef_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cid: text("cid").notNull(),
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  title: text("title").notNull().default(""),
+  profileId: varchar("profile_id"),
+  createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
+});
+
+export const insertReefImageSchema = createInsertSchema(reefImages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertReefImage = z.infer<typeof insertReefImageSchema>;
+export type ReefImage = typeof reefImages.$inferSelect;
+
 // ─── Leaderboard (aggregated view) ────────────────────────────────────────────
 export interface LeaderboardEntry {
   id: string;

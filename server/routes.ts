@@ -555,6 +555,57 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/reef-images — public; returns all geo-tagged IPFS images for the map
+  app.get("/api/reef-images", async (_req: Request, res: Response) => {
+    try {
+      const images = await storage.getReefImages();
+      return res.json(images);
+    } catch (err) {
+      console.error("[reefImages GET]", err);
+      return res.status(500).json({ error: "Failed to fetch reef images" });
+    }
+  });
+
+  // POST /api/reef-images — pin an IPFS image with coordinates (auth optional for attribution)
+  app.post("/api/reef-images", generalLimiter, async (req: Request, res: Response) => {
+    const { cid, latitude, longitude, title = "" } = req.body;
+    if (!cid || typeof cid !== "string" || cid.trim().length === 0) {
+      return res.status(400).json({ error: "cid is required" });
+    }
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      return res.status(400).json({ error: "Invalid latitude" });
+    }
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+      return res.status(400).json({ error: "Invalid longitude" });
+    }
+
+    // Optional auth — attach profileId if a valid token is present
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (verify.valid) profileId = verify.userId!;
+    } else if ((req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    }
+
+    try {
+      const img = await storage.createReefImage({
+        cid: cid.trim(),
+        latitude: lat,
+        longitude: lon,
+        title: String(title).slice(0, 120),
+        profileId: profileId ?? undefined,
+      });
+      return res.status(201).json(img);
+    } catch (err) {
+      console.error("[reefImages POST]", err);
+      return res.status(500).json({ error: "Failed to save reef image" });
+    }
+  });
+
   // GET /api/gcrmn/regions — GCRMN region polygons as GeoJSON (shapefile from GitHub)
   app.get("/api/gcrmn/regions", async (_req: Request, res: Response) => {
     try {

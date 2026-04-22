@@ -1,11 +1,12 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, profiles, contributions,
+  users, profiles, contributions, reefImages,
   type User, type InsertUser,
   type Profile, type InsertProfile,
   type Contribution, type InsertContribution,
   type LeaderboardEntry,
+  type ReefImage, type InsertReefImage,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -38,6 +39,10 @@ export interface IStorage {
   // Geolocation
   saveLocation(profileId: string, latitude: number, longitude: number): Promise<Profile>;
   getMapMarkers(): Promise<{ id: string; displayName: string; avatarUrl: string; latitude: number; longitude: number; orcidId: string }[]>;
+
+  // Reef Images
+  createReefImage(data: InsertReefImage): Promise<ReefImage>;
+  getReefImages(): Promise<ReefImage[]>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -197,6 +202,20 @@ export class DbStorage implements IStorage {
         longitude: r.longitude as number,
         orcidId: r.orcidId,
       }));
+  }
+
+  // ── Reef Images ───────────────────────────────────────────────────────────
+  async createReefImage(data: InsertReefImage): Promise<ReefImage> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .insert(reefImages)
+      .values({ ...data, id: randomUUID(), createdAt: now })
+      .returning();
+    return row;
+  }
+
+  async getReefImages(): Promise<ReefImage[]> {
+    return db.select().from(reefImages).orderBy(desc(reefImages.createdAt));
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────

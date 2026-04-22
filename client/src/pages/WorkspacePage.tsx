@@ -1,9 +1,12 @@
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, ExternalLink, FileText, Table2, Lock, Globe, Zap, Users, ImageIcon } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 import { IPFSImageUpload } from "@/components/IPFSImageUpload";
 import { ipfsPublicUrl } from "@/lib/ipfs";
 import { FileverseWorkspacePanel } from "@/components/FileverseWorkspacePanel";
+
+const PRIVY_ENABLED = !!import.meta.env.VITE_PRIVY_APP_ID;
 
 const TOOLS = [
   {
@@ -39,6 +42,16 @@ const PRINCIPLES = [
 
 export function WorkspacePage() {
   const [archivedImages, setArchivedImages] = useState<{ cid: string; localUrl: string; mimeType: string }[]>([]);
+  const [privyToken, setPrivyToken] = useState<string | undefined>(undefined);
+
+  const { authenticated, getAccessToken } = PRIVY_ENABLED
+    ? usePrivy()
+    : { authenticated: false, getAccessToken: async () => null as string | null };
+
+  useEffect(() => {
+    if (!authenticated) return;
+    getAccessToken().then((t) => { if (t) setPrivyToken(t); }).catch(() => {});
+  }, [authenticated]);
 
   function handleArchiveUpload(result: { cid: string; localUrl: string; mimeType: string }) {
     setArchivedImages(prev => {
@@ -264,6 +277,8 @@ export function WorkspacePage() {
           <IPFSImageUpload
             label="Add reef image to IPFS"
             onUpload={handleArchiveUpload}
+            showMapPin={true}
+            privyToken={privyToken}
           />
 
           {/* Uploaded images grid */}

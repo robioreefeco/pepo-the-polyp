@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { uploadImageToIPFS, ipfsImageUrl, ipfsPublicUrl } from "@/lib/ipfs";
+import { queryClient } from "@/lib/queryClient";
 
 interface IPFSUploadResult {
   cid: string;
@@ -15,7 +16,11 @@ interface IPFSImageUploadProps {
   currentCid?: string;
   label?: string;
   compact?: boolean;
+  showMapPin?: boolean;
+  privyToken?: string;
 }
+
+type PinState = "idle" | "asking" | "locating" | "manual" | "pinned" | "skipped" | "error";
 
 function CopyIcon() {
   return (
@@ -34,17 +39,68 @@ function ExternalLinkIcon() {
   );
 }
 
-export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSImageUploadProps) {
+export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapPin, privyToken }: IPFSImageUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<IPFSUploadResult | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [pinState, setPinState] = useState<PinState>("idle");
+  const [manualLat, setManualLat] = useState("");
+  const [manualLon, setManualLon] = useState("");
+  const [pinError, setPinError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const activeCid = result?.cid ?? currentCid ?? "";
   const previewSrc = preview || (activeCid ? ipfsImageUrl(activeCid) : "");
+
+  async function submitPin(cid: string, lat: number, lon: number) {
+    setPinError("");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (privyToken) headers["x-privy-token"] = privyToken;
+    try {
+      const res = await fetch("/api/reef-images", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ cid, latitude: lat, longitude: lon }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      queryClient.invalidateQueries({ queryKey: ["/api/reef-images"] });
+      setPinState("pinned");
+    } catch {
+      setPinError("Couldn't pin to map. Try again.");
+      setPinState("error");
+    }
+  }
+
+  function requestGeolocation(cid: string) {
+    setPinState("locating");
+    if (!navigator.geolocation) {
+      setPinState("manual");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => submitPin(cid, pos.coords.latitude, pos.coords.longitude),
+      () => setPinState("manual"),
+      { timeout: 10000 }
+    );
+  }
+
+  function handleManualSubmit(cid: string) {
+    const lat = parseFloat(manualLat);
+    const lon = parseFloat(manualLon);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      setPinError("Latitude must be between -90 and 90");
+      return;
+    }
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+      setPinError("Longitude must be between -180 and 180");
+      return;
+    }
+    submitPin(cid, lat, lon);
+  }
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -56,8 +112,8 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
       return;
     }
     setError("");
+    setPinState("idle");
 
-    // Show local preview immediately
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target?.result as string);
     reader.readAsDataURL(file);
@@ -67,12 +123,13 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
       const r = await uploadImageToIPFS(file);
       setResult(r);
       onUpload?.(r);
+      if (showMapPin) setPinState("asking");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
-  }, [onUpload]);
+  }, [onUpload, showMapPin]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -87,6 +144,169 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── Map Pin UI ─────────────────────────────────────────────────────────────
+  function MapPinSection({ cid }: { cid: string }) {
+    if (pinState === "idle") return null;
+
+    if (pinState === "asking") return (
+      <div style={{
+        background: "rgba(255,159,67,0.07)", border: "1px solid rgba(255,159,67,0.28)",
+        borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: 14 }}>🪸</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#ffb347" }}>
+            Pin this image to the Coral Reef Network Map?
+          </span>
+        </div>
+        <p style={{ fontSize: 10.5, color: "#d4e9f377", margin: 0, lineHeight: 1.5 }}>
+          Your image will appear as a public marker on the map — visible to all visitors.
+          Your precise location is only used to place the pin and is never shared beyond that.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            data-testid="pin-use-location"
+            onClick={() => requestGeolocation(cid)}
+            style={{
+              background: "rgba(255,159,67,0.18)", border: "1px solid rgba(255,159,67,0.45)",
+              borderRadius: 8, padding: "7px 14px", cursor: "pointer",
+              fontSize: 11, fontWeight: 700, color: "#ffb347",
+              display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            📍 Allow location access
+          </button>
+          <button
+            data-testid="pin-enter-manual"
+            onClick={() => setPinState("manual")}
+            style={{
+              background: "transparent", border: "1px solid rgba(131,238,240,0.2)",
+              borderRadius: 8, padding: "7px 12px", cursor: "pointer",
+              fontSize: 11, color: "#83eef088",
+            }}
+          >
+            Enter coordinates manually
+          </button>
+          <button
+            data-testid="pin-skip"
+            onClick={() => setPinState("skipped")}
+            style={{
+              background: "transparent", border: "none",
+              borderRadius: 8, padding: "7px 10px", cursor: "pointer",
+              fontSize: 11, color: "#83eef044",
+            }}
+          >
+            Skip
+          </button>
+        </div>
+      </div>
+    );
+
+    if (pinState === "locating") return (
+      <div style={{
+        background: "rgba(255,159,67,0.07)", border: "1px solid rgba(255,159,67,0.28)",
+        borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
+      }}>
+        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid #ffb347", borderTopColor: "transparent", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: "#ffb347" }}>Requesting location…</span>
+      </div>
+    );
+
+    if (pinState === "manual") return (
+      <div style={{
+        background: "rgba(255,159,67,0.07)", border: "1px solid rgba(255,159,67,0.28)",
+        borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: 14 }}>🗺️</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#ffb347" }}>Enter reef coordinates</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            data-testid="pin-lat-input"
+            value={manualLat}
+            onChange={e => setManualLat(e.target.value)}
+            placeholder="Latitude (e.g. 17.5)"
+            style={{
+              flex: 1, background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+              borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+              fontFamily: "Inter, sans-serif",
+            }}
+          />
+          <input
+            data-testid="pin-lon-input"
+            value={manualLon}
+            onChange={e => setManualLon(e.target.value)}
+            placeholder="Longitude (e.g. -87.3)"
+            style={{
+              flex: 1, background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+              borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+              fontFamily: "Inter, sans-serif",
+            }}
+          />
+        </div>
+        {pinError && <p style={{ fontSize: 10.5, color: "#ff8888", margin: 0 }}>{pinError}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            data-testid="pin-submit-manual"
+            onClick={() => handleManualSubmit(cid)}
+            style={{
+              background: "rgba(255,159,67,0.18)", border: "1px solid rgba(255,159,67,0.45)",
+              borderRadius: 8, padding: "7px 14px", cursor: "pointer",
+              fontSize: 11, fontWeight: 700, color: "#ffb347",
+            }}
+          >
+            Pin to map
+          </button>
+          <button
+            onClick={() => setPinState("skipped")}
+            style={{
+              background: "transparent", border: "none",
+              borderRadius: 8, padding: "7px 10px", cursor: "pointer",
+              fontSize: 11, color: "#83eef044",
+            }}
+          >
+            Skip
+          </button>
+        </div>
+      </div>
+    );
+
+    if (pinState === "pinned") return (
+      <div style={{
+        background: "rgba(29,209,161,0.07)", border: "1px solid rgba(29,209,161,0.3)",
+        borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 9,
+      }}>
+        <span style={{ fontSize: 14 }}>🌊</span>
+        <div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#1dd1a1" }}>
+            Pinned to the Coral Reef Network Map!
+          </span>
+          <p style={{ fontSize: 10, color: "#83eef066", margin: "2px 0 0" }}>
+            Your image is now publicly visible as a reef map marker.
+          </p>
+        </div>
+      </div>
+    );
+
+    if (pinState === "error") return (
+      <div style={{
+        background: "rgba(255,100,100,0.07)", border: "1px solid rgba(255,100,100,0.25)",
+        borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <span style={{ fontSize: 11, color: "#ff8888" }}>⚠ {pinError || "Failed to pin image."}</span>
+        <button
+          onClick={() => setPinState("asking")}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "#83eef066" }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+
+    return null;
+  }
+
   if (compact) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -96,7 +316,6 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
           </span>
         )}
 
-        {/* Compact drop zone */}
         <div
           onClick={() => inputRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -170,6 +389,8 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
             <ExternalLinkIcon /> View on IPFS gateway
           </a>
         )}
+
+        {showMapPin && activeCid && <MapPinSection cid={activeCid} />}
 
         <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} data-testid="ipfs-file-input"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
@@ -322,6 +543,9 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact }: IPFSIm
           </div>
         </div>
       )}
+
+      {/* Map pin prompt — shown after successful upload */}
+      {showMapPin && activeCid && <MapPinSection cid={activeCid} />}
 
       <input
         ref={inputRef}
