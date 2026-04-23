@@ -615,40 +615,6 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/reef-logs — public; returns all geo-tagged field observation logs
-  app.get("/api/reef-logs", async (_req: Request, res: Response) => {
-    try {
-      const logs = await storage.getReefLogs();
-      return res.json(logs);
-    } catch (err) {
-      console.error("[reefLogs GET]", err);
-      return res.status(500).json({ error: "Failed to fetch reef logs" });
-    }
-  });
-
-  // POST /api/reef-logs — create a new geo-tagged reef observation log
-  app.post("/api/reef-logs", generalLimiter, async (req: Request, res: Response) => {
-    const { title, note = "", latitude, longitude, depth, condition = "", profileId } = req.body;
-    if (!title || typeof title !== "string" || title.trim().length === 0) {
-      return res.status(400).json({ error: "title is required" });
-    }
-    const lat = Number(latitude);
-    const lon = Number(longitude);
-    if (isNaN(lat) || lat < -90 || lat > 90) return res.status(400).json({ error: "Invalid latitude" });
-    if (isNaN(lon) || lon < -180 || lon > 180) return res.status(400).json({ error: "Invalid longitude" });
-    try {
-      const log = await storage.createReefLog({
-        title: title.trim(), note, latitude: lat, longitude: lon,
-        depth: depth ? Number(depth) : undefined,
-        condition, profileId: profileId || null,
-      });
-      return res.status(201).json(log);
-    } catch (err) {
-      console.error("[reefLogs POST]", err);
-      return res.status(500).json({ error: "Failed to create reef log" });
-    }
-  });
-
   // GET /api/reef-images — public; returns all geo-tagged IPFS images for the map
   app.get("/api/reef-images", async (_req: Request, res: Response) => {
     try {
