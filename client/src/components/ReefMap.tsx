@@ -293,6 +293,18 @@ interface ReefImageMarker {
   createdAt: number;
 }
 
+interface ReefLogMarker {
+  id: string;
+  title: string;
+  note: string;
+  latitude: number;
+  longitude: number;
+  depth: number | null;
+  condition: string;
+  profileId: string | null;
+  createdAt: number;
+}
+
 // ─── Shared style helpers ─────────────────────────────────────────────────────
 function gcrmnStyle(feature?: Feature) {
   const name = (feature?.properties as any)?.region ?? "";
@@ -438,12 +450,14 @@ function WdparClickHandler({ active }: { active: boolean }) {
 function ExpandedMapModal({
   markers,
   reefImgs,
+  reefLogMarkers,
   gcrmnGeoJson,
   coralMappingGeoJson,
   onClose,
 }: {
   markers: MapMarker[];
   reefImgs: ReefImageMarker[];
+  reefLogMarkers: ReefLogMarker[];
   gcrmnGeoJson: GeoJSON.FeatureCollection | undefined;
   coralMappingGeoJson: GeoJSON.FeatureCollection | undefined;
   onClose: () => void;
@@ -453,8 +467,9 @@ function ExpandedMapModal({
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
+  const [showLogs,           setShowLogs]           = useState(true);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showLogs ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -587,6 +602,26 @@ function ExpandedMapModal({
                 </Popup>
               </Marker>
             ))}
+            {showLogs && reefLogMarkers.map((log) => (
+              <CircleMarker
+                key={`log-exp-${log.id}`}
+                center={[log.latitude, log.longitude]}
+                radius={6}
+                pathOptions={{
+                  color: "#f368e0", weight: 1.5, opacity: 0.9,
+                  fillColor: "#f368e0", fillOpacity: 0.45,
+                }}
+              >
+                <Popup maxWidth={220}>
+                  <div style={{ fontFamily: "Inter,sans-serif", fontSize: 11, color: "#d4e9f3" }}>
+                    <div style={{ color: "#f368e0", fontWeight: 700, marginBottom: 4 }}>📋 {log.title}</div>
+                    {log.note && <div style={{ marginBottom: 4 }}>{log.note}</div>}
+                    {log.depth != null && <div style={{ fontSize: 9, color: "#aaa" }}>Depth: {log.depth} m</div>}
+                    {log.condition && <div style={{ fontSize: 9, color: "#aaa" }}>Condition: {log.condition}</div>}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
             {markers.length > 0 && <FitBounds markers={markers} />}
           </MapContainer>
         </div>
@@ -640,6 +675,14 @@ function ExpandedMapModal({
               onClick={() => setShowImgs((v) => !v)}
               testId="expanded-toggle-imgs"
             />
+            <LayerToggle
+              label="Reef Logs"
+              sublabel={`${reefLogMarkers.length} field observation logs`}
+              active={showLogs}
+              color="#f368e0"
+              onClick={() => setShowLogs((v) => !v)}
+              testId="expanded-toggle-logs"
+            />
           </SideSection>
 
           {showGcrmn && (
@@ -683,6 +726,10 @@ function ExpandedMapModal({
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Community reef photo</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+              <span style={{ width:11,height:11,borderRadius:"50%",background:"rgba(243,104,224,0.45)",border:"1.5px solid #f368e0",display:"inline-block",flexShrink:0 }}/>
+              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Reef observation log</span>
             </div>
           </SideSection>
 
@@ -888,6 +935,7 @@ export function ReefMap({
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
+  const [showLogs,          setShowLogs]          = useState(true);
   const [internalExpanded,  setInternalExpanded]  = useState(false);
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
@@ -902,6 +950,11 @@ export function ReefMap({
 
   const { data: reefImgs = [] } = useQuery<ReefImageMarker[]>({
     queryKey: ["/api/reef-images"],
+    refetchInterval: 60_000,
+  });
+
+  const { data: reefLogMarkers = [] } = useQuery<ReefLogMarker[]>({
+    queryKey: ["/api/reef-logs"],
     refetchInterval: 60_000,
   });
 
@@ -1012,6 +1065,25 @@ export function ReefMap({
               </Popup>
             </Marker>
           ))}
+          {showLogs && reefLogMarkers.map((log) => (
+            <CircleMarker
+              key={`log-cmp-${log.id}`}
+              center={[log.latitude, log.longitude]}
+              radius={5}
+              pathOptions={{
+                color: "#f368e0", weight: 1.5, opacity: 0.9,
+                fillColor: "#f368e0", fillOpacity: 0.45,
+              }}
+            >
+              <Popup maxWidth={200}>
+                <div style={{ fontFamily: "Inter,sans-serif", fontSize: 10, color: "#d4e9f3" }}>
+                  <div style={{ color: "#f368e0", fontWeight: 700, marginBottom: 3 }}>📋 {log.title}</div>
+                  {log.note && <div>{log.note}</div>}
+                  {log.condition && <div style={{ fontSize: 9, color: "#aaa", marginTop: 2 }}>Condition: {log.condition}</div>}
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
           {markers.length > 0 && <FitBounds markers={markers} />}
         </MapContainer>
 
@@ -1086,6 +1158,19 @@ export function ReefMap({
           >
             <Camera size={8} /> Photos
           </button>
+          <button
+            data-testid="toggle-logs-layer"
+            onClick={() => setShowLogs((v) => !v)}
+            style={{
+              background: showLogs ? "rgba(243,104,224,0.82)" : "rgba(0,19,28,0.75)",
+              border: `1px solid ${showLogs ? "#f368e0" : "rgba(243,104,224,0.4)"}`,
+              borderRadius: 6, padding: "2px 7px", fontSize: 9,
+              color: showLogs ? "#fff" : "#f368e0cc",
+              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
+            }}
+          >
+            Logs
+          </button>
         </div>
 
         {/* ── Expand button ── */}
@@ -1120,6 +1205,7 @@ export function ReefMap({
             {showGcrmn         && <span title="GCRMN region" style={{ width:10,height:6,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",borderRadius:2,display:"inline-block" }}/>}
             <span title="DAO member" style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>
             {showImgs && reefImgs.length > 0 && <span title="Reef photo" style={{ width:8,height:8,borderRadius:2,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block" }}/>}
+            {showLogs && reefLogMarkers.length > 0 && <span title="Reef observation log" style={{ width:8,height:8,borderRadius:"50%",background:"rgba(243,104,224,0.45)",border:"1.5px solid #f368e0",display:"inline-block" }}/>}
           </div>
           {/* Log in button */}
           {!authenticated && (
@@ -1169,6 +1255,7 @@ export function ReefMap({
         <ExpandedMapModal
           markers={markers}
           reefImgs={reefImgs}
+          reefLogMarkers={reefLogMarkers}
           gcrmnGeoJson={gcrmnGeoJson}
           coralMappingGeoJson={coralMappingGeoJson}
           onClose={() => setExpanded(false)}

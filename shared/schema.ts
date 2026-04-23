@@ -84,6 +84,26 @@ export const insertReefImageSchema = createInsertSchema(reefImages).omit({
 export type InsertReefImage = z.infer<typeof insertReefImageSchema>;
 export type ReefImage = typeof reefImages.$inferSelect;
 
+// ─── Reef Logs (geo-tagged field observation logs) ────────────────────────────
+export const reefLogs = pgTable("reef_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id"),
+  title: text("title").notNull(),
+  note: text("note").notNull().default(""),
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  depth: real("depth"),
+  condition: text("condition").notNull().default(""),
+  createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
+});
+
+export const insertReefLogSchema = createInsertSchema(reefLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertReefLog = z.infer<typeof insertReefLogSchema>;
+export type ReefLog = typeof reefLogs.$inferSelect;
+
 // ─── Leaderboard (aggregated view) ────────────────────────────────────────────
 export interface LeaderboardEntry {
   id: string;

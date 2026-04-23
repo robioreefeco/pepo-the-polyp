@@ -1,12 +1,13 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, profiles, contributions, reefImages,
+  users, profiles, contributions, reefImages, reefLogs,
   type User, type InsertUser,
   type Profile, type InsertProfile,
   type Contribution, type InsertContribution,
   type LeaderboardEntry,
   type ReefImage, type InsertReefImage,
+  type ReefLog, type InsertReefLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -43,6 +44,10 @@ export interface IStorage {
   // Reef Images
   createReefImage(data: InsertReefImage): Promise<ReefImage>;
   getReefImages(): Promise<ReefImage[]>;
+
+  // Reef Logs
+  createReefLog(data: InsertReefLog): Promise<ReefLog>;
+  getReefLogs(): Promise<ReefLog[]>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -216,6 +221,20 @@ export class DbStorage implements IStorage {
 
   async getReefImages(): Promise<ReefImage[]> {
     return db.select().from(reefImages).orderBy(desc(reefImages.createdAt));
+  }
+
+  // ── Reef Logs ─────────────────────────────────────────────────────────────
+  async createReefLog(data: InsertReefLog): Promise<ReefLog> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .insert(reefLogs)
+      .values({ ...data, id: randomUUID(), createdAt: now })
+      .returning();
+    return row;
+  }
+
+  async getReefLogs(): Promise<ReefLog[]> {
+    return db.select().from(reefLogs).orderBy(desc(reefLogs.createdAt));
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────
