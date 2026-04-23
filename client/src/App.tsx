@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,6 +18,17 @@ import { useProfileSync } from "@/hooks/use-profile-sync";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { usePrivy } from "@privy-io/react-auth";
+import { SplashScreen } from "@/components/SplashScreen";
+
+function useSplash() {
+  const seen = sessionStorage.getItem("pepo_splash_seen");
+  const [visible, setVisible] = useState(!seen);
+  const dismiss = () => {
+    sessionStorage.setItem("pepo_splash_seen", "1");
+    setVisible(false);
+  };
+  return { visible, dismiss };
+}
 
 const EVM_CHAINS = [mainnet, polygon, base, arbitrum, optimism, avalanche];
 
@@ -50,8 +62,10 @@ function GeoSyncOrcidOnly() {
 
 function AppInner() {
   useProfileSync();
+  const { visible, dismiss } = useSplash();
   return (
     <>
+      {visible && <SplashScreen onDone={dismiss} />}
       <Toaster />
       {PRIVY_ENABLED ? <GeoSyncPrivy /> : <GeoSyncOrcidOnly />}
       <Router />
