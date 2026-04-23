@@ -449,12 +449,11 @@ function ExpandedMapModal({
 }) {
   const [showGcrmn,          setShowGcrmn]          = useState(true);
   const [showCoralMapping,   setShowCoralMapping]   = useState(true);
-  const [showMPA,            setShowMPA]            = useState(true);
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMPA ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -507,13 +506,7 @@ function ExpandedMapModal({
       {/* ── Body: map + side panel ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <div style={{ flex: 1, position: "relative" }}>
-          <style>{`
-            .gcrmn-tooltip { background: rgba(0,19,28,0.88) !important; border: 1px solid rgba(131,238,240,0.25) !important; color: #d4e9f3 !important; font-family: Inter,sans-serif !important; font-size: 11px !important; padding: 3px 9px !important; border-radius: 6px !important; box-shadow: none !important; }
-            .wdpar-popup .leaflet-popup-content-wrapper { background: rgba(0,19,28,0.97) !important; border: 1px solid rgba(0,184,148,0.35) !important; border-radius: 10px !important; box-shadow: 0 4px 24px rgba(0,184,148,0.18) !important; color: #d4e9f3 !important; padding: 0 !important; }
-            .wdpar-popup .leaflet-popup-content { margin: 10px 12px !important; }
-            .wdpar-popup .leaflet-popup-tip-container { display: none !important; }
-            .wdpar-popup .leaflet-popup-close-button { color: #55efc4 !important; font-size: 16px !important; top: 6px !important; right: 8px !important; }
-          `}</style>
+          <style>{`.gcrmn-tooltip { background: rgba(0,19,28,0.88) !important; border: 1px solid rgba(131,238,240,0.25) !important; color: #d4e9f3 !important; font-family: Inter,sans-serif !important; font-size: 11px !important; padding: 3px 9px !important; border-radius: 6px !important; box-shadow: none !important; }`}</style>
 
           <MapContainer
             center={[12, 10]}
@@ -537,17 +530,6 @@ function ExpandedMapModal({
                 opacity={0.45}
                 version="1.1.1"
                 attribution='© <a href="https://www.marineregions.org">MarineRegions.org · VLIZ</a>'
-              />
-            )}
-            {showMPA && (
-              <WMSTileLayer
-                url="https://maps.protectedplanet.net/geoserver/wms"
-                layers="wdpa:wdpa_marine_poly"
-                format="image/png"
-                transparent={true}
-                opacity={0.55}
-                version="1.1.1"
-                attribution='© <a href="https://www.protectedplanet.net">UNEP-WCMC &amp; IUCN (2026) · Protected Planet · WDPA</a>'
               />
             )}
             {showCoralMapping && coralMappingGeoJson && (
@@ -605,7 +587,6 @@ function ExpandedMapModal({
               </Marker>
             ))}
             {markers.length > 0 && <FitBounds markers={markers} />}
-            <WdparClickHandler active={showMPA} />
           </MapContainer>
         </div>
 
@@ -625,14 +606,6 @@ function ExpandedMapModal({
               color="#fdcb6e"
               onClick={() => setShowMarineRegions((v) => !v)}
               testId="expanded-toggle-marine-regions"
-            />
-            <LayerToggle
-              label="Marine Protected Areas"
-              sublabel="WDPA · UNEP-WCMC & IUCN (2026) · Protected Planet"
-              active={showMPA}
-              color="#0984e3"
-              onClick={() => setShowMPA((v) => !v)}
-              testId="expanded-toggle-mpa"
             />
             <LayerToggle
               label="CoralMapping Reef Regions"
@@ -690,10 +663,6 @@ function ExpandedMapModal({
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Exclusive Economic Zone (EEZ)</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(9,132,227,0.25)",border:"1.5px solid #0984e3",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Marine Protected Area (WDPA)</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",display:"inline-block",flexShrink:0 }}/>
@@ -790,47 +759,6 @@ function ExpandedMapModal({
             ))}
           </SideSection>
 
-          <SideSection title="Marine Protected Areas">
-            <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
-              The World Database on Protected Areas (WDPA) is the most comprehensive global database of marine and terrestrial protected areas, jointly maintained by UNEP-WCMC and IUCN on behalf of CBD, CITES, Ramsar and CMS. Updated monthly.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: 8 }}>
-              {[
-                ["Coverage",    "Global"],
-                ["Marine PAs",  "18,000+"],
-                ["Total area",  "~30M km²"],
-                ["Update",      "Monthly"],
-              ].map(([k, v]) => (
-                <div key={String(k)} style={{ background: "rgba(9,132,227,0.08)", border: "1px solid rgba(9,132,227,0.25)", borderRadius: 6, padding: "5px 7px" }}>
-                  <div style={{ fontSize: 7.5, color: "#0984e388", textTransform: "uppercase", letterSpacing: "0.07em" }}>{k}</div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#0984e3" }}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ background: "rgba(9,132,227,0.08)", border: "1px solid rgba(9,132,227,0.25)", borderRadius: 6, padding: "7px 9px", marginBottom: 8, fontSize: 9, color: "#74b9ff", display: "flex", alignItems: "flex-start", gap: 6 }}>
-              <span style={{ fontSize: 12, marginTop: -1 }}>👆</span>
-              <span><strong>Click any MPA polygon</strong> to query real WDPA attributes — PA name, IUCN category, marine status, area (km²), designation type and year — via WMS GetFeatureInfo.</span>
-            </div>
-            <div style={{ background: "rgba(9,132,227,0.06)", border: "1px solid rgba(9,132,227,0.18)", borderRadius: 6, padding: "8px 10px", marginBottom: 10, fontSize: 8.5, color: "#d4e9f377", lineHeight: 1.55 }}>
-              <span style={{ fontWeight: 700, color: "#74b9ff" }}>Citation: </span>
-              UNEP-WCMC and IUCN (2026), Protected Planet: The World Database on Protected Areas (WDPA) and World Database on Other Effective Area-based Conservation Measures (WD-OECM) [Online], April 2026, Cambridge, UK: UNEP-WCMC and IUCN. Available at:{" "}
-              <a href="https://www.protectedplanet.net" target="_blank" rel="noopener noreferrer" style={{ color: "#0984e3", textDecoration: "none" }}>www.protectedplanet.net</a>.
-            </div>
-            {[
-              { label: "Protected Planet (WDPA)",         href: "https://www.protectedplanet.net",                           color: "#0984e3" },
-              { label: "ProtectedPlanet — GitHub",         href: "https://github.com/unepwcmc/ProtectedPlanet",               color: "#74b9ff" },
-              { label: "UNEP-WCMC Open Data",              href: "https://www.unep-wcmc.org/resources-and-data",              color: "#74b9ff" },
-            ].map(({ label, href, color }) => (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer"
-                style={{ display: "block", fontSize: 9, color, textDecoration: "none", padding: "2px 0", marginBottom: 2 }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#83eef0")}
-                onMouseLeave={e => (e.currentTarget.style.color = color)}
-              >
-                ↗ {label}
-              </a>
-            ))}
-          </SideSection>
-
           <SideSection title="CoralMapping Reef Regions">
             <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
               Region boundary masks from the University of Queensland's Allen Coral Atlas pipeline, defining the spatial extents used to task Planet satellite imagery and generate reef maps globally.
@@ -864,8 +792,6 @@ function ExpandedMapModal({
           <SideSection title="Data Sources">
             {[
               { label: "Marine Regions · EEZ (VLIZ / mregions2)",     href: "https://www.marineregions.org",                           color: "#fdcb6e" },
-              { label: "Marine Protected Areas · Protected Planet",    href: "https://www.protectedplanet.net",                         color: "#0984e3" },
-              { label: "ProtectedPlanet — GitHub (UNEP-WCMC)",         href: "https://github.com/unepwcmc/ProtectedPlanet",              color: "#74b9ff" },
               { label: "CoralMapping / GlobalMappingRegions",          href: "https://github.com/CoralMapping/GlobalMappingRegions",     color: "#fd7272" },
               { label: "CoralMapping / proc_gee_utils",                href: "https://github.com/CoralMapping/proc_gee_utils",           color: "#fdcb6e" },
               { label: "GCRMN gcrmndb_benthos",                        href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
@@ -958,7 +884,6 @@ export function ReefMap({
 }) {
   const [showGcrmn,         setShowGcrmn]         = useState(true);
   const [showCoralMapping,  setShowCoralMapping]  = useState(true);
-  const [showMPA,           setShowMPA]           = useState(true);
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
@@ -1035,17 +960,6 @@ export function ReefMap({
               attribution='© MarineRegions.org · VLIZ'
             />
           )}
-          {showMPA && (
-            <WMSTileLayer
-              url="https://maps.protectedplanet.net/geoserver/wms"
-              layers="wdpa:wdpa_marine_poly"
-              format="image/png"
-              transparent={true}
-              opacity={0.5}
-              version="1.1.1"
-              attribution='© UNEP-WCMC &amp; IUCN (2026) · Protected Planet · WDPA'
-            />
-          )}
           {showCoralMapping && coralMappingGeoJson && (
             <GeoJSON
               key="coral-mapping-compact"
@@ -1096,7 +1010,6 @@ export function ReefMap({
             </Marker>
           ))}
           {markers.length > 0 && <FitBounds markers={markers} />}
-          <WdparClickHandler active={showMPA} />
         </MapContainer>
 
         {/* ── Layer toggles ── */}
@@ -1116,19 +1029,6 @@ export function ReefMap({
             }}
           >
             EEZ
-          </button>
-          <button
-            data-testid="toggle-mpa-layer"
-            onClick={() => setShowMPA((v) => !v)}
-            style={{
-              background: showMPA ? "rgba(9,132,227,0.82)" : "rgba(0,19,28,0.75)",
-              border: `1px solid ${showMPA ? "#0984e3" : "rgba(9,132,227,0.4)"}`,
-              borderRadius: 6, padding: "2px 7px", fontSize: 9,
-              color: showMPA ? "#fff" : "#0984e3cc",
-              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
-            }}
-          >
-            MPA
           </button>
           <button
             data-testid="toggle-coral-mapping-layer"
@@ -1213,12 +1113,6 @@ export function ReefMap({
             <div className="flex items-center gap-1.5">
               <span style={{ width:10,height:6,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",borderRadius:2,display:"inline-block" }}/>
               <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>EEZ boundary</span>
-            </div>
-          )}
-          {showMPA && (
-            <div className="flex items-center gap-1.5">
-              <span style={{ width:10,height:6,background:"rgba(9,132,227,0.25)",border:"1.5px solid #0984e3",borderRadius:2,display:"inline-block" }}/>
-              <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>Marine protected area</span>
             </div>
           )}
           {showCoralMapping && (

@@ -411,7 +411,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           <ReefMap compact expanded={mapOpen} onExpandChange={setMapOpen} />
         </Suspense>
         <p className="[font-family:'Inter',Helvetica] text-[#d4e9f344] text-[9px] leading-3 mt-1.5 px-1 text-center">
-          EEZ · Marine Protected Areas (WDPA) · CoralMapping · GCRMN · expand
+          EEZ · CoralMapping · GCRMN · expand
         </p>
       </div>
 

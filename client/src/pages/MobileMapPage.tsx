@@ -103,7 +103,7 @@ export function MobileMapPage() {
             Regen Reef Network Map
           </div>
           <div style={{ fontSize: 9.5, color: "#d4e9f355", marginTop: 1 }}>
-            Esri Ocean · EEZ · Marine Protected Areas (WDPA) · CoralMapping · GCRMN
+            Esri Ocean · EEZ · CoralMapping · GCRMN
           </div>
         </div>
       </div>
@@ -279,8 +279,6 @@ export function MobileMapPage() {
             {[
               { label: "Esri Ocean Basemap", href: "https://www.arcgis.com" },
               { label: "Marine Regions EEZ (MarineRegions.org · VLIZ · mregions2)", href: "https://www.marineregions.org" },
-              { label: "Marine Protected Areas · Protected Planet (UNEP-WCMC & IUCN)", href: "https://www.protectedplanet.net" },
-              { label: "ProtectedPlanet — GitHub (UNEP-WCMC)", href: "https://github.com/unepwcmc/ProtectedPlanet" },
               { label: "CoralMapping / GlobalMappingRegions", href: "https://github.com/CoralMapping/GlobalMappingRegions" },
               { label: "CoralMapping / proc_gee_utils", href: "https://github.com/CoralMapping/proc_gee_utils" },
               { label: "GCRMN Regions", href: "https://gcrmn.net" },
