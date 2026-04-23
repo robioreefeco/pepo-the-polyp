@@ -103,7 +103,7 @@ export function MobileMapPage() {
             Regen Reef Network Map
           </div>
           <div style={{ fontSize: 9.5, color: "#d4e9f355", marginTop: 1 }}>
-            Esri Ocean · Allen Coral Atlas · GCRMN · NOAA CRW
+            Esri Ocean · CoralMapping · GCRMN · NOAA CRW
           </div>
         </div>
       </div>
@@ -278,7 +278,8 @@ export function MobileMapPage() {
             </div>
             {[
               { label: "Esri Ocean Basemap", href: "https://www.arcgis.com" },
-              { label: "Allen Coral Atlas", href: "https://allencoralatlas.org" },
+              { label: "CoralMapping / GlobalMappingRegions", href: "https://github.com/CoralMapping/GlobalMappingRegions" },
+              { label: "CoralMapping / proc_gee_utils", href: "https://github.com/CoralMapping/proc_gee_utils" },
               { label: "GCRMN Regions", href: "https://gcrmn.net" },
               { label: "NOAA Coral Reef Watch", href: "https://coralreefwatch.noaa.gov" },
             ].map(({ label, href }) => (

@@ -10,6 +10,66 @@ import { uploadToIPFS, getIPFSBytes, gatewayUrls, primaryGatewayUrl } from "./ip
 // ─── GCRMN regions GeoJSON cache (fetched once from GitHub, valid 24h) ─────────
 let _gcrmnCache: { geojson: object; expiresAt: number } | null = null;
 
+// ─── CoralMapping / GlobalMappingRegions cache ───────────────────────────────
+let _coralMappingCache: { geojson: object; expiresAt: number } | null = null;
+
+const CORAL_MAPPING_FILES = [
+  { name: "Bermuda",                          path: "Bermuda.geojson" },
+  { name: "Brazil",                           path: "SmallSystems/Brazil.geojson" },
+  { name: "East Africa",                      path: "EastAfrica/EastAfricaMaskedFinal.geojson" },
+  { name: "Northern Caribbean / Bahamas",     path: "NorthernCaribbean/NorthernCaribbeanBahamasMaskedFinal.geojson" },
+  { name: "West Indian Ocean Islands",        path: "WestIndianOcean/WestIndianOceanIslandsMaskedFinal.geojson" },
+  { name: "West Micronesia",                  path: "WestMicronesia/WestMicronesiaMaskedFinal.geojson" },
+  { name: "Great Barrier Reef & Torres Strait", path: "GBR_TorresStrait/UQGBR_TorresStraitMask.geojson" },
+  { name: "Hawaiian Islands",                 path: "HawaiianIslands/HawaiianIslandsMasked_Combined.geojson" },
+  { name: "Indonesia",                        path: "Indonesia/UQIndonesiaMask.geojson" },
+  { name: "Philippines",                      path: "Philippines/UQPhilippinesMask.geojson" },
+  { name: "Red Sea",                          path: "RedSea/UQRedSeaMask.json" },
+  { name: "Mesoamerican Reef",                path: "Mesoamerican/UQMesoamericanMask.geojson" },
+  { name: "SW Pacific East",                  path: "SouthWestPacific/SouthWestPacificMasked_East.geojson" },
+  { name: "SW Pacific West",                  path: "SouthWestPacific/SouthWestPacificMasked_West.geojson" },
+  { name: "NW Arabian Sea",                   path: "NorthwestArabianSea/UQNorthwestArabianSeaMask.geojson" },
+  { name: "South China Sea",                  path: "SouthChinaSea/UQSouthChinaSeaMask.geojson" },
+  { name: "Coral Sea",                        path: "CoralSea/UQCoralSeaMask.geojson" },
+  { name: "Sub-Tropical Eastern Australia",   path: "SubTropicalEasternAustralia/UQSubEastAustraliaMask.geojson" },
+  { name: "Timor Sea",                        path: "TimorSea/UQTimorSeaMasked.geojson" },
+  { name: "South Asia",                       path: "SouthAsia/UQSouthAsiaMask.json" },
+  { name: "Andaman Sea",                      path: "AndamanSea/andamansea_masked.geojson" },
+  { name: "Central Indian Ocean",             path: "CentIndianOcean/UQCentIndianOceanMask.geojson" },
+  { name: "East Micronesia",                  path: "EastMicronesia/UQEastMicronesiaMask.geojson" },
+  { name: "Tropical Eastern Pacific",         path: "TropicalEasternPacific/UQTropicalEastPacificMask.geojson" },
+  { name: "South East Caribbean",             path: "SouthEastCaribbean/UQSouthEastCaribbeanMask.geojson" },
+  { name: "NW China Sea",                     path: "NorthwestChinaSea/UQNorthwestChinaSeaMask.geojson" },
+  { name: "North East Asia",                  path: "NorthEastAsia/UQNorthEastAsiaMask.geojson" },
+  { name: "Gulf of Aden",                     path: "GulfOfAden/UQGulfOfAdenMask.geojson" },
+  { name: "Western Australia",                path: "WesternAustralia/UQWesternAustraliaMask.geojson" },
+];
+
+async function fetchCoralMappingRegions(): Promise<object> {
+  const now = Date.now();
+  if (_coralMappingCache && now < _coralMappingCache.expiresAt) return _coralMappingCache.geojson;
+
+  const BASE = "https://raw.githubusercontent.com/CoralMapping/GlobalMappingRegions/master/";
+  const results = await Promise.allSettled(
+    CORAL_MAPPING_FILES.map(async ({ name, path }) => {
+      const res = await fetch(BASE + path);
+      if (!res.ok) return null;
+      const fc: any = await res.json();
+      const features: any[] = fc.type === "FeatureCollection" ? fc.features : [{ type: "Feature", geometry: fc.geometry ?? fc, properties: fc.properties ?? {} }];
+      return features.map((f: any) => ({ ...f, properties: { ...(f.properties ?? {}), region: name } }));
+    })
+  );
+
+  const allFeatures: any[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) allFeatures.push(...r.value);
+  }
+
+  const geojson = { type: "FeatureCollection", features: allFeatures };
+  _coralMappingCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
 async function fetchGcrmnRegions(): Promise<object> {
   const now = Date.now();
   if (_gcrmnCache && now < _gcrmnCache.expiresAt) return _gcrmnCache.geojson;
@@ -615,6 +675,18 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[gcrmnRegions]", err);
       return res.status(500).json({ error: "Failed to fetch GCRMN regions" });
+    }
+  });
+
+  // GET /api/coral-mapping/regions — CoralMapping GlobalMappingRegions GeoJSON
+  app.get("/api/coral-mapping/regions", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchCoralMappingRegions();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[coralMappingRegions]", err);
+      return res.status(500).json({ error: "Failed to fetch CoralMapping regions" });
     }
   });
 

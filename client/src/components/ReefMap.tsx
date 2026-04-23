@@ -352,18 +352,21 @@ function ExpandedMapModal({
   markers,
   reefImgs,
   gcrmnGeoJson,
+  coralMappingGeoJson,
   onClose,
 }: {
   markers: MapMarker[];
   reefImgs: ReefImageMarker[];
   gcrmnGeoJson: GeoJSON.FeatureCollection | undefined;
+  coralMappingGeoJson: GeoJSON.FeatureCollection | undefined;
   onClose: () => void;
 }) {
-  const [showGcrmn,      setShowGcrmn]      = useState(true);
-  const [showImgs,       setShowImgs]       = useState(true);
-  const [showGcrmnSites, setShowGcrmnSites] = useState(true);
+  const [showGcrmn,          setShowGcrmn]          = useState(true);
+  const [showCoralMapping,   setShowCoralMapping]   = useState(true);
+  const [showImgs,           setShowImgs]           = useState(true);
+  const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -431,6 +434,21 @@ function ExpandedMapModal({
               attribution="© Esri"
               maxZoom={10}
             />
+            {showCoralMapping && coralMappingGeoJson && (
+              <GeoJSON
+                key="coral-mapping"
+                data={coralMappingGeoJson}
+                style={() => ({
+                  color: "#fd7272", weight: 1.5, opacity: 0.75,
+                  fillColor: "#fd7272", fillOpacity: 0.12,
+                })}
+                onEachFeature={(feature, layer) => {
+                  const name = feature.properties?.region ?? "Reef Region";
+                  layer.bindTooltip(name, { className: "gcrmn-tooltip", sticky: true });
+                  layer.bindPopup(`<div style="font-family:Inter,sans-serif;font-size:11px;color:#d4e9f3"><strong style="color:#fd7272">🗺 ${name}</strong><br/><span style="font-size:9px;color:#999">CoralMapping / GlobalMappingRegions</span></div>`, { maxWidth: 200 });
+                }}
+              />
+            )}
             {showGcrmn && gcrmnGeoJson && (
               <GeoJSON
                 key="gcrmn-expanded"
@@ -484,6 +502,14 @@ function ExpandedMapModal({
         }}>
           <SideSection title="Layers">
             <LayerToggle
+              label="CoralMapping Reef Regions"
+              sublabel="29 global mapped reef zones · UQ / Allen Coral Atlas"
+              active={showCoralMapping}
+              color="#fd7272"
+              onClick={() => setShowCoralMapping((v) => !v)}
+              testId="expanded-toggle-coral-mapping"
+            />
+            <LayerToggle
               label="GCRMN Sites 2026"
               sublabel={`${GCRMN_SITES_2026.length} territories · ${GCRMN_TOTALS.surveys.toLocaleString()} surveys`}
               active={showGcrmnSites}
@@ -528,6 +554,10 @@ function ExpandedMapModal({
           )}
 
           <SideSection title="Map Key">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",display:"inline-block",flexShrink:0 }}/>
+              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>CoralMapping reef region</span>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:11,height:11,borderRadius:"50%",background:"#A6CE3988",border:"1.5px solid #A6CE39",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN monitoring territory</span>
@@ -579,8 +609,40 @@ function ExpandedMapModal({
             </a>
           </SideSection>
 
+          <SideSection title="CoralMapping Reef Regions">
+            <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
+              Region boundary masks from the University of Queensland's Allen Coral Atlas pipeline, defining the spatial extents used to task Planet satellite imagery and generate reef maps globally.
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#fd7272", marginBottom: 2 }}>GlobalMappingRegions</div>
+              <div style={{ fontSize: 9, color: "#d4e9f377", lineHeight: 1.4 }}>
+                GeoJSON region mask files covering 29 reef zones — from the Great Barrier Reef and Hawaiian Islands to the Red Sea, Coral Sea, and Mesoamerican Reef.
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#fdcb6e", marginBottom: 2 }}>proc_gee_utils</div>
+              <div style={{ fontSize: 9, color: "#d4e9f377", lineHeight: 1.4 }}>
+                Python utility library for Google Earth Engine authentication and processing, used to generate geomorphic and benthic zone maps from Planet and Sentinel-2 imagery at 5 m resolution.
+              </div>
+            </div>
+            {[
+              { label: "CoralMapping / GlobalMappingRegions", href: "https://github.com/CoralMapping/GlobalMappingRegions", color: "#fd7272" },
+              { label: "CoralMapping / proc_gee_utils",       href: "https://github.com/CoralMapping/proc_gee_utils",       color: "#fdcb6e" },
+            ].map(({ label, href, color }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                style={{ display: "block", fontSize: 9, color, textDecoration: "none", padding: "2px 0", marginBottom: 2 }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#83eef0")}
+                onMouseLeave={e => (e.currentTarget.style.color = color)}
+              >
+                ↗ {label}
+              </a>
+            ))}
+          </SideSection>
+
           <SideSection title="Data Sources">
             {[
+              { label: "CoralMapping / GlobalMappingRegions", href: "https://github.com/CoralMapping/GlobalMappingRegions", color: "#fd7272" },
+              { label: "CoralMapping / proc_gee_utils",       href: "https://github.com/CoralMapping/proc_gee_utils",       color: "#fdcb6e" },
               { label: "GCRMN gcrmndb_benthos",       href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
               { label: "Esri Ocean Basemap",           href: "https://www.arcgis.com",                color: "#83eef099" },
               { label: "GCRMN Regions",                href: "https://gcrmn.net",                     color: "#83eef099" },
@@ -669,10 +731,11 @@ export function ReefMap({
   expanded?: boolean;
   onExpandChange?: (v: boolean) => void;
 }) {
-  const [showGcrmn,      setShowGcrmn]      = useState(true);
-  const [showImgs,       setShowImgs]       = useState(true);
-  const [showGcrmnSites, setShowGcrmnSites] = useState(true);
-  const [internalExpanded, setInternalExpanded] = useState(false);
+  const [showGcrmn,         setShowGcrmn]         = useState(true);
+  const [showCoralMapping,  setShowCoralMapping]  = useState(true);
+  const [showImgs,          setShowImgs]          = useState(true);
+  const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
+  const [internalExpanded,  setInternalExpanded]  = useState(false);
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
   const setExpanded = onExpandChange ?? setInternalExpanded;
@@ -689,6 +752,11 @@ export function ReefMap({
 
   const { data: gcrmnGeoJson } = useQuery<GeoJSON.FeatureCollection>({
     queryKey: ["/api/gcrmn/regions"],
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const { data: coralMappingGeoJson } = useQuery<GeoJSON.FeatureCollection>({
+    queryKey: ["/api/coral-mapping/regions"],
     staleTime: 24 * 60 * 60 * 1000,
   });
 
@@ -729,6 +797,16 @@ export function ReefMap({
             attribution="© Esri"
             maxZoom={10}
           />
+          {showCoralMapping && coralMappingGeoJson && (
+            <GeoJSON
+              key="coral-mapping-compact"
+              data={coralMappingGeoJson}
+              style={() => ({
+                color: "#fd7272", weight: 1, opacity: 0.6,
+                fillColor: "#fd7272", fillOpacity: 0.1,
+              })}
+            />
+          )}
           {showGcrmn && gcrmnGeoJson && (
             <GeoJSON
               key="gcrmn"
@@ -776,6 +854,19 @@ export function ReefMap({
           className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-auto"
           style={{ zIndex: 500 }}
         >
+          <button
+            data-testid="toggle-coral-mapping-layer"
+            onClick={() => setShowCoralMapping((v) => !v)}
+            style={{
+              background: showCoralMapping ? "rgba(253,114,114,0.82)" : "rgba(0,19,28,0.75)",
+              border: `1px solid ${showCoralMapping ? "#fd7272" : "rgba(253,114,114,0.4)"}`,
+              borderRadius: 6, padding: "2px 7px", fontSize: 9,
+              color: showCoralMapping ? "#fff" : "#fd7272cc",
+              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
+            }}
+          >
+            Reef
+          </button>
           <button
             data-testid="toggle-gcrmn-sites-layer"
             onClick={() => setShowGcrmnSites((v) => !v)}
@@ -842,6 +933,12 @@ export function ReefMap({
           className="absolute bottom-2 left-2 flex flex-col gap-1 pointer-events-none"
           style={{ zIndex: 500 }}
         >
+          {showCoralMapping && (
+            <div className="flex items-center gap-1.5">
+              <span style={{ width:10,height:6,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",borderRadius:2,display:"inline-block" }}/>
+              <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>CoralMapping region</span>
+            </div>
+          )}
           {showGcrmnSites && (
             <div className="flex items-center gap-1.5">
               <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(166,206,57,0.35)",border:"1.5px solid #A6CE39",display:"inline-block" }}/>
@@ -895,6 +992,7 @@ export function ReefMap({
           markers={markers}
           reefImgs={reefImgs}
           gcrmnGeoJson={gcrmnGeoJson}
+          coralMappingGeoJson={coralMappingGeoJson}
           onClose={() => setExpanded(false)}
         />
       )}
