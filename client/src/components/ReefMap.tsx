@@ -364,11 +364,12 @@ function ExpandedMapModal({
   const [showGcrmn,          setShowGcrmn]          = useState(true);
   const [showCoralMapping,   setShowCoralMapping]   = useState(true);
   const [showMPA,            setShowMPA]            = useState(true);
+  const [showCoralMPA,       setShowCoralMPA]       = useState(true);
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMPA ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMPA ? 1 : 0) + (showCoralMPA ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -445,6 +446,17 @@ function ExpandedMapModal({
                 opacity={0.45}
                 version="1.1.1"
                 attribution='© <a href="https://www.marineregions.org">MarineRegions.org · VLIZ</a>'
+              />
+            )}
+            {showCoralMPA && (
+              <WMSTileLayer
+                url="https://maps.protectedplanet.net/geoserver/wms"
+                layers="wdpa:wdpa_marine_poly"
+                format="image/png"
+                transparent={true}
+                opacity={0.55}
+                version="1.1.1"
+                attribution='© <a href="https://prioritizr.github.io/wdpar/">wdpar · prioritizr</a>'
               />
             )}
             {showMPA && (
@@ -534,6 +546,14 @@ function ExpandedMapModal({
               testId="expanded-toggle-marine-regions"
             />
             <LayerToggle
+              label="Coral MPAs (wdpar)"
+              sublabel="WDPA marine polygons · wdpar recommended workflow · prioritizr"
+              active={showCoralMPA}
+              color="#00b894"
+              onClick={() => setShowCoralMPA((v) => !v)}
+              testId="expanded-toggle-coral-mpa"
+            />
+            <LayerToggle
               label="Marine Protected Areas"
               sublabel="WDPA marine polygons · UNEP-WCMC & IUCN"
               active={showMPA}
@@ -597,6 +617,10 @@ function ExpandedMapModal({
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Exclusive Economic Zone (EEZ)</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(0,184,148,0.2)",border:"1.5px solid #00b894",display:"inline-block",flexShrink:0 }}/>
+              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Coral MPA (wdpar / WDPA)</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:13,height:8,borderRadius:2,background:"rgba(9,132,227,0.25)",border:"1.5px solid #0984e3",display:"inline-block",flexShrink:0 }}/>
@@ -697,6 +721,55 @@ function ExpandedMapModal({
             ))}
           </SideSection>
 
+          <SideSection title="Coral MPAs · wdpar">
+            <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
+              wdpar is the rOpenSci-endorsed R package for the complete WDPA data pipeline — downloading, cleaning, and preparing marine protected area data for coral reef conservation planning and spatial prioritisation.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: 8 }}>
+              {[
+                ["WDPA PAs",   "259,000+"],
+                ["Marine PAs", "~70,000"],
+                ["Coral reef", "50+ systems"],
+                ["Workflow",   "5 steps"],
+              ].map(([k, v]) => (
+                <div key={String(k)} style={{ background: "rgba(0,184,148,0.07)", border: "1px solid rgba(0,184,148,0.25)", borderRadius: 6, padding: "5px 7px" }}>
+                  <div style={{ fontSize: 7.5, color: "#00b89488", textTransform: "uppercase", letterSpacing: "0.07em" }}>{k}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#00b894" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#55efc4", marginBottom: 4 }}>Recommended workflow</div>
+              {[
+                ["wdpa_fetch()", "Download WDPA data for a country or globally"],
+                ["wdpa_clean()", "Repair geometries, erase land from marine PAs, dissolve overlapping areas"],
+                ["wdpa_dissolve()", "Merge overlapping protected areas to avoid double-counting"],
+                ["st_filter()", "Spatial filter to keep only reefs within reef ecoregions"],
+                ["prioritizr()", "Systematic conservation planning on the cleaned MPA network"],
+              ].map(([fn, desc]) => (
+                <div key={String(fn)} style={{ marginBottom: 5 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#00b894", fontFamily: "monospace" }}>{fn}</span>
+                  <div style={{ fontSize: 8.5, color: "#d4e9f366", lineHeight: 1.4, marginTop: 1 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+            {[
+              { label: "wdpar (prioritizr / GitHub)",            href: "https://github.com/prioritizr/wdpar",                                                              color: "#00b894" },
+              { label: "wdpar documentation",                    href: "https://prioritizr.github.io/wdpar/",                                                              color: "#55efc4" },
+              { label: "Recommended practices (large datasets)", href: "https://prioritizr.github.io/wdpar/articles/wdpar.html#recommended-practices-for-large-datasets",  color: "#55efc4" },
+              { label: "Coral reef MPA vignette",                href: "https://prioritizr.github.io/wdpar/articles/wdpar.html",                                           color: "#55efc4" },
+              { label: "prioritizr — systematic conservation",   href: "https://prioritizr.net",                                                                          color: "#55efc4" },
+            ].map(({ label, href, color }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                style={{ display: "block", fontSize: 9, color, textDecoration: "none", padding: "2px 0", marginBottom: 2 }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#83eef0")}
+                onMouseLeave={e => (e.currentTarget.style.color = color)}
+              >
+                ↗ {label}
+              </a>
+            ))}
+          </SideSection>
+
           <SideSection title="Marine Protected Areas">
             <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
               The World Database on Protected Areas (WDPA) is the most comprehensive global database of marine and terrestrial protected areas, maintained by UNEP-WCMC and IUCN. Updated monthly.
@@ -767,8 +840,9 @@ function ExpandedMapModal({
 
           <SideSection title="Data Sources">
             {[
-              { label: "Marine Regions · EEZ (VLIZ / mregions2)",    href: "https://www.marineregions.org",  color: "#fdcb6e" },
-              { label: "WDPA · Protected Planet (UNEP-WCMC / IUCN)", href: "https://www.protectedplanet.net", color: "#0984e3" },
+              { label: "Marine Regions · EEZ (VLIZ / mregions2)",    href: "https://www.marineregions.org",       color: "#fdcb6e" },
+              { label: "Coral MPAs · wdpar (prioritizr / rOpenSci)", href: "https://github.com/prioritizr/wdpar", color: "#00b894" },
+              { label: "WDPA · Protected Planet (UNEP-WCMC / IUCN)", href: "https://www.protectedplanet.net",     color: "#0984e3" },
               { label: "CoralMapping / GlobalMappingRegions", href: "https://github.com/CoralMapping/GlobalMappingRegions", color: "#fd7272" },
               { label: "CoralMapping / proc_gee_utils",       href: "https://github.com/CoralMapping/proc_gee_utils",       color: "#fdcb6e" },
               { label: "GCRMN gcrmndb_benthos",       href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
@@ -862,6 +936,7 @@ export function ReefMap({
   const [showGcrmn,         setShowGcrmn]         = useState(true);
   const [showCoralMapping,  setShowCoralMapping]  = useState(true);
   const [showMPA,           setShowMPA]           = useState(true);
+  const [showCoralMPA,      setShowCoralMPA]      = useState(true);
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
@@ -936,6 +1011,17 @@ export function ReefMap({
               opacity={0.4}
               version="1.1.1"
               attribution='© MarineRegions.org · VLIZ'
+            />
+          )}
+          {showCoralMPA && (
+            <WMSTileLayer
+              url="https://maps.protectedplanet.net/geoserver/wms"
+              layers="wdpa:wdpa_marine_poly"
+              format="image/png"
+              transparent={true}
+              opacity={0.5}
+              version="1.1.1"
+              attribution='© wdpar · prioritizr (WDPA)'
             />
           )}
           {showMPA && (
@@ -1018,6 +1104,19 @@ export function ReefMap({
             }}
           >
             EEZ
+          </button>
+          <button
+            data-testid="toggle-coral-mpa-layer"
+            onClick={() => setShowCoralMPA((v) => !v)}
+            style={{
+              background: showCoralMPA ? "rgba(0,184,148,0.82)" : "rgba(0,19,28,0.75)",
+              border: `1px solid ${showCoralMPA ? "#00b894" : "rgba(0,184,148,0.4)"}`,
+              borderRadius: 6, padding: "2px 7px", fontSize: 9,
+              color: showCoralMPA ? "#fff" : "#00b894cc",
+              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
+            }}
+          >
+            cMPA
           </button>
           <button
             data-testid="toggle-mpa-layer"
@@ -1115,6 +1214,12 @@ export function ReefMap({
             <div className="flex items-center gap-1.5">
               <span style={{ width:10,height:6,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",borderRadius:2,display:"inline-block" }}/>
               <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>EEZ boundary</span>
+            </div>
+          )}
+          {showCoralMPA && (
+            <div className="flex items-center gap-1.5">
+              <span style={{ width:10,height:6,background:"rgba(0,184,148,0.2)",border:"1.5px solid #00b894",borderRadius:2,display:"inline-block" }}/>
+              <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>Coral MPA (wdpar)</span>
             </div>
           )}
           {showMPA && (
