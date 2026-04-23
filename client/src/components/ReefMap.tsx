@@ -361,10 +361,11 @@ function ExpandedMapModal({
 }) {
   const [showGcrmn,      setShowGcrmn]      = useState(true);
   const [showAca,        setShowAca]        = useState(true);
+  const [showGeoMorphic, setShowGeoMorphic] = useState(true);
   const [showImgs,       setShowImgs]       = useState(true);
   const [showGcrmnSites, setShowGcrmnSites] = useState(true);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showAca ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showAca ? 1 : 0) + (showGeoMorphic ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -435,10 +436,21 @@ function ExpandedMapModal({
             {showAca && (
               <WMSTileLayer
                 url="https://allencoralatlas.org/geoserver/ows"
-                layers="coral-atlas:benthic_map"
+                layers="coral-atlas:benthic_data_verbose"
                 format="image/png"
                 transparent={true}
                 opacity={0.5}
+                version="1.1.1"
+                attribution="© Allen Coral Atlas"
+              />
+            )}
+            {showGeoMorphic && (
+              <WMSTileLayer
+                url="https://allencoralatlas.org/geoserver/ows"
+                layers="coral-atlas:geomorphic_data_verbose"
+                format="image/png"
+                transparent={true}
+                opacity={0.45}
                 version="1.1.1"
                 attribution="© Allen Coral Atlas"
               />
@@ -512,12 +524,20 @@ function ExpandedMapModal({
               testId="expanded-toggle-gcrmn"
             />
             <LayerToggle
-              label="Allen Coral Atlas"
-              sublabel="Benthic habitat map"
+              label="ACA Benthic Habitat"
+              sublabel="Coral · algae · rubble · seagrass · sand"
               active={showAca}
               color="#48dbfb"
               onClick={() => setShowAca((v) => !v)}
               testId="expanded-toggle-aca"
+            />
+            <LayerToggle
+              label="ACA Geomorphic Zones"
+              sublabel="Reef crest · slope · flat · lagoon · atoll"
+              active={showGeoMorphic}
+              color="#a29bfe"
+              onClick={() => setShowGeoMorphic((v) => !v)}
+              testId="expanded-toggle-geomorphic"
             />
             <LayerToggle
               label="Reef Photos"
@@ -548,6 +568,14 @@ function ExpandedMapModal({
           )}
 
           <SideSection title="Map Key">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(72,219,251,0.3)",border:"1.5px solid #48dbfb",display:"inline-block",flexShrink:0 }}/>
+              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Benthic habitat</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(162,155,254,0.3)",border:"1.5px solid #a29bfe",display:"inline-block",flexShrink:0 }}/>
+              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Geomorphic zones</span>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
               <span style={{ width:11,height:11,borderRadius:"50%",background:"#A6CE3988",border:"1.5px solid #A6CE39",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN monitoring territory</span>
@@ -599,13 +627,43 @@ function ExpandedMapModal({
             </a>
           </SideSection>
 
+          <SideSection title="Allen Coral Atlas Layers">
+            <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
+              Two reef classification products from the Allen Coral Atlas, derived from Planet satellite imagery using Google Earth Engine (GEE). Published under CC BY 4.0.
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#48dbfb", marginBottom: 2 }}>Benthic Habitat</div>
+              <div style={{ fontSize: 9, color: "#d4e9f377", lineHeight: 1.4 }}>
+                Classifies the seafloor: coral/algae, microalgal mats, coral, turf algae, rubble, rock, seagrass, sand, and unmapped areas.
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#a29bfe", marginBottom: 2 }}>Geomorphic Zonation</div>
+              <div style={{ fontSize: 9, color: "#d4e9f377", lineHeight: 1.4 }}>
+                Classifies the physical reef structure: reef crest, reef flat, inner/outer slope, back reef, sheltered slope, shallow/deep lagoon, terrestrial reef flat, atoll, patch reef, and rubble.
+              </div>
+            </div>
+            {[
+              { label: "CoralMapping / gee-mapping-source", href: "https://github.com/CoralMapping/gee-mapping-source", color: "#a29bfe" },
+              { label: "ACA WMS GetCapabilities",           href: "https://allencoralatlas.org/geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities", color: "#48dbfb" },
+            ].map(({ label, href, color }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                style={{ display: "block", fontSize: 9, color, textDecoration: "none", padding: "2px 0", marginBottom: 2 }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#83eef0")}
+                onMouseLeave={e => (e.currentTarget.style.color = color)}
+              >
+                ↗ {label}
+              </a>
+            ))}
+          </SideSection>
+
           <SideSection title="Data Sources">
             {[
-              { label: "GCRMN gcrmndb_benthos",  href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
-              { label: "Esri Ocean Basemap",      href: "https://www.arcgis.com",              color: "#83eef099" },
-              { label: "Allen Coral Atlas",       href: "https://allencoralatlas.org",         color: "#83eef099" },
-              { label: "GCRMN Regions",           href: "https://gcrmn.net",                   color: "#83eef099" },
-              { label: "NOAA Coral Reef Watch",   href: "https://coralreefwatch.noaa.gov",     color: "#83eef099" },
+              { label: "GCRMN gcrmndb_benthos",       href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
+              { label: "Allen Coral Atlas (CoralMapping)", href: "https://github.com/CoralMapping",    color: "#a29bfe" },
+              { label: "Esri Ocean Basemap",           href: "https://www.arcgis.com",                color: "#83eef099" },
+              { label: "GCRMN Regions",                href: "https://gcrmn.net",                     color: "#83eef099" },
+              { label: "NOAA Coral Reef Watch",        href: "https://coralreefwatch.noaa.gov",       color: "#83eef099" },
             ].map(({ label, href, color }) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer"
                 style={{ display: "block", fontSize: 10, color, textDecoration: "none", padding: "2px 0" }}
@@ -691,6 +749,8 @@ export function ReefMap({
   onExpandChange?: (v: boolean) => void;
 }) {
   const [showGcrmn,      setShowGcrmn]      = useState(true);
+  const [showAca,        setShowAca]        = useState(true);
+  const [showGeoMorphic, setShowGeoMorphic] = useState(true);
   const [showImgs,       setShowImgs]       = useState(true);
   const [showGcrmnSites, setShowGcrmnSites] = useState(true);
   const [internalExpanded, setInternalExpanded] = useState(false);
@@ -750,15 +810,28 @@ export function ReefMap({
             attribution="© Esri"
             maxZoom={10}
           />
-          <WMSTileLayer
-            url="https://allencoralatlas.org/geoserver/ows"
-            layers="coral-atlas:benthic_map"
-            format="image/png"
-            transparent={true}
-            opacity={0.5}
-            version="1.1.1"
-            attribution="© Allen Coral Atlas"
-          />
+          {showAca && (
+            <WMSTileLayer
+              url="https://allencoralatlas.org/geoserver/ows"
+              layers="coral-atlas:benthic_data_verbose"
+              format="image/png"
+              transparent={true}
+              opacity={0.5}
+              version="1.1.1"
+              attribution="© Allen Coral Atlas"
+            />
+          )}
+          {showGeoMorphic && (
+            <WMSTileLayer
+              url="https://allencoralatlas.org/geoserver/ows"
+              layers="coral-atlas:geomorphic_data_verbose"
+              format="image/png"
+              transparent={true}
+              opacity={0.45}
+              version="1.1.1"
+              attribution="© Allen Coral Atlas"
+            />
+          )}
           {showGcrmn && gcrmnGeoJson && (
             <GeoJSON
               key="gcrmn"
@@ -820,6 +893,19 @@ export function ReefMap({
             Sites
           </button>
           <button
+            data-testid="toggle-geomorphic-layer"
+            onClick={() => setShowGeoMorphic((v) => !v)}
+            style={{
+              background: showGeoMorphic ? "rgba(162,155,254,0.82)" : "rgba(0,19,28,0.75)",
+              border: `1px solid ${showGeoMorphic ? "#a29bfe" : "rgba(162,155,254,0.4)"}`,
+              borderRadius: 6, padding: "2px 7px", fontSize: 9,
+              color: showGeoMorphic ? "#fff" : "#a29bfecc",
+              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
+            }}
+          >
+            Geo
+          </button>
+          <button
             data-testid="toggle-gcrmn-layer"
             onClick={() => setShowGcrmn((v) => !v)}
             style={{
@@ -872,6 +958,12 @@ export function ReefMap({
           className="absolute bottom-2 left-2 flex flex-col gap-1 pointer-events-none"
           style={{ zIndex: 500 }}
         >
+          {showGeoMorphic && (
+            <div className="flex items-center gap-1.5">
+              <span style={{ width:10,height:6,background:"rgba(162,155,254,0.35)",border:"1.5px solid #a29bfe",borderRadius:2,display:"inline-block" }}/>
+              <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontFamily: "Inter,sans-serif" }}>Geomorphic zones</span>
+            </div>
+          )}
           {showGcrmnSites && (
             <div className="flex items-center gap-1.5">
               <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(166,206,57,0.35)",border:"1.5px solid #A6CE39",display:"inline-block" }}/>
