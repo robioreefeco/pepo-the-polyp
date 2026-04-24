@@ -44,6 +44,7 @@ waitForPort = 5000
 VITE_PRIVY_APP_ID = "cmnysfvqe00ff0cjmh15ba116"
 
 [userenv.production]
+ORCID_REDIRECT_URI = "https://thepolyp.xyz/api/auth/orcid/callback"
 
 [userenv.development]
 ORCID_REDIRECT_URI = "https://8485d33b-dfb1-4674-a90f-db10b4e44703-00-1l62qtgzb0qn1.kirk.replit.dev/api/auth/orcid/callback"
