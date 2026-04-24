@@ -131,9 +131,21 @@ const SPECIALIZATIONS = [
 const DEFAULT_BIO = "";
 
 // ─── Guest view ───────────────────────────────────────────────────────────────
-function GuestView({ onLogin }: { onLogin: () => void }) {
+function GuestView({ onLogin, error }: { onLogin: () => void; error?: string | null }) {
+  const errorMessages: Record<string, string> = {
+    invalid_state: "Login session expired or was interrupted. Please try again.",
+    token_failed: "ORCID could not verify your credentials. Please try again.",
+    server_error: "A server error occurred during sign-in. Please try again.",
+  };
+  const errorText = error ? (errorMessages[error] ?? `Sign-in error: ${error}`) : null;
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-8 py-16 px-4">
+      {errorText && (
+        <div className="w-full max-w-xs bg-red-900/40 border border-red-500/40 rounded-xl px-4 py-3 flex items-start gap-2">
+          <span className="text-red-400 text-lg leading-none mt-0.5">⚠</span>
+          <p className="[font-family:'Inter',Helvetica] text-red-300 text-xs leading-5">{errorText}</p>
+        </div>
+      )}
       <div className="flex flex-col items-center gap-4">
         <div className="relative">
           <div className="w-24 h-24 rounded-full bg-[#06232c] border-2 border-[#83eef04c] flex items-center justify-center overflow-hidden">
@@ -752,7 +764,7 @@ export function UserProfileDashboard() {
               <div className="w-8 h-8 rounded-full border-2 border-[#83eef0] border-t-transparent animate-spin" />
             </div>
           ) : !authenticated ? (
-            <GuestView onLogin={login} />
+            <GuestView onLogin={login} error={orcidError} />
           ) : (
             <>
               {/* Page heading */}

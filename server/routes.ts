@@ -115,6 +115,9 @@ const ORCID_BASE = "https://orcid.org";
 // build works on every domain (thepolyp.xyz, pepothepolyp.replit.app, localhost, …).
 // Replit's reverse proxy sets X-Forwarded-Proto; fall back to host-based detection.
 function getOrcidRedirectUri(req: Request): string {
+  // Allow a fixed override via env — set this in the Replit secrets to match
+  // whatever redirect URI is registered in your ORCID developer portal.
+  if (process.env.ORCID_REDIRECT_URI) return process.env.ORCID_REDIRECT_URI;
   const host = req.headers.host || "";
   const forwarded = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim();
   const protocol = forwarded || (host.includes("localhost") ? "http" : "https");
@@ -828,7 +831,7 @@ export async function registerRoutes(
     const params = new URLSearchParams({
       client_id: ORCID_CLIENT_ID,
       response_type: "code",
-      scope: "/authenticate /read-limited",
+      scope: "/authenticate",
       redirect_uri: redirectUri,
       state,
     });
@@ -841,7 +844,7 @@ export async function registerRoutes(
     const state = typeof req.query.state === "string" ? req.query.state : null;
 
     if (!code || !state || !orcidStateStore.has(state)) {
-      return res.redirect("/?orcid_error=invalid_state");
+      return res.redirect("/profile?orcid_error=invalid_state");
     }
     const stateData = orcidStateStore.get(state)!;
     orcidStateStore.delete(state);

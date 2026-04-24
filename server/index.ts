@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -110,7 +112,14 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
 // ─── Sessions (used for ORCID auth) ───────────────────────────────────────────
+// Use PostgreSQL-backed session store so sessions survive server restarts.
+const PgSession = connectPgSimple(session);
 app.use(session({
+  store: new PgSession({
+    pool,
+    tableName: "orcid_sessions",
+    createTableIfMissing: true,
+  }),
   secret: process.env.SESSION_SECRET || "mesoreefdao-orcid-session-secret-dev",
   resave: false,
   saveUninitialized: false,
