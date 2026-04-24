@@ -5,6 +5,7 @@ import { PRIVY_ENABLED } from "@/lib/privy";
 import { Trophy, MessageCircle, Star, Users, ArrowLeft, Globe, ChevronRight } from "lucide-react";
 import type { LeaderboardEntry } from "@shared/schema";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import coralDnaBg from "@assets/coral_micro_1777060394505.jpg";
 
 // ─── ORCID badge ──────────────────────────────────────────────────────────────
 function OrcidBadge({ orcidId }: { orcidId: string }) {
@@ -263,9 +264,23 @@ export function CommunityLeaderboard() {
     <div
       className="min-h-screen w-full"
       style={{
-        background: "linear-gradient(180deg, #00131c 0%, #00080c 100%)",
+        backgroundImage: `url(${coralDnaBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+        position: "relative",
       }}
     >
+      {/* Dark overlay */}
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        background: "linear-gradient(180deg, rgba(0,8,12,0.84) 0%, rgba(0,19,28,0.76) 40%, rgba(0,8,12,0.90) 100%)",
+        zIndex: 0,
+        pointerEvents: "none",
+      }} />
+      {/* Page content above overlay */}
+      <div style={{ position: "relative", zIndex: 1 }}>
       {/* Top bar */}
       <div className="flex items-center gap-4 px-4 md:px-6 py-3 md:py-4 border-b border-[#ffffff08]">
         <Link
@@ -358,6 +373,7 @@ export function CommunityLeaderboard() {
         </div>
       </div>
 
+      </div>{/* end z-index content wrapper */}
       <MobileBottomNav />
     </div>
   );
