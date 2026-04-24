@@ -12,6 +12,7 @@ const navLinks = [
   { label: "MesoReef DAO", href: "https://mesoreefdao.org/" },
   { label: "ReefRegen", href: "https://reefregen.org/" },
   { label: "Workspace", href: "/workspace", internal: true },
+  { label: "bio", href: "https://app.bio.xyz/launchpad", badge: "soon" },
   { label: "Join", href: "https://linktr.ee/mesoreefdao" },
 ];
 
@@ -292,12 +293,18 @@ export const ApplicationHeaderSection = (): JSX.Element => {
             ) : (
               <a
                 key={link.label}
-                className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 whitespace-nowrap hover:text-[#d4e9f3] transition-colors"
+                data-testid={`nav-header-${link.label.toLowerCase()}`}
+                className="relative flex items-center gap-1.5 [font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 whitespace-nowrap hover:text-[#d4e9f3] transition-colors no-underline"
                 href={link.href}
                 rel="noopener noreferrer"
                 target="_blank"
               >
                 {link.label}
+                {link.badge && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#83eef020] border border-[#83eef040] text-[#83eef0] text-[9px] font-semibold [font-family:'Inter',Helvetica] leading-none uppercase tracking-wide">
+                    {link.badge}
+                  </span>
+                )}
               </a>
             )
           )}
@@ -390,8 +397,13 @@ export const ApplicationHeaderSection = (): JSX.Element => {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-5 py-4 min-h-[56px] rounded-2xl bg-[#ffffff06] border border-[#ffffff0d] text-[#d4e9f3b2] hover:bg-[#83eef00a] hover:border-[#83eef01a] hover:text-[#d4e9f3] active:bg-[#83eef00f] transition-colors no-underline"
                 >
-                  <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-base">
+                  <span className="flex items-center gap-2 [font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-base">
                     {link.label}
+                    {link.badge && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#83eef020] border border-[#83eef040] text-[#83eef0] text-[9px] font-semibold [font-family:'Inter',Helvetica] leading-none uppercase tracking-wide">
+                        {link.badge}
+                      </span>
+                    )}
                   </span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
