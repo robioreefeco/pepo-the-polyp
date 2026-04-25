@@ -79,7 +79,7 @@ async function buildAll() {
     // Since helia is external, its own createRequire(import.meta.url) uses
     // the correct node_modules path — not this banner.
     banner: {
-      js: `import { createRequire } from "module"; const require = createRequire(import.meta.url);`,
+      js: `import { createRequire } from "module"; const require = createRequire(import.meta.url); import { fileURLToPath as __ftu } from "url"; import { dirname as __dn } from "path"; const __filename = __ftu(import.meta.url); const __dirname = __dn(__filename);`,
     },
     minify: true,
     external: externals,
