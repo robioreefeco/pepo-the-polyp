@@ -100,7 +100,7 @@ function LoginGate() {
       </button>
 
       <p className="[font-family:'Inter',Helvetica] text-[#d4e9f328] text-[10px] text-center mt-6">
-        MetaMask · Coinbase · Rabby · ORCID iD · Google · Email · GitHub · X · LinkedIn
+        MetaMask · Coinbase · Rabby · ORCID iD · Google · GitHub · X · LinkedIn
       </p>
 
       {showPicker && <WalletPickerModal onClose={() => setShowPicker(false)} />}
@@ -151,7 +151,7 @@ function App() {
       appId={PRIVY_APP_ID || "placeholder-disabled"}
       config={{
         loginMethods: PRIVY_ENABLED
-          ? ["siwe", "google", "twitter", "github", "linkedin", "email"]
+          ? ["siwe", "google", "twitter", "github", "linkedin"]
           : [],
         defaultChain: mainnet,
         supportedChains: EVM_CHAINS,
