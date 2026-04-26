@@ -602,11 +602,29 @@ export function UserProfileDashboard() {
     }
   }, [savedProfile]);
 
-  // Hydrate from ORCID session (standalone ORCID login)
+  // Hydrate from ORCID session; if Privy user just connected ORCID, also persist it to their profile
   useEffect(() => {
     if (sessionOrcidId && !orcidId) {
       setOrcidId(sessionOrcidId);
       setOrcidName(sessionOrcidName || null);
+      // Privy user connected ORCID via the full auth flow — save it to their Privy profile too
+      if (privyAuthenticated) {
+        (async () => {
+          try {
+            const token = await getAccessToken();
+            if (!token) return;
+            await fetch("/api/profiles/orcid", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-privy-token": token },
+              body: JSON.stringify({ orcidId: sessionOrcidId, orcidName: sessionOrcidName || "" }),
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+          } catch {
+            // non-blocking
+          }
+        })();
+      }
     }
   }, [sessionOrcidId, sessionOrcidName]);
 
@@ -1110,7 +1128,7 @@ export function UserProfileDashboard() {
                         </div>
                       ) : (
                         <a
-                          href="/api/auth/orcid?link=1"
+                          href="/api/auth/orcid"
                           data-testid="link-connect-orcid"
                           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#a6ce3908] border border-[#a6ce3920] hover:bg-[#a6ce3915] hover:border-[#a6ce3933] transition-colors no-underline"
                         >
