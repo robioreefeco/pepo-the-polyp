@@ -828,6 +828,60 @@ export async function registerRoutes(
     }
   });
 
+  // ─── GitHub repo actions proxy (for governance voting options) ──────────────
+  // GET /api/github/issues?owner=<owner>&repo=<repo>&type=all|issues|prs
+  // Returns open issues + PRs for the given repo without exposing tokens to client
+  app.get("/api/github/issues", async (req: Request, res: Response) => {
+    const owner = String(req.query.owner || "robioreefeco");
+    const repo  = String(req.query.repo  || "memento-mori");
+    const type  = String(req.query.type  || "all");
+
+    // Validate repo path characters
+    if (!/^[a-zA-Z0-9_.\-]+$/.test(owner) || !/^[a-zA-Z0-9_.\-]+$/.test(repo)) {
+      return res.status(400).json({ error: "Invalid owner or repo" });
+    }
+
+    const ghToken = process.env.GITHUB_TOKEN || "";
+    const headers: Record<string, string> = {
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "pepo-the-polyp/1.0",
+    };
+    if (ghToken) headers["Authorization"] = `Bearer ${ghToken}`;
+
+    try {
+      const items: any[] = [];
+
+      if (type === "all" || type === "issues") {
+        const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30&labels=`, { headers });
+        if (r.ok) {
+          const data = await r.json() as any[];
+          for (const item of data) {
+            if (!item.pull_request) {
+              items.push({ number: item.number, title: item.title, type: "issue", url: item.html_url, labels: (item.labels || []).map((l: any) => l.name) });
+            }
+          }
+        }
+      }
+
+      if (type === "all" || type === "prs") {
+        const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=open&per_page=30`, { headers });
+        if (r.ok) {
+          const data = await r.json() as any[];
+          for (const pr of data) {
+            items.push({ number: pr.number, title: pr.title, type: "pr", url: pr.html_url, labels: (pr.labels || []).map((l: any) => l.name) });
+          }
+        }
+      }
+
+      items.sort((a, b) => b.number - a.number);
+      return res.json({ owner, repo, items });
+    } catch (err: any) {
+      console.error("[github/issues]", err);
+      return res.status(500).json({ error: "Failed to fetch GitHub data" });
+    }
+  });
+
   // ORCID OAuth: initiate login
   // mode defaults to "auth" (standalone sign-in); pass ?link=1 to only link ORCID to an existing Privy profile
   app.get("/api/auth/orcid", authLimiter, (req: Request, res: Response) => {
