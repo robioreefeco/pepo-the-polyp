@@ -551,6 +551,20 @@ export async function registerRoutes(
     }
   });
 
+  // DELETE /api/profiles/orcid — unlink ORCID iD from authenticated user's profile
+  app.delete("/api/profiles/orcid", async (req: Request, res: Response) => {
+    const token = (req.headers["x-privy-token"] as string) || "";
+    const verify = await verifyPrivyToken(token);
+    if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
+    try {
+      const profile = await storage.clearOrcid(verify.userId!);
+      return res.json(profile);
+    } catch (err) {
+      console.error("[clearOrcid]", err);
+      return res.status(500).json({ error: "Failed to clear ORCID" });
+    }
+  });
+
   // POST /api/profiles/ceramic — save Ceramic stream ID + DID to profile
   app.post("/api/profiles/ceramic", async (req: Request, res: Response) => {
     const token = (req.headers["x-privy-token"] as string) || "";

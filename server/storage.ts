@@ -32,6 +32,7 @@ export interface IStorage {
 
   // ORCID
   saveOrcid(profileId: string, orcidId: string, orcidName: string): Promise<Profile>;
+  clearOrcid(profileId: string): Promise<Profile>;
 
   // Ceramic + IDX
   saveCeramic(profileId: string, ceramicStreamId: string, ceramicDid: string): Promise<Profile>;
@@ -144,6 +145,16 @@ export class DbStorage implements IStorage {
     const [row] = await db
       .update(profiles)
       .set({ orcidId, orcidName, updatedAt: now })
+      .where(eq(profiles.id, profileId))
+      .returning();
+    return row;
+  }
+
+  async clearOrcid(profileId: string): Promise<Profile> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .update(profiles)
+      .set({ orcidId: null, orcidName: null, updatedAt: now })
       .where(eq(profiles.id, profileId))
       .returning();
     return row;
