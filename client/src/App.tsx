@@ -167,7 +167,7 @@ function App() {
         loginMethods: PRIVY_ENABLED
           ? ["siwe", "google", "twitter", "github", "linkedin", "email"]
           : [],
-        defaultChain: mainnet,
+        defaultChain: base,
         supportedChains: EVM_CHAINS,
         appearance: {
           theme: "dark",
@@ -179,6 +179,8 @@ function App() {
           walletList: [
             "metamask",
             "coinbase_wallet",
+            "rainbow",
+            "rabby_wallet",
             "wallet_connect",
             "detected_wallets",
           ],
