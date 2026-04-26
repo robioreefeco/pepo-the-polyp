@@ -277,7 +277,6 @@ export function WalletPickerModal({ onClose }: WalletPickerModalProps) {
 
           {/* ── Other sign-in options ── */}
           <div>
-            <SectionDivider label="Other sign-in" />
             <div className="grid grid-cols-2 gap-2 mt-2.5">
               {OTHER_OPTIONS.map((opt) => (
                 <button
