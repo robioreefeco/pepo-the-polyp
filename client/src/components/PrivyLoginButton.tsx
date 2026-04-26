@@ -202,9 +202,8 @@ export function PrivyLoginButton({ compact = false, onOpenMenu }: PrivyLoginButt
               {initial}
             </span>
           </div>
-          {/* Provider icon + display name */}
+          {/* Display name */}
           <div className="flex items-center gap-1.5">
-            <ProviderIcon user={user} />
             <span
               data-testid="text-user-display-name"
               className="[font-family:'Inter',Helvetica] font-medium text-[#d4e9f3cc] text-sm max-w-[120px] truncate"
