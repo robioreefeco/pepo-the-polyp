@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { PrivyLoginButton } from "@/components/PrivyLoginButton";
 import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 import { FileverseWorkspacePanel } from "@/components/FileverseWorkspacePanel";
 import { PRIVY_ENABLED } from "@/lib/privy";
@@ -336,39 +335,19 @@ export const ApplicationHeaderSection = (): JSX.Element => {
           )}
         </nav>
 
-        {/* Right side: auth (desktop) + compact auth + hamburger (mobile) */}
+        {/* Right side: hamburger (mobile) */}
         <div className="flex items-center gap-2">
-          {/* Full auth button — desktop only */}
-          <div className="hidden md:block">
-            {PRIVY_ENABLED ? <PrivyLoginButton /> : <PlainLoginButton />}
-          </div>
-
-          {/* Mobile: compact auth icon + hamburger */}
-          <div className="flex md:hidden items-center gap-2">
-            {PRIVY_ENABLED ? (
-              <PrivyLoginButton compact onOpenMenu={() => setMobileMenuOpen(true)} />
-            ) : (
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="w-9 h-9 rounded-full bg-[linear-gradient(135deg,rgba(131,238,240,0.9)_0%,rgba(63,176,179,0.9)_100%)] flex items-center justify-center"
-                aria-label="Log in"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="#00585a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              data-testid="button-mobile-menu"
-              aria-label="Open menu"
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-[#ffffff08] border border-[#ffffff12] text-[#d4e9f3b2] active:bg-[#ffffff18] transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
+          {/* Mobile: hamburger only */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            data-testid="button-mobile-menu"
+            aria-label="Open menu"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-[#ffffff08] border border-[#ffffff12] text-[#d4e9f3b2] active:bg-[#ffffff18] transition-colors md:hidden"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
       </header>
 
