@@ -91,7 +91,7 @@ function App() {
       appId={PRIVY_APP_ID || "placeholder-disabled"}
       config={{
         loginMethods: PRIVY_ENABLED
-          ? ["siwe", "email", "sms", "google", "twitter", "github", "linkedin"]
+          ? ["siwe", "google", "twitter", "github", "linkedin"]
           : [],
         defaultChain: mainnet,
         supportedChains: EVM_CHAINS,
