@@ -20,6 +20,7 @@ import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { usePrivy } from "@privy-io/react-auth";
 import { SplashScreen } from "@/components/SplashScreen";
 import { WalletPickerModal } from "@/components/WalletPickerModal";
+import coralBg from "@assets/coral_reefs_1777179421866.jpg";
 
 function useSplash() {
   const seen = sessionStorage.getItem("pepo_splash_seen");
@@ -64,40 +65,50 @@ function GeoSyncOrcidOnly() {
 function LoginGate() {
   const [showPicker, setShowPicker] = useState(false);
   return (
-    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6"
-      style={{ background: "linear-gradient(160deg,#00080c 0%,#001a22 60%,#00080c 100%)" }}
-    >
-      {/* Glow */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(131,238,240,0.06) 0%, transparent 70%)" }} />
-
-      {/* Logo */}
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6">
+      {/* Background image */}
       <img
-        src="/figmaAssets/mesoreef-dao-logo-new.png"
-        alt="MesoReef DAO"
-        className="h-10 w-auto object-contain mb-8 opacity-90"
+        src={coralBg}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover"
       />
+      {/* Dark overlay to keep text readable */}
+      <div className="absolute inset-0" style={{ background: "linear-gradient(160deg,rgba(0,8,12,0.82) 0%,rgba(0,26,34,0.75) 60%,rgba(0,8,12,0.88) 100%)" }} />
+      {/* Teal glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(131,238,240,0.08) 0%, transparent 70%)" }} />
 
-      {/* Heading */}
-      <h1 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-2xl md:text-3xl text-center mb-3 leading-tight">
-        Pepo the Polyp
-      </h1>
-      <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm md:text-base text-center max-w-xs mb-10 leading-relaxed">
-        Sign in to access the MesoReef DAO Coral Knowledge Network
-      </p>
+      {/* Content (above overlays) */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Logo */}
+        <img
+          src="/figmaAssets/mesoreef-dao-logo-new.png"
+          alt="MesoReef DAO"
+          className="h-10 w-auto object-contain mb-8 opacity-90"
+        />
 
-      {/* Login button */}
-      <button
-        onClick={() => setShowPicker(true)}
-        data-testid="button-gate-login"
-        className="relative inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[linear-gradient(170deg,#83eef0_0%,#3fb0b3_100%)] shadow-[0_4px_24px_rgba(131,238,240,0.3)] hover:shadow-[0_6px_32px_rgba(131,238,240,0.45)] hover:opacity-95 transition-all"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="#00585a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <span className="[font-family:'Inter',Helvetica] font-bold text-[#00585a] text-base leading-none">
-          Sign in
-        </span>
-      </button>
+        {/* Heading */}
+        <h1 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-2xl md:text-3xl text-center mb-3 leading-tight">
+          Pepo the Polyp
+        </h1>
+        <p className="[font-family:'Inter',Helvetica] text-[#d4e9f380] text-sm md:text-base text-center max-w-xs mb-10 leading-relaxed">
+          Sign in to access the MesoReef DAO Coral Knowledge Network
+        </p>
+
+        {/* Login button */}
+        <button
+          onClick={() => setShowPicker(true)}
+          data-testid="button-gate-login"
+          className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[linear-gradient(170deg,#83eef0_0%,#3fb0b3_100%)] shadow-[0_4px_24px_rgba(131,238,240,0.3)] hover:shadow-[0_6px_32px_rgba(131,238,240,0.45)] hover:opacity-95 transition-all"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="#00585a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="[font-family:'Inter',Helvetica] font-bold text-[#00585a] text-base leading-none">
+            Sign in
+          </span>
+        </button>
+      </div>
 
       {showPicker && <WalletPickerModal onClose={() => setShowPicker(false)} />}
     </div>
