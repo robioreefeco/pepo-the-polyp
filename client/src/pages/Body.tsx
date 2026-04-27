@@ -2,6 +2,7 @@ import { ApplicationHeaderSection } from "./sections/ApplicationHeaderSection";
 import { ExplorerNavigationSidebarSection } from "./sections/ExplorerNavigationSidebarSection";
 import { ReefInsightDashboardSection } from "./sections/ReefInsightDashboardSection";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { TelegramChatWidget } from "@/components/TelegramChatWidget";
 
 export const Body = (): JSX.Element => {
   return (
@@ -26,6 +27,9 @@ export const Body = (): JSX.Element => {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav />
+
+      {/* Telegram chat widget — floats above mobile nav */}
+      <TelegramChatWidget />
     </div>
   );
 };
