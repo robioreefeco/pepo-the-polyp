@@ -164,10 +164,18 @@ Helia (the official js-IPFS successor) runs in offline mode on the server, backe
 - Authenticated via `PEPO_API_KEY` on the server (never exposed to client)
 - Chat has a local fallback if the API is unreachable
 
+### Live Chat Widget (TelegramChatWidget)
+- Component: `client/src/components/TelegramChatWidget.tsx`
+- Floating Pepo avatar button in bottom-right corner; available on all pages (mounted in AppInner in App.tsx)
+- Full in-browser live chat: sends messages to `/api/chat`, streams AI responses from Bonfires.ai
+- Shows typing indicator, per-message timestamps, +points badge when points awarded
+- Keeps conversation history for the session; greets with welcome message on open
+- Footer link to @PepothePolyp_bot for users who prefer Telegram app
+
 ### Telegram Bot
 - Bot: @PepothePolyp_bot
 - URL: https://t.me/PepothePolyp_bot
-- Linked from the sidebar's "Telegram Bot" section
+- Linked from sidebar "Telegram Bot" section and from the live chat widget footer
 
 ### GitHub
 - Repo: `github.com/robioreefeco/pepo-the-polyp`

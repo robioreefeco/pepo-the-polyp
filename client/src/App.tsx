@@ -20,6 +20,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { usePrivy } from "@privy-io/react-auth";
 import { SplashScreen } from "@/components/SplashScreen";
+import { TelegramChatWidget } from "@/components/TelegramChatWidget";
 import coralBg from "@assets/coral_reefs_1777179421866.jpg";
 
 function useSplash() {
@@ -134,6 +135,7 @@ function AppInner() {
         ? <Router />
         : <LoginGate />
       }
+      {!stillLoading && <TelegramChatWidget />}
     </>
   );
 }
