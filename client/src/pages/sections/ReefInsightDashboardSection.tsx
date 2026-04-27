@@ -8,6 +8,7 @@ import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { useQueryClient } from "@tanstack/react-query";
 
 const TELEGRAM_BOT_URL = "https://t.me/PepothePolyp_bot";
+const TELEGRAM_WEB_URL = "https://web.telegram.org/k/#@PepothePolyp_bot";
 const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
 
 const footerLinks = [
@@ -328,6 +329,31 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
         {/* Right Panel: Clean a Coral + Footer */}
         <div className={`flex flex-col gap-4 md:gap-6 relative self-stretch w-full md:w-[360px] md:flex-none ${mobileTab === "graph" ? "hidden md:flex" : "flex flex-1"}`}>
           <CleanCoralPanel />
+
+          {/* Telegram Chat with us */}
+          <a
+            href={TELEGRAM_WEB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="link-telegram-chat-us"
+            className="flex items-center gap-4 px-5 py-4 rounded-[24px] md:rounded-[28px] border border-[#229ED933] bg-[#229ED90d] hover:bg-[#229ED91a] active:bg-[#229ED922] transition-colors no-underline group"
+            style={{ boxShadow: "0 2px 16px rgba(34,158,217,0.08)" }}
+          >
+            <div className="w-11 h-11 rounded-full bg-[#229ED91a] border border-[#229ED940] flex items-center justify-center flex-shrink-0 group-hover:bg-[#229ED926] transition-colors">
+              <TgIcon size={22} />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-sm leading-5">
+                Chat with us
+              </span>
+              <span className="[font-family:'Inter',Helvetica] text-[#229ED9] text-[11px] leading-4 truncate">
+                @PepothePolyp_bot on Telegram
+              </span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#229ED966] flex-shrink-0 group-hover:text-[#229ED9] transition-colors">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
 
           {/* Footer Card */}
           <Card className="flex flex-col items-center gap-4 px-0 py-4 md:py-6 relative self-stretch w-full flex-[0_0_auto] bg-[#00000066] rounded-[28px] md:rounded-[48px] border border-solid border-[#ffffff1a] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)_brightness(100%)] shadow-none">
