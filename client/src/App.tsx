@@ -20,7 +20,6 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { usePrivy } from "@privy-io/react-auth";
 import { SplashScreen } from "@/components/SplashScreen";
-import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 import coralBg from "@assets/coral_reefs_1777179421866.jpg";
 
 function useSplash() {
@@ -108,16 +107,6 @@ function LoginGate() {
             Sign in
           </span>
         </button>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 w-64 my-1">
-          <div className="flex-1 h-px bg-[#ffffff12]" />
-          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-xs">or</span>
-          <div className="flex-1 h-px bg-[#ffffff12]" />
-        </div>
-
-        {/* Secondary: ORCID */}
-        <OrcidLoginButton className="w-64" label="Sign in with ORCID iD" size="md" />
 
       </div>
     </div>

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
-import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 import {
   ArrowLeft, Vote, Plus, CheckCircle2, XCircle, Loader2, Users, BarChart2,
   Calendar, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Github, GitPullRequest,
@@ -1054,12 +1053,6 @@ export function Governance() {
                 </svg>
                 Log in with wallet
               </button>
-              <div className="flex items-center gap-3 w-full">
-                <div className="flex-1 h-px bg-[#ffffff10]" />
-                <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-xs">or</span>
-                <div className="flex-1 h-px bg-[#ffffff10]" />
-              </div>
-              <OrcidLoginButton className="w-full" label="Sign in with ORCID iD" size="md" />
             </div>
           )}
         </div>
