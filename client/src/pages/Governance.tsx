@@ -10,13 +10,10 @@ import {
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import coralBg from "@assets/coral_micro_1777060394505.jpg";
 
-// ─── Vocdoni API config ──────────────────────────────────────────────────────
-const VOCDONI_ENV = (import.meta.env.VITE_VOCDONI_ENV as string) || "stg";
-const VOCDONI_ORG = (import.meta.env.VITE_VOCDONI_ORG_ADDRESS as string) || "";
-const VOCDONI_API =
-  VOCDONI_ENV === "prod" ? "https://api.vocdoni.io/v2"
-  : VOCDONI_ENV === "dev"  ? "https://api-dev.vocdoni.net/v2"
-  : "https://api-stg.vocdoni.net/v2";
+// ─── Vocdoni config ───────────────────────────────────────────────────────────
+// VOCDONI_ENV is used client-side by the SDK for voting/creating proposals.
+// The org address and API calls go through the server proxy (/api/governance/*).
+const VOCDONI_ENV = (import.meta.env.VITE_VOCDONI_ENV as string) || "prod";
 
 // Default GitHub repo for importing voting options
 const DEFAULT_GH_OWNER = (import.meta.env.VITE_GITHUB_OWNER as string) || "robioreefeco";
@@ -1187,34 +1184,48 @@ export function Governance() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
-  const orgAddress = VOCDONI_ORG;
+  // Org address comes from the server — no need for VITE_ env var
+  const [orgAddress, setOrgAddress] = useState<string>("");
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/governance/info")
+      .then(r => r.json())
+      .then((d: { orgAddress: string; env: string; configured: boolean }) => {
+        setOrgAddress(d.orgAddress || "");
+      })
+      .catch(() => {})
+      .finally(() => setConfigLoaded(true));
+  }, []);
 
   const fetchElections = useCallback(async (pageNum = 0) => {
-    if (!orgAddress) { setLoading(false); return; }
+    if (!configLoaded) return;
     setLoading(true); setError(null);
     try {
-      const url = `${VOCDONI_API}/elections?organizationId=${orgAddress}&page=${pageNum}&limit=20`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const res = await fetch(`/api/governance/elections?page=${pageNum}&limit=20`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Server error ${res.status}`);
       const list: VocdoniElection[] = data.elections ?? [];
 
+      // Fetch full details for each election (choices, results, etc.)
       const detailed = await Promise.allSettled(
         list.map(async (e) => {
-          const r = await fetch(`${VOCDONI_API}/elections/${e.electionId}`);
+          const r = await fetch(`/api/governance/elections/${e.electionId}`);
           return r.ok ? (r.json() as Promise<VocdoniElection>) : e;
         })
       );
       const full = detailed.map((r, i) => r.status === "fulfilled" ? r.value : list[i]);
       setElections(prev => pageNum === 0 ? full : [...prev, ...full]);
-      setHasMore(list.length === 20);
+      setHasMore(!!data.hasMore);
     } catch (err: any) {
       console.error("[governance fetch]", err);
       setError(err.message || "Failed to load proposals.");
     } finally { setLoading(false); }
-  }, [orgAddress]);
+  }, [configLoaded]);
 
-  useEffect(() => { fetchElections(0); }, [fetchElections]);
+  useEffect(() => {
+    if (configLoaded) fetchElections(0);
+  }, [configLoaded, fetchElections]);
 
   const filtered = elections.filter(e => {
     if (filter === "active" && e.status?.toUpperCase() !== "ONGOING") return false;
@@ -1328,15 +1339,50 @@ export function Governance() {
 
         {/* ── Content ──────────────────────────────────────────────────── */}
         <div className="max-w-3xl mx-auto px-3 md:px-4 pb-32 md:pb-16">
-          {!orgAddress ? (
-            <div className="flex flex-col items-center gap-4 py-20 text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "#83eef015", border: "1px solid #83eef030" }}>
-                <Vote size={28} className="text-[#83eef050]" />
+          {/* Show skeleton while config is loading */}
+          {!configLoaded ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-44 rounded-[20px] animate-pulse" style={{ background: "#00080c80", border: "1px solid #ffffff06" }} />
+              ))}
+            </div>
+          ) : !orgAddress ? (
+            <div className="flex flex-col items-center gap-5 py-24 text-center">
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, #83eef015 0%, #3fb0b315 100%)", border: "1px solid #83eef030" }}
+              >
+                <Vote size={36} className="text-[#83eef060]" />
               </div>
-              <h2 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-lg">Governance Not Configured</h2>
-              <a href="https://developer.vocdoni.io" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs [font-family:'Inter',Helvetica] font-semibold no-underline" style={{ color: "#83eef0" }}>
-                <ExternalLink size={12} /> Vocdoni Developer Docs
-              </a>
+              <div className="flex flex-col gap-2">
+                <h2 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-xl">
+                  DAO Governance Coming Soon
+                </h2>
+                <p className="[font-family:'Inter',Helvetica] text-[#9aaeb8] text-sm max-w-sm leading-relaxed">
+                  MesoReef DAO governance is powered by{" "}
+                  <a href="https://vocdoni.io" target="_blank" rel="noopener noreferrer" className="text-[#83eef0] font-semibold no-underline">Vocdoni</a>
+                  {" "}— gasless, censorship-resistant on-chain voting. Proposals will appear here once the DAO is live on Base.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 mt-2">
+                <a
+                  href="https://vocdoni.io"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs [font-family:'Inter',Helvetica] font-semibold no-underline transition-all hover:opacity-80"
+                  style={{ background: "#83eef020", border: "1px solid #83eef040", color: "#83eef0" }}
+                >
+                  <ExternalLink size={11} /> Vocdoni Protocol
+                </a>
+                <a
+                  href="https://app.vocdoni.io"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs [font-family:'Inter',Helvetica] font-semibold no-underline transition-all hover:opacity-80"
+                  style={{ background: "#ffffff08", border: "1px solid #ffffff18", color: "#d4e9f380" }}
+                >
+                  <ExternalLink size={11} /> Vocdoni App
+                </a>
+              </div>
+              <HowVotingWorks />
             </div>
           ) : (
             <>

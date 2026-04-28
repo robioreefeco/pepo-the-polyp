@@ -882,6 +882,53 @@ export async function registerRoutes(
     }
   });
 
+  // ─── Vocdoni API proxy ─────────────────────────────────────────────────────
+  // Proxying avoids CORS issues and keeps the org address server-side.
+  const _VOCDONI_ENV = process.env.VOCDONI_ENV || "prod";
+  const _VOCDONI_ORG = process.env.VOCDONI_ORG_ADDRESS || "";
+  const _VOCDONI_API =
+    _VOCDONI_ENV === "prod" ? "https://api.vocdoni.io/v2"
+    : _VOCDONI_ENV === "dev" ? "https://api-dev.vocdoni.net/v2"
+    : "https://api-stg.vocdoni.net/v2";
+
+  app.get("/api/governance/info", (_req: Request, res: Response) => {
+    res.json({ orgAddress: _VOCDONI_ORG, env: _VOCDONI_ENV, configured: !!_VOCDONI_ORG });
+  });
+
+  app.get("/api/governance/elections", async (req: Request, res: Response) => {
+    if (!_VOCDONI_ORG) return res.json({ elections: [], hasMore: false });
+    const page  = Math.max(0, parseInt(String(req.query.page  || "0"),  10) || 0);
+    const limit = Math.min(50, parseInt(String(req.query.limit || "20"), 10) || 20);
+    try {
+      const url = `${_VOCDONI_API}/elections?organizationId=${_VOCDONI_ORG}&page=${page}&limit=${limit}`;
+      const r = await fetch(url, { headers: { "Accept": "application/json", "User-Agent": "pepo-the-polyp/1.0" } });
+      const data = await r.json() as any;
+      if (!r.ok) {
+        console.error("[vocdoni/elections]", r.status, data);
+        return res.status(r.status || 502).json({ error: data?.error || data?.message || `Vocdoni error ${r.status}` });
+      }
+      const elections: any[] = data.elections ?? [];
+      return res.json({ elections, hasMore: elections.length >= limit });
+    } catch (err: any) {
+      console.error("[vocdoni/elections]", err);
+      return res.status(502).json({ error: "Could not reach Vocdoni API" });
+    }
+  });
+
+  app.get("/api/governance/elections/:id", async (req: Request, res: Response) => {
+    const id = String(req.params.id || "");
+    if (!/^[0-9a-fA-F]{10,100}$/.test(id)) return res.status(400).json({ error: "Invalid election ID" });
+    try {
+      const r = await fetch(`${_VOCDONI_API}/elections/${id}`, { headers: { "Accept": "application/json", "User-Agent": "pepo-the-polyp/1.0" } });
+      const data = await r.json() as any;
+      if (!r.ok) return res.status(r.status || 502).json(data);
+      return res.json(data);
+    } catch (err: any) {
+      console.error("[vocdoni/election]", err);
+      return res.status(502).json({ error: "Could not reach Vocdoni API" });
+    }
+  });
+
   // ORCID OAuth: initiate login
   // mode defaults to "auth" (standalone sign-in); pass ?link=1 to only link ORCID to an existing Privy profile
   app.get("/api/auth/orcid", authLimiter, (req: Request, res: Response) => {
