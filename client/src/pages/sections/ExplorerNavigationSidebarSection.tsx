@@ -4,6 +4,7 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { PRIVY_ENABLED } from "@/lib/privy";
 import pepoPng from "@assets/MesoReefDAO_Pepo_The_Polyp_1776218766670.png";
 import { FileverseWorkspacePanel } from "@/components/FileverseWorkspacePanel";
+import { useProfileStatus } from "@/hooks/use-profile-status";
 
 const ReefMap = lazy(() => import("@/components/ReefMap").then((m) => ({ default: m.ReefMap })));
 
@@ -273,6 +274,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
   const isProfile = location === "/profile";
   const isCommunity = location === "/community";
   const isGovernance = location === "/governance";
+  const { isComplete: profileComplete, completedCount, totalCount } = useProfileStatus();
 
   return (
     <nav className="flex flex-col w-64 min-h-screen items-start justify-between p-6 bg-[#00080c99] border-r border-[#ffffff0d] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)_brightness(100%)] relative z-10">
@@ -347,6 +349,15 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           <span className={`${TEXT_BASE} ${isProfile ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
             My Profile
           </span>
+          {!profileComplete && (
+            <span
+              data-testid="badge-profile-incomplete"
+              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] [font-family:'Inter',Helvetica] font-semibold"
+              style={{ background: "rgba(131,238,240,0.1)", color: "#83eef0", border: "1px solid rgba(131,238,240,0.2)" }}
+            >
+              {completedCount}/{totalCount}
+            </span>
+          )}
         </Link>
 
         {/* Telegram Bot */}

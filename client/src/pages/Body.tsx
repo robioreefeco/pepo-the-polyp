@@ -2,6 +2,7 @@ import { ApplicationHeaderSection } from "./sections/ApplicationHeaderSection";
 import { ExplorerNavigationSidebarSection } from "./sections/ExplorerNavigationSidebarSection";
 import { ReefInsightDashboardSection } from "./sections/ReefInsightDashboardSection";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { JourneySection } from "@/components/JourneySection";
 
 export const Body = (): JSX.Element => {
   return (
@@ -20,8 +21,13 @@ export const Body = (): JSX.Element => {
         <div className="hidden md:block">
           <ExplorerNavigationSidebarSection />
         </div>
-        {/* Main content: full width on mobile */}
-        <ReefInsightDashboardSection />
+
+        {/* Main content column */}
+        <div className="flex flex-col flex-1 self-stretch overflow-hidden">
+          {/* Profile journey progress — only shown when profile is incomplete */}
+          <JourneySection />
+          <ReefInsightDashboardSection />
+        </div>
       </div>
 
       {/* Mobile bottom navigation */}

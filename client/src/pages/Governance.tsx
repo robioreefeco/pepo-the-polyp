@@ -1090,6 +1090,81 @@ function CreateModal({
   );
 }
 
+// ─── How Voting Works panel ───────────────────────────────────────────────────
+function HowVotingWorks() {
+  const [open, setOpen] = useState(false);
+  const MODES = [
+    {
+      icon: "✅",
+      name: "Standard",
+      desc: "One person, one vote. The option with the most votes wins.",
+    },
+    {
+      icon: "🗳️",
+      name: "Approval",
+      desc: "Vote for as many options as you support. Results show total approvals per option.",
+    },
+    {
+      icon: "⚡",
+      name: "Quadratic",
+      desc: "Allocate voting credits. Doubling impact costs 4× the credits — rewards broad consensus.",
+    },
+  ];
+  return (
+    <div
+      className="mb-3 rounded-[16px] border border-[#83eef015] overflow-hidden"
+      style={{ background: "rgba(0,8,12,0.5)" }}
+    >
+      <button
+        onClick={() => setOpen(o => !o)}
+        data-testid="button-how-voting-works"
+        className="w-full flex items-center gap-2.5 px-4 py-3 text-left hover:bg-[#83eef006] transition-colors"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="#83eef066" strokeWidth="1.8"/>
+          <path d="M12 8v4M12 16h.01" stroke="#83eef066" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <span className="flex-1 text-xs [font-family:'Inter',Helvetica] text-[#d4e9f366] font-medium">How voting works</span>
+        <svg
+          width="13" height="13" viewBox="0 0 24 24" fill="none"
+          className="text-[#d4e9f330] transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-3">
+          <div className="h-px bg-[#83eef010]" />
+          <p className="text-[11px] text-[#d4e9f350] [font-family:'Inter',Helvetica] leading-relaxed">
+            MesoReef DAO votes are recorded on-chain via{" "}
+            <a href="https://vocdoni.io" target="_blank" rel="noopener noreferrer" className="text-[#83eef0] no-underline font-semibold">Vocdoni</a>
+            {" "}— a censorship-resistant, gasless governance protocol. Proposals support three voting strategies:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {MODES.map(m => (
+              <div
+                key={m.name}
+                className="flex flex-col gap-1.5 p-3 rounded-[12px]"
+                style={{ background: "rgba(131,238,240,0.04)", border: "1px solid rgba(131,238,240,0.1)" }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">{m.icon}</span>
+                  <span className="text-xs font-bold text-[#d4e9f3cc] [font-family:'Plus_Jakarta_Sans',Helvetica]">{m.name}</span>
+                </div>
+                <p className="text-[10.5px] text-[#d4e9f355] [font-family:'Inter',Helvetica] leading-relaxed">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-[#d4e9f330] [font-family:'Inter',Helvetica]">
+            You must be signed in to vote. A connected wallet may be required for some proposals.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function Governance() {
   const { authenticated, login } = usePrivy();
@@ -1264,6 +1339,9 @@ export function Governance() {
             </div>
           ) : (
             <>
+              {/* ── How Voting Works collapsible ── */}
+              <HowVotingWorks />
+
               {/* ── Filter bar: horizontally scrollable on mobile ── */}
               <div className="flex gap-2 overflow-x-auto pb-1 mb-2" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
                 {FILTER_TABS.map(tab => (

@@ -21,6 +21,7 @@ import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { usePrivy } from "@privy-io/react-auth";
 import { SplashScreen } from "@/components/SplashScreen";
 import { TelegramChatWidget } from "@/components/TelegramChatWidget";
+import { OnboardingWizard, useOnboarding } from "@/components/OnboardingWizard";
 import coralBg from "@assets/coral_reefs_1777179421866.jpg";
 
 function useSplash() {
@@ -121,6 +122,7 @@ function AppInner() {
   const { orcidAuthenticated, isLoading: orcidLoading } = useOrcidAuth();
   const isAuthed = authenticated || orcidAuthenticated;
   const stillLoading = !ready || orcidLoading;
+  const { show: showOnboarding, dismiss: dismissOnboarding } = useOnboarding();
 
   return (
     <>
@@ -135,6 +137,9 @@ function AppInner() {
         ? <Router />
         : <LoginGate />
       }
+      {!stillLoading && isAuthed && showOnboarding && !visible && (
+        <OnboardingWizard onComplete={dismissOnboarding} />
+      )}
       {!stillLoading && <TelegramChatWidget />}
     </>
   );

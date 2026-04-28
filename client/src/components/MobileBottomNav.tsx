@@ -3,6 +3,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { PRIVY_ENABLED } from "@/lib/privy";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { useWallets } from "@privy-io/react-auth";
+import { useProfileStatus } from "@/hooks/use-profile-status";
 
 function TelegramNavItem() {
   return (
@@ -79,6 +80,7 @@ function WorkspaceNavItem({ active }: { active: boolean }) {
 export function MobileBottomNav() {
   const [location] = useLocation();
   const active = (path: string) => location === path;
+  const { isComplete: profileComplete } = useProfileStatus();
 
   return (
     <nav
@@ -117,13 +119,22 @@ export function MobileBottomNav() {
       <Link
         href="/profile"
         data-testid="nav-mobile-profile"
-        className={`flex flex-col items-center justify-center gap-1 flex-1 py-3 min-h-[56px] no-underline transition-opacity ${active("/profile") ? "opacity-100" : "opacity-50"}`}
+        className={`flex flex-col items-center justify-center gap-1 flex-1 py-3 min-h-[56px] no-underline transition-opacity relative ${active("/profile") ? "opacity-100" : "opacity-50"}`}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M20 21V19C20 17.9 19.1 17 18 17H6C4.9 17 4 17.9 4 19V21"
-            stroke={active("/profile") ? "#83eef0" : "#d4e9f380"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="12" cy="9" r="4" stroke={active("/profile") ? "#83eef0" : "#d4e9f380"} strokeWidth="2"/>
-        </svg>
+        <div className="relative">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M20 21V19C20 17.9 19.1 17 18 17H6C4.9 17 4 17.9 4 19V21"
+              stroke={active("/profile") ? "#83eef0" : "#d4e9f380"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="9" r="4" stroke={active("/profile") ? "#83eef0" : "#d4e9f380"} strokeWidth="2"/>
+          </svg>
+          {!profileComplete && (
+            <span
+              data-testid="badge-profile-incomplete-mobile"
+              className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full border border-[#00080c]"
+              style={{ background: "#83eef0" }}
+            />
+          )}
+        </div>
         <span className={`text-[9px] ${active("/profile") ? "text-[#83eef0] font-medium" : "text-[#d4e9f380]"}`}>Profile</span>
       </Link>
 
