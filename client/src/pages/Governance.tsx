@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
@@ -66,11 +66,34 @@ function statusStyle(status: string) {
   switch (status?.toUpperCase()) {
     case "ONGOING":  return { label: "Active",   color: "#4ade80", bg: "#4ade8015", border: "#4ade8030", dot: "#4ade80" };
     case "ENDED":    return { label: "Ended",    color: "#94a3b8", bg: "#ffffff06", border: "#ffffff10", dot: "#94a3b8" };
+    case "RESULTS":  return { label: "Results",  color: "#83eef0", bg: "#83eef015", border: "#83eef030", dot: "#83eef0" };
     case "UPCOMING": return { label: "Upcoming", color: "#a78bfa", bg: "#a78bfa15", border: "#a78bfa30", dot: "#a78bfa" };
     case "PAUSED":   return { label: "Paused",   color: "#fbbf24", bg: "#fbbf2415", border: "#fbbf2430", dot: "#fbbf24" };
     case "CANCELED": return { label: "Canceled", color: "#f87171", bg: "#f8717115", border: "#f8717130", dot: "#f87171" };
     default:         return { label: status || "Unknown", color: "#94a3b8", bg: "#ffffff06", border: "#ffffff10", dot: "#94a3b8" };
   }
+}
+
+// ─── Map Vocdoni SDK PublishedElection → VocdoniElection ─────────────────────
+function mapSDKElection(e: any): VocdoniElection {
+  const status = typeof e.status === "string" ? e.status : String(e.status ?? "UNKNOWN");
+  const toISO  = (d: any) => d instanceof Date ? d.toISOString() : (d ?? "");
+  return {
+    electionId:      e.id ?? e.electionId ?? "",
+    organizationId:  e.organizationId ?? "",
+    status,
+    startDate:       toISO(e.startDate),
+    endDate:         toISO(e.endDate),
+    finalResults:    e.finalResults ?? (status === "RESULTS" || status === "ENDED"),
+    voteCount:       e.voteCount ?? 0,
+    title:           e.title ?? "",
+    description:     e.description,
+    header:          e.header,
+    questions:       e.questions,
+    results:         e.results,
+    census:          e.census,
+    meta:            e.meta,
+  };
 }
 
 function fmtDate(dateStr: string): string {
@@ -304,8 +327,8 @@ function ProposalCard({
 
 // ─── Proposal detail overlay ──────────────────────────────────────────────────
 function ProposalDetail({
-  election, onClose, onVote, voted,
-}: { election: VocdoniElection; onClose: () => void; onVote: () => void; voted: boolean }) {
+  election, onClose, onVote, voted, refreshing,
+}: { election: VocdoniElection; onClose: () => void; onVote: () => void; voted: boolean; refreshing?: boolean }) {
   const title    = getText(election.title, "Untitled Proposal");
   const desc     = getText(election.description);
   const q0       = election.questions?.[0];
@@ -327,9 +350,14 @@ function ProposalDetail({
       >
         {/* Top bar */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(0,16,26,0.95)", backdropFilter: "blur(12px)" }}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <StatusPill status={election.status} />
             <StrategyBadge strategy={strategy} />
+            {refreshing && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#83eef008", border: "1px solid #83eef020", color: "#83eef066", fontFamily: "'Inter',sans-serif" }}>
+                <Loader2 size={9} className="animate-spin" /> Fetching live data…
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[#ffffff10]" style={{ color: "#9aaeb8" }}>
             <XCircle size={18} />
@@ -1112,14 +1140,38 @@ export function Governance() {
   const [searchQuery, setSearchQuery]   = useState("");
   const [voteTarget, setVoteTarget]     = useState<VocdoniElection | null>(null);
   const [detailTarget, setDetailTarget] = useState<VocdoniElection | null>(null);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
   const [voted, setVoted]               = useState<Record<string, boolean>>({});
   const [createOpen, setCreateOpen]     = useState(false);
   const [page, setPage]                 = useState(0);
   const [hasMore, setHasMore]           = useState(false);
+  const [sdkConnected, setSdkConnected] = useState(false);
 
   const [orgAddress, setOrgAddress]     = useState<string>("");
   const [configLoaded, setConfigLoaded] = useState(false);
 
+  // ── Vocdoni SDK client (read-only, no wallet needed) ──────────────────────
+  const vocdoniClientRef = useRef<any>(null);
+  const [sdkReady, setSdkReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { VocdoniSDKClient, EnvOptions } = await import("@vocdoni/sdk");
+        const env =
+          VOCDONI_ENV === "prod" ? EnvOptions.PROD :
+          VOCDONI_ENV === "dev"  ? EnvOptions.DEV  : EnvOptions.STG;
+        vocdoniClientRef.current = new VocdoniSDKClient({ env });
+        if (active) { setSdkReady(true); setSdkConnected(true); }
+      } catch (e) {
+        console.error("[governance] SDK init failed:", e);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // ── Fetch org address from server config ──────────────────────────────────
   useEffect(() => {
     fetch("/api/governance/info")
       .then(r => r.json())
@@ -1130,32 +1182,61 @@ export function Governance() {
       .finally(() => setConfigLoaded(true));
   }, []);
 
+  // ── Fetch election list via Vocdoni SDK ───────────────────────────────────
   const fetchElections = useCallback(async (pageNum = 0) => {
-    if (!configLoaded) return;
+    if (!configLoaded || !orgAddress || !sdkReady) return;
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/governance/elections?page=${pageNum}&limit=20`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `Server error ${res.status}`);
-      const list: VocdoniElection[] = data.elections ?? [];
+      const client = vocdoniClientRef.current;
+      const result = await client.fetchElections({
+        organizationId: orgAddress,
+        page: pageNum,
+        limit: 20,
+      });
 
-      const detailed = await Promise.allSettled(
-        list.map(async (e) => {
-          const r = await fetch(`/api/governance/elections/${e.electionId}`);
-          return r.ok ? (r.json() as Promise<VocdoniElection>) : e;
-        })
-      );
-      const full = detailed.map((r, i) => r.status === "fulfilled" ? r.value : list[i]);
-      setElections(prev => pageNum === 0 ? full : [...prev, ...full]);
-      setHasMore(!!data.hasMore);
+      const mapped: VocdoniElection[] = (result.elections ?? [])
+        .filter((e: any) => e && typeof e.id !== "undefined")
+        .map(mapSDKElection);
+
+      setElections(prev => pageNum === 0 ? mapped : [...prev, ...mapped]);
+      const pagination = result.pagination;
+      setHasMore(pagination ? pagination.nextPage !== null && pagination.nextPage !== undefined : false);
     } catch (err: any) {
-      setError(err.message || "Failed to load proposals.");
+      console.error("[governance] fetchElections:", err);
+      setError(err?.message || "Failed to load proposals from Vocdoni.");
     } finally { setLoading(false); }
-  }, [configLoaded]);
+  }, [configLoaded, orgAddress, sdkReady]);
 
-  useEffect(() => { if (configLoaded) fetchElections(0); }, [configLoaded, fetchElections]);
+  useEffect(() => {
+    if (configLoaded && orgAddress && sdkReady) fetchElections(0);
+    else if (configLoaded && !orgAddress) setLoading(false);
+  }, [configLoaded, orgAddress, sdkReady, fetchElections]);
 
-  // Update detail target when elections refresh
+  // ── Auto-refresh active elections every 30 s ─────────────────────────────
+  useEffect(() => {
+    if (!orgAddress || !sdkReady) return;
+    const hasActive = elections.some(e => e.status?.toUpperCase() === "ONGOING");
+    if (!hasActive) return;
+    const id = setInterval(() => fetchElections(0), 30_000);
+    return () => clearInterval(id);
+  }, [elections, orgAddress, sdkReady, fetchElections]);
+
+  // ── Open detail panel: show immediately, then refresh from SDK ────────────
+  const openDetail = useCallback(async (election: VocdoniElection) => {
+    setDetailTarget(election);
+    if (!sdkReady) return;
+    setDetailRefreshing(true);
+    try {
+      const full = await vocdoniClientRef.current.fetchElection(election.electionId);
+      const mapped = mapSDKElection(full);
+      setDetailTarget(mapped);
+      setElections(prev => prev.map(e => e.electionId === mapped.electionId ? mapped : e));
+    } catch (e) {
+      // Keep existing data on error
+    } finally { setDetailRefreshing(false); }
+  }, [sdkReady]);
+
+  // Update detail target when elections refresh in the background
   useEffect(() => {
     if (detailTarget) {
       const updated = elections.find(e => e.electionId === detailTarget.electionId);
@@ -1166,9 +1247,13 @@ export function Governance() {
   const filtered = useMemo(() => {
     return elections.filter(e => {
       const st = e.status?.toUpperCase();
-      if (filter === "active"   && st !== "ONGOING")   return false;
-      if (filter === "ended"    && st !== "ENDED")     return false;
-      if (filter === "upcoming" && st !== "UPCOMING")  return false;
+      // RESULTS is Vocdoni's "ended with final results" state — treat as ended
+      const isEnded   = st === "ENDED" || st === "RESULTS";
+      const isActive  = st === "ONGOING";
+      const isUpcoming = st === "UPCOMING";
+      if (filter === "active"   && !isActive)   return false;
+      if (filter === "ended"    && !isEnded)    return false;
+      if (filter === "upcoming" && !isUpcoming) return false;
       if (stratFilter !== "all" && strategyFromMeta(e.meta) !== stratFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -1254,12 +1339,18 @@ export function Governance() {
           </div>
 
           {/* Network badge */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: "#6366f110", border: "1px solid #6366f125", color: "#818cf8", fontFamily: "'Inter',sans-serif" }}>
               <Shield size={10} /> Base Network
             </span>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: "#83eef010", border: "1px solid #83eef025", color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
               <Zap size={10} /> Gasless Voting
+            </span>
+            {/* Live SDK connection indicator */}
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: sdkConnected ? "#4ade8010" : "#ffffff06", border: `1px solid ${sdkConnected ? "#4ade8030" : "#ffffff10"}`, color: sdkConnected ? "#4ade80" : "#9aaeb860", fontFamily: "'Inter',sans-serif" }}>
+              {sdkConnected
+                ? <><span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" /> SDK Live</>
+                : <><Loader2 size={10} className="animate-spin" /> Connecting…</>}
             </span>
             <a href="https://explorer.vote" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full no-underline transition-all hover:opacity-80"
@@ -1422,7 +1513,7 @@ export function Governance() {
               {!loading && !error && filtered.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filtered.map(e => (
-                    <ProposalCard key={e.electionId} election={e} onSelect={setDetailTarget} voted={!!voted[e.electionId]} />
+                    <ProposalCard key={e.electionId} election={e} onSelect={openDetail} voted={!!voted[e.electionId]} />
                   ))}
                 </div>
               )}
@@ -1470,6 +1561,7 @@ export function Governance() {
           onClose={() => setDetailTarget(null)}
           onVote={() => { setVoteTarget(detailTarget); }}
           voted={!!voted[detailTarget.electionId]}
+          refreshing={detailRefreshing}
         />
       )}
 
