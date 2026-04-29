@@ -6,7 +6,7 @@ import {
   ArrowLeft, Vote, Plus, CheckCircle2, XCircle, Loader2, Users, BarChart2,
   Calendar, ChevronDown, ChevronUp, AlertCircle, ExternalLink, Github,
   CircleDot, CheckSquare, BarChart, Info, Search, TrendingUp, Activity,
-  Clock, Hash, Shield, Zap, Eye,
+  Clock, Hash, Shield, Zap, Eye, LayoutGrid, Globe,
 } from "lucide-react";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import coralBg from "@assets/coral_micro_1777060394505.jpg";
@@ -340,6 +340,10 @@ function ProposalDetail({
   const tot      = totalVotes(results);
   const maxPct   = results ? Math.max(...choices.map((_, ci) => pct(results, 0, ci))) : 0;
 
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [iframeError, setIframeError]     = useState(false);
+  const vocdoniElectionUrl = `https://app.vocdoni.io/processes/show/#/${election.electionId}`;
+
   return (
     <div className="fixed inset-0 z-40 flex items-stretch justify-end" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,4,8,0.7)", backdropFilter: "blur(4px)" }} />
@@ -460,16 +464,68 @@ function ProposalDetail({
             )}
           </div>
 
-          {/* Links */}
+          {/* Vocdoni App Embed */}
           <div className="flex flex-col gap-2">
-            <a
-              href={`https://app.vocdoni.io/processes/show/#/${election.electionId}`}
-              target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-semibold no-underline transition-all hover:opacity-80"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#9aaeb8", fontFamily: "'Inter',sans-serif" }}
-            >
-              <ExternalLink size={12} /> View on Vocdoni Explorer
-            </a>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>Vocdoni Voting Interface</h3>
+              <a href={vocdoniElectionUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] font-medium no-underline transition-all hover:opacity-80"
+                style={{ fontFamily: "'Inter',sans-serif", color: "#83eef070" }}>
+                <ExternalLink size={9} /> Open in new tab
+              </a>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(131,238,240,0.15)" }}>
+              {/* Mock browser bar */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: "rgba(0,6,12,0.9)", borderColor: "rgba(131,238,240,0.08)" }}>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+                  <div className="w-2 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+                  <div className="w-2 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+                </div>
+                <div className="flex-1 flex items-center gap-1.5 px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  {!iframeError && <div className="w-1.5 h-1.5 rounded-full bg-[#4ade80] flex-shrink-0 animate-pulse" />}
+                  <span className="text-[9px] truncate" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb860" }}>
+                    app.vocdoni.io/processes/show/#/{election.electionId.slice(0, 10)}…
+                  </span>
+                </div>
+              </div>
+
+              {/* Iframe container */}
+              {iframeError ? (
+                <div className="flex flex-col items-center gap-3 py-14 text-center px-6" style={{ background: "rgba(0,8,12,0.6)" }}>
+                  <AlertCircle size={24} style={{ color: "#f8717160" }} />
+                  <p className="text-xs leading-relaxed" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
+                    The Vocdoni app could not be embedded here.
+                  </p>
+                  <a href={vocdoniElectionUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold no-underline transition-all hover:opacity-80"
+                    style={{ background: "#83eef020", border: "1px solid #83eef040", color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
+                    <ExternalLink size={11} /> Open Vocdoni App
+                  </a>
+                </div>
+              ) : (
+                <div className="relative" style={{ minHeight: "560px" }}>
+                  {iframeLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10" style={{ background: "rgba(0,8,12,0.8)" }}>
+                      <Loader2 size={28} className="animate-spin" style={{ color: "#83eef0" }} />
+                      <span className="text-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>Loading Vocdoni app…</span>
+                    </div>
+                  )}
+                  <iframe
+                    key={election.electionId}
+                    src={vocdoniElectionUrl}
+                    title={`Vocdoni: ${title}`}
+                    className="w-full block"
+                    style={{ height: "560px", border: "none", display: "block", background: "#00101a" }}
+                    loading="lazy"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
+                    onLoad={() => setIframeLoading(false)}
+                    onError={() => { setIframeLoading(false); setIframeError(true); }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1146,6 +1202,9 @@ export function Governance() {
   const [page, setPage]                 = useState(0);
   const [hasMore, setHasMore]           = useState(false);
   const [sdkConnected, setSdkConnected] = useState(false);
+  const [viewMode, setViewMode]         = useState<"list" | "app">("list");
+  const [orgIframeLoading, setOrgIframeLoading] = useState(true);
+  const [orgIframeError, setOrgIframeError]     = useState(false);
 
   const [orgAddress, setOrgAddress]     = useState<string>("");
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -1432,6 +1491,89 @@ export function Governance() {
               {/* Stats */}
               <DAOStats elections={elections} />
 
+              {/* View mode toggle */}
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setViewMode("list")}
+                  data-testid="button-view-list"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all"
+                  style={{ fontFamily: "'Inter',sans-serif", background: viewMode === "list" ? "#83eef020" : "rgba(0,8,12,0.5)", border: `1px solid ${viewMode === "list" ? "#83eef050" : "rgba(255,255,255,0.1)"}`, color: viewMode === "list" ? "#83eef0" : "#9aaeb8" }}>
+                  <LayoutGrid size={12} /> List
+                </button>
+                <button
+                  onClick={() => { setViewMode("app"); setOrgIframeLoading(true); setOrgIframeError(false); }}
+                  data-testid="button-view-app"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all"
+                  style={{ fontFamily: "'Inter',sans-serif", background: viewMode === "app" ? "#83eef020" : "rgba(0,8,12,0.5)", border: `1px solid ${viewMode === "app" ? "#83eef050" : "rgba(255,255,255,0.1)"}`, color: viewMode === "app" ? "#83eef0" : "#9aaeb8" }}>
+                  <Globe size={12} /> Vocdoni App
+                </button>
+              </div>
+
+              {/* ── Vocdoni App iframe view ── */}
+              {viewMode === "app" && (
+                <div className="rounded-2xl overflow-hidden mb-4" style={{ border: "1px solid rgba(131,238,240,0.15)" }}>
+                  {/* Browser chrome bar */}
+                  <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: "rgba(0,6,12,0.95)", borderColor: "rgba(131,238,240,0.08)" }}>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 px-3 py-1 rounded-md" style={{ background: "rgba(255,255,255,0.05)" }}>
+                      {!orgIframeError && orgIframeLoading && <Loader2 size={9} className="animate-spin flex-shrink-0" style={{ color: "#83eef080" }} />}
+                      {!orgIframeError && !orgIframeLoading && <div className="w-1.5 h-1.5 rounded-full bg-[#4ade80] flex-shrink-0 animate-pulse" />}
+                      <span className="text-[10px] truncate" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb870" }}>
+                        app.vocdoni.io/organization/{orgAddress.slice(0, 20)}…
+                      </span>
+                    </div>
+                    <a href={`https://app.vocdoni.io/organization/${orgAddress}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[10px] font-medium no-underline transition-all hover:opacity-80 flex-shrink-0"
+                      style={{ fontFamily: "'Inter',sans-serif", color: "#83eef070" }}>
+                      <ExternalLink size={10} /> Open
+                    </a>
+                  </div>
+
+                  {orgIframeError ? (
+                    <div className="flex flex-col items-center gap-4 py-20 text-center px-6" style={{ background: "rgba(0,8,12,0.6)" }}>
+                      <AlertCircle size={28} style={{ color: "#f8717160" }} />
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-sm font-semibold" style={{ fontFamily: "'Plus_Jakarta_Sans',sans-serif", color: "#d4e9f3" }}>Could not embed Vocdoni App</p>
+                        <p className="text-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>Open directly in a new tab instead.</p>
+                      </div>
+                      <a href={`https://app.vocdoni.io/organization/${orgAddress}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-semibold no-underline transition-all hover:opacity-80"
+                        style={{ background: "#83eef020", border: "1px solid #83eef040", color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
+                        <ExternalLink size={12} /> Open in Vocdoni App
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="relative" style={{ minHeight: "75vh" }}>
+                      {orgIframeLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10" style={{ background: "rgba(0,8,12,0.85)" }}>
+                          <Loader2 size={32} className="animate-spin" style={{ color: "#83eef0" }} />
+                          <span className="text-sm" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>Loading Vocdoni App…</span>
+                        </div>
+                      )}
+                      <iframe
+                        key={orgAddress}
+                        src={`https://app.vocdoni.io/organization/${orgAddress}`}
+                        title="MesoReef DAO — Vocdoni App"
+                        className="w-full block"
+                        style={{ height: "75vh", minHeight: "600px", border: "none", display: "block", background: "#000" }}
+                        loading="lazy"
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
+                        onLoad={() => setOrgIframeLoading(false)}
+                        onError={() => { setOrgIframeLoading(false); setOrgIframeError(true); }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── List view ── */}
+              {viewMode === "list" && (
+              <>
+
               {/* How voting works */}
               <div className="mb-4">
                 <HowVotingWorks />
@@ -1539,6 +1681,8 @@ export function Governance() {
                   <Github size={9} /> {DEFAULT_GH_OWNER}/{DEFAULT_GH_REPO}
                 </a>
               </div>
+              </>
+              )}
             </>
           )}
         </div>
