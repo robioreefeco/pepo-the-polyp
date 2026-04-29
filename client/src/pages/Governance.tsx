@@ -179,6 +179,29 @@ function StepStepper({ steps }: { steps: { label: string; state: "waiting" | "ac
   );
 }
 
+// ─── Election-type flags (anonymous / secret / weighted) ──────────────────────
+function ElectionTypeFlags({ election }: { election: VocdoniElection }) {
+  const flags: { label: string; icon: any; color: string; title: string }[] = [];
+  const meta = election.meta ?? {};
+  const isAnon   = meta.anonymous || meta?.electionType?.anonymous;
+  const isSecret = meta.secretUntilTheEnd || meta?.electionType?.secretUntilTheEnd;
+  const censusType = election.census?.censusType ?? "";
+  const isWeighted = censusType.toLowerCase().includes("weighted");
+  if (isAnon)    flags.push({ label: "Anonymous",     icon: Shield,     color: "#a78bfa", title: "Votes cannot be linked to voter identity" });
+  if (isSecret)  flags.push({ label: "Secret results", icon: Eye,        color: "#f59e0b", title: "Results are hidden until the election ends" });
+  if (isWeighted) flags.push({ label: "Weighted",      icon: BarChart,   color: "#83eef0", title: "Voting power is weighted by census data" });
+  if (!flags.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {flags.map(f => (
+        <span key={f.label} title={f.title} className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full cursor-help" style={{ color: f.color, background: `${f.color}10`, border: `1px solid ${f.color}25` }}>
+          <f.icon size={8} /> {f.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ─── DAO Stats bar ────────────────────────────────────────────────────────────
 function DAOStats({ elections }: { elections: VocdoniElection[] }) {
   const stats = useMemo(() => ({
@@ -446,22 +469,29 @@ function ProposalDetail({
           <div className="flex flex-col gap-2 text-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
             <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <span className="font-medium">Election ID</span>
-              <span className="font-mono text-[10px] truncate max-w-[180px]" style={{ color: "#83eef080" }}>{election.electionId.slice(0, 16)}…</span>
+              <a href={`https://explorer.vote/processes/show/#/${election.electionId}`} target="_blank" rel="noopener noreferrer" title="View on Vocdoni Explorer" className="font-mono text-[10px] truncate max-w-[180px] no-underline hover:underline" style={{ color: "#83eef080" }}>{election.electionId.slice(0, 16)}…</a>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
               <span className="font-medium">Strategy</span>
               <StrategyBadge strategy={strategy} />
             </div>
             <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-              <span className="font-medium">Census</span>
-              <span style={{ color: "#9aaeb8" }}>{election.meta?.censusMode === "base-members" ? "Base Network" : "Open Wallet"}</span>
+              <span className="font-medium">Census type</span>
+              <span style={{ color: "#9aaeb8" }}>
+                {election.census?.censusType
+                  ? election.census.censusType.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+                  : election.meta?.censusMode === "base-members" ? "Base Network" : "Open Wallet"}
+              </span>
             </div>
-            {election.census?.maxCensusSize && (
+            {election.census?.maxCensusSize != null && (
               <div className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                 <span className="font-medium">Max voters</span>
-                <span>{election.census.maxCensusSize.toLocaleString()}</span>
+                <span>{Number(election.census.maxCensusSize).toLocaleString()}</span>
               </div>
             )}
+            <div className="pt-1">
+              <ElectionTypeFlags election={election} />
+            </div>
           </div>
 
           {/* Vocdoni App Embed */}
@@ -555,45 +585,108 @@ function ProposalDetail({
 }
 
 // ─── Vote modal ───────────────────────────────────────────────────────────────
+type VotePhase = "checking" | "not-eligible" | "already-voted" | "form" | "processing" | "success" | "error";
+type VoteSdkStep = "account" | "faucet" | "get-election" | "get-proof" | "get-signature" | "calc-zk" | "generate-tx" | "sign-tx" | "done";
+
+function getVoteStepDefs(needsFaucet: boolean, isAnonymous: boolean): Array<{ key: VoteSdkStep; label: string }> {
+  return [
+    { key: "account",      label: "Creating Vocdoni account" },
+    ...(needsFaucet ? [{ key: "faucet" as VoteSdkStep,       label: "Collecting voting tokens" }] : []),
+    { key: "get-election", label: "Loading election" },
+    ...(isAnonymous
+      ? [{ key: "get-signature" as VoteSdkStep, label: "Signing anonymization proof" },
+         { key: "calc-zk" as VoteSdkStep,        label: "Computing zero-knowledge proof" }]
+      : [{ key: "get-proof" as VoteSdkStep,      label: "Verifying census membership" }]),
+    { key: "generate-tx",  label: "Building vote transaction" },
+    { key: "sign-tx",      label: "Signing transaction" },
+    { key: "done",         label: "Recorded on Vocdoni chain" },
+  ];
+}
+
 function VoteModal({
   election, onClose, onSuccess,
 }: { election: VocdoniElection; onClose: () => void; onSuccess: () => void }) {
   const { wallets } = useWallets();
   const strategy = strategyFromMeta(election.meta);
 
-  const [choices, setChoices] = useState<Record<number, number>>({});
+  const [choices, setChoices]               = useState<Record<number, number>>({});
   const [approvalChoices, setApprovalChoices] = useState<Record<number, Set<number>>>({});
-  const [credits, setCredits] = useState<Record<number, Record<number, number>>>({});
+  const [credits, setCredits]               = useState<Record<number, Record<number, number>>>({});
   const TOTAL_CREDITS = 25;
 
-  type Phase = "form" | "processing" | "success" | "error";
-  type SubStep = "account" | "faucet" | "vote";
-  const [phase, setPhase] = useState<Phase>("form");
-  const [subStep, setSubStep] = useState<SubStep>("account");
+  const [phase, setPhase]           = useState<VotePhase>("checking");
+  const [errorMsg, setErrorMsg]     = useState("");
+  const [currentSdkStep, setCurrentSdkStep] = useState<VoteSdkStep>("account");
   const [needsFaucet, setNeedsFaucet] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const questions = election.questions ?? [];
-
-  const usedCredits = (qi: number) =>
-    Object.values(credits[qi] || {}).reduce((s, c) => s + c * c, 0);
-
+  const usedCredits = (qi: number) => Object.values(credits[qi] || {}).reduce((s, c) => s + c * c, 0);
   const allAnswered = (() => {
-    if (strategy === "standard") return questions.every((_, qi) => choices[qi] !== undefined);
-    if (strategy === "approval") return questions.every((_, qi) => (approvalChoices[qi]?.size ?? 0) > 0);
+    if (strategy === "standard")  return questions.every((_, qi) => choices[qi] !== undefined);
+    if (strategy === "approval")  return questions.every((_, qi) => (approvalChoices[qi]?.size ?? 0) > 0);
     if (strategy === "quadratic") return questions.every((_, qi) => usedCredits(qi) > 0 && usedCredits(qi) <= TOTAL_CREDITS);
     return false;
   })();
 
+  // ── Detect election anonymity from meta/census ─────────────────────────────
+  useEffect(() => {
+    const meta = election.meta ?? {};
+    const censusType = election.census?.censusType ?? "";
+    setIsAnonymous(!!(meta.anonymous || meta?.electionType?.anonymous || censusType.toLowerCase().includes("anon")));
+  }, [election]);
+
+  // ── Pre-flight: census eligibility + already-voted check ──────────────────
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const wallet = wallets[0];
+      if (!wallet) { if (active) setPhase("form"); return; }
+      try {
+        const { VocdoniSDKClient, EnvOptions } = await import("@vocdoni/sdk");
+        const eip1193 = await wallet.getEthereumProvider();
+        const { ethers } = await import("ethers");
+        const provider = new ethers.providers.Web3Provider(eip1193 as any);
+        const signer   = provider.getSigner();
+        const env = VOCDONI_ENV === "prod" ? EnvOptions.PROD : VOCDONI_ENV === "dev" ? EnvOptions.DEV : EnvOptions.STG;
+        const client = new VocdoniSDKClient({ env, wallet: signer });
+
+        // hasAlreadyVoted: returns a voteId string if voted, null if not
+        try {
+          const voteId = await client.hasAlreadyVoted({ electionId: election.electionId });
+          if (!active) return;
+          if (voteId) { setPhase("already-voted"); return; }
+        } catch {
+          // Not voted yet or anonymous election — continue
+        }
+
+        // isInCensus: returns boolean
+        const inCensus = await client.isInCensus({ electionId: election.electionId });
+        if (!active) return;
+        if (!inCensus) { setPhase("not-eligible"); return; }
+
+        if (active) setPhase("form");
+      } catch {
+        // On network error fall through to form — handleVote will surface real error
+        if (active) setPhase("form");
+      }
+    })();
+    return () => { active = false; };
+  }, [election.electionId, wallets]);
+
+  // ── Vote submission using submitVoteSteps() async generator ───────────────
   async function handleVote() {
     if (!allAnswered) return;
     const wallet = wallets[0];
     if (!wallet) { setErrorMsg("No wallet connected."); setPhase("error"); return; }
 
-    setPhase("processing"); setSubStep("account"); setNeedsFaucet(false); setErrorMsg("");
+    setPhase("processing");
+    setCurrentSdkStep("account");
+    setNeedsFaucet(false);
+    setErrorMsg("");
 
     try {
-      const { VocdoniSDKClient, EnvOptions, Vote } = await import("@vocdoni/sdk");
+      const { VocdoniSDKClient, EnvOptions, Vote, VoteSteps } = await import("@vocdoni/sdk");
       const eip1193 = await wallet.getEthereumProvider();
       const { ethers } = await import("ethers");
       const provider = new ethers.providers.Web3Provider(eip1193 as any);
@@ -604,11 +697,12 @@ function VoteModal({
       const accountInfo = await client.createAccount();
 
       if (accountInfo.balance === 0 && VOCDONI_ENV !== "prod") {
-        setNeedsFaucet(true); setSubStep("faucet");
+        setNeedsFaucet(true);
+        setCurrentSdkStep("faucet");
         await client.collectFaucetTokens();
       }
 
-      setSubStep("vote");
+      setCurrentSdkStep("get-election");
       client.setElectionId(election.electionId);
 
       let voteValues: number[];
@@ -622,9 +716,20 @@ function VoteModal({
         voteValues = questions.map((_, qi) => choices[qi]);
       }
 
-      await client.submitVote(new Vote(voteValues));
+      for await (const step of client.submitVoteSteps(new Vote(voteValues))) {
+        switch (step.key) {
+          case VoteSteps.GET_ELECTION:  setCurrentSdkStep("get-election"); break;
+          case VoteSteps.GET_PROOF:     setCurrentSdkStep("get-proof"); break;
+          case VoteSteps.GET_SIGNATURE: setCurrentSdkStep("get-signature"); break;
+          case VoteSteps.CALC_ZK_PROOF: setCurrentSdkStep("calc-zk"); break;
+          case VoteSteps.GENERATE_TX:   setCurrentSdkStep("generate-tx"); break;
+          case VoteSteps.SIGN_TX:       setCurrentSdkStep("sign-tx"); break;
+          case VoteSteps.DONE:          setCurrentSdkStep("done"); break;
+        }
+      }
+
       setPhase("success");
-      setTimeout(() => { onSuccess(); onClose(); }, 2200);
+      setTimeout(() => { onSuccess(); onClose(); }, 2400);
     } catch (err: any) {
       const msg = err?.message || String(err);
       if (msg.includes("already voted") || msg.includes("vote already"))
@@ -637,39 +742,101 @@ function VoteModal({
     }
   }
 
-  const stepStates = (s: SubStep): "waiting" | "active" | "done" => {
-    const order: SubStep[] = needsFaucet ? ["account", "faucet", "vote"] : ["account", "vote"];
-    const cur = order.indexOf(subStep);
-    const idx = order.indexOf(s);
-    return idx < cur ? "done" : idx === cur ? "active" : "waiting";
-  };
+  // ── Derive step states for StepStepper ────────────────────────────────────
+  function stepState(key: VoteSdkStep): "waiting" | "active" | "done" | "skip" {
+    const defs = getVoteStepDefs(needsFaucet, isAnonymous);
+    const order = defs.map(s => s.key);
+    if (!order.includes(key)) return "skip";
+    const curIdx = order.indexOf(currentSdkStep);
+    const idx    = order.indexOf(key);
+    if (currentSdkStep === "done") return "done";
+    return idx < curIdx ? "done" : idx === curIdx ? "active" : "waiting";
+  }
+
+  const isBlocking = phase === "processing" || phase === "checking";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 sm:py-6 overflow-y-auto" onClick={phase === "processing" ? undefined : onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 sm:py-6 overflow-y-auto" onClick={isBlocking ? undefined : onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(0,8,12,0.88)" }} />
       <div className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] border-t sm:border border-[#83eef030] p-5 sm:p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
         style={{ background: "#00131a", backdropFilter: "blur(20px)" }}
         onClick={e => e.stopPropagation()}>
         <div className="sm:hidden w-10 h-1 rounded-full bg-[#ffffff20] mx-auto -mt-1 mb-1" />
 
+        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1.5">
-            <StrategyBadge strategy={strategy} />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <StrategyBadge strategy={strategy} />
+              <ElectionTypeFlags election={election} />
+            </div>
             <h2 className="font-bold text-[17px] leading-snug" style={{ fontFamily: "'Plus_Jakarta_Sans',sans-serif", color: "#d4e9f3" }}>
               {getText(election.title, "Untitled Proposal")}
             </h2>
           </div>
-          <button onClick={onClose} disabled={phase === "processing"} className="text-[#d4e9f344] hover:text-[#d4e9f3] transition-colors flex-shrink-0 mt-0.5 disabled:opacity-30">
+          <button onClick={onClose} disabled={isBlocking} className="text-[#d4e9f344] hover:text-[#d4e9f3] transition-colors flex-shrink-0 mt-0.5 disabled:opacity-30">
             <XCircle size={20} />
           </button>
         </div>
 
-        {phase === "processing" && <StepStepper steps={[
-          { label: "Setting up voting account",       state: stepStates("account") },
-          { label: "Collecting voting tokens",         state: needsFaucet ? stepStates("faucet") : "skip" },
-          { label: "Submitting vote to Vocdoni chain", state: stepStates("vote") },
-        ]} />}
+        {/* ── Checking eligibility ── */}
+        {phase === "checking" && (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <Loader2 size={32} className="animate-spin" style={{ color: "#83eef0" }} />
+            <div>
+              <p className="font-semibold text-sm" style={{ fontFamily: "'Plus_Jakarta_Sans',sans-serif", color: "#d4e9f3" }}>Verifying eligibility…</p>
+              <p className="text-xs mt-1" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>Checking census membership and vote history</p>
+            </div>
+          </div>
+        )}
 
+        {/* ── Not in census ── */}
+        {phase === "not-eligible" && (
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#f8717115", border: "1px solid #f8717130" }}>
+              <XCircle size={26} style={{ color: "#f87171" }} />
+            </div>
+            <div>
+              <p className="font-bold text-base" style={{ fontFamily: "'Plus_Jakarta_Sans',sans-serif", color: "#d4e9f3" }}>Not eligible to vote</p>
+              <p className="text-xs mt-1.5 max-w-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
+                Your connected wallet is not in the census for this proposal. Voting eligibility is determined at the time the election was created.
+              </p>
+            </div>
+            <a href={`https://explorer.vote/processes/show/#/${election.electionId}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold no-underline" style={{ color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
+              <ExternalLink size={11} /> View election on Vocdoni
+            </a>
+          </div>
+        )}
+
+        {/* ── Already voted ── */}
+        {phase === "already-voted" && (
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#83eef018", border: "1px solid #83eef040" }}>
+              <CheckCircle2 size={26} className="text-[#83eef0]" />
+            </div>
+            <div>
+              <p className="font-bold text-base" style={{ fontFamily: "'Plus_Jakarta_Sans',sans-serif", color: "#d4e9f3" }}>Already voted</p>
+              <p className="text-xs mt-1.5 max-w-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
+                Your vote has already been recorded on-chain for this proposal.
+              </p>
+            </div>
+            <a href={`https://explorer.vote/processes/show/#/${election.electionId}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold no-underline" style={{ color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
+              <ExternalLink size={11} /> View on Vocdoni Explorer
+            </a>
+          </div>
+        )}
+
+        {/* ── Processing (SDK steps) ── */}
+        {phase === "processing" && (
+          <StepStepper steps={getVoteStepDefs(needsFaucet, isAnonymous).map(s => ({
+            label: s.label,
+            state: stepState(s.key),
+          }))} />
+        )}
+
+        {/* ── Success ── */}
         {phase === "success" && (
           <div className="flex flex-col items-center gap-4 py-6 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "#83eef018", border: "1px solid #83eef040" }}>
@@ -679,13 +846,14 @@ function VoteModal({
             <p className="text-sm max-w-xs" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
               Your vote is recorded on-chain and will be counted when the election ends.
             </p>
-            <a href={`https://app.vocdoni.io/processes/show/#/${election.electionId}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://explorer.vote/processes/show/#/${election.electionId}`} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-semibold no-underline" style={{ color: "#83eef0", fontFamily: "'Inter',sans-serif" }}>
               <ExternalLink size={11} /> View on Vocdoni Explorer
             </a>
           </div>
         )}
 
+        {/* ── Vote form ── */}
         {(phase === "form" || phase === "error") && (
           <>
             {strategy === "standard" && questions.map((q, qi) => (
