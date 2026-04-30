@@ -195,6 +195,28 @@ function sanitizeString(value: unknown, maxLength = 2000): string | null {
   return trimmed;
 }
 
+// ─── IPFS profile pinning (background, fire-and-forget) ───────────────────────
+async function pinProfileAsync(profile: Record<string, unknown>, profileId: string): Promise<void> {
+  try {
+    const jsonStr = JSON.stringify({
+      ...profile,
+      schema: "pepo-profile-v1",
+      pinnedAt: Date.now(),
+    });
+    const buf = Buffer.from(jsonStr, "utf-8");
+    const filename = `pepo-profile-${profileId}-${Date.now()}.json`;
+    const pinata = getPinata();
+    const file = new File([buf], filename, { type: "application/json" });
+    const result = await pinata.upload.public.file(file);
+    const cid = result.cid;
+    await storage.saveIpfsBlock(cid, buf.toString("base64"), "application/json");
+    await storage.saveCeramic(profileId, cid, "did:ipfs");
+    console.log(`[IPFS] Profile pinned for ${profileId}: ${cid}`);
+  } catch (err) {
+    console.error("[IPFS] pinProfileAsync failed:", err);
+  }
+}
+
 // ─── Routes ────────────────────────────────────────────────────────────────────
 export async function registerRoutes(
   httpServer: Server,
@@ -523,6 +545,7 @@ export async function registerRoutes(
         githubHandle: sanitizeString(githubHandle, 50) || "",
         instagramHandle: sanitizeString(instagramHandle, 50) || "",
       });
+      void pinProfileAsync(profile as Record<string, unknown>, verify.userId!);
       return res.json(profile);
     } catch (err) {
       console.error("[upsertProfile]", err);
@@ -1222,6 +1245,7 @@ export async function registerRoutes(
         githubHandle: sanitizeString(githubHandle, 50) || existing?.githubHandle || "",
         instagramHandle: sanitizeString(instagramHandle, 50) || existing?.instagramHandle || "",
       });
+      void pinProfileAsync(profile as Record<string, unknown>, profileId);
       return res.json(profile);
     } catch (err) {
       console.error("[sessionProfile]", err);
