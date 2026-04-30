@@ -133,25 +133,28 @@ Registered redirect URIs:
 
 ## IPFS / Helia Image Storage
 
-Helia (the official js-IPFS successor) runs in offline mode on the server, backed by local FsBlockstore and FsDatastore stored in `ipfs-data/`. No libp2p networking is required.
+Helia (the official js-IPFS successor) runs in offline mode on the server, backed by **in-memory stores** (`MemoryBlockstore` / `MemoryDatastore` from `blockstore-core` / `datastore-core`). No filesystem or libp2p networking required — works on ephemeral autoscale deployments.
+
+**Persistence**: uploaded image bytes are base64-encoded and saved to the `ipfs_blocks` PostgreSQL table. On a cold start, `/api/ipfs/cat/:cid` reads from DB and re-hydrates Helia memory, so images survive restarts. If a CID is not found locally, the endpoint redirects to `https://ipfs.io/ipfs/<cid>` as a final fallback.
 
 ### Server module
-- `server/ipfs.ts` — exports `uploadToIPFS(buffer, mimeType)` and `getIPFSBytes(cid)` helpers; lazy-initialised Helia node.
+- `server/ipfs.ts` — `uploadToIPFS(buffer)`, `getIPFSBytes(cid)`, `hydrateIPFS(buffer)` helpers; lazy-initialised Helia node using MemoryBlockstore/MemoryDatastore.
 
 ### API routes
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/ipfs/upload` | POST (multipart) | Accepts an image (≤10 MB), stores via Helia, returns `{ cid, size, mimeType }` |
-| `/api/ipfs/cat/:cid` | GET | Streams the raw bytes for a CID from the local Helia node |
-| `/api/ipfs/info` | GET | Returns `{ online: true }` status |
+| `/api/ipfs/upload` | POST (multipart) | Accepts an image (≤10 MB), stores via Helia + saves base64 to `ipfs_blocks` DB, returns `{ cid, size, mimeType }` |
+| `/api/ipfs/cat/:cid` | GET | Serves raw bytes: memory → DB → 302 redirect to ipfs.io gateway |
+| `/api/ipfs/info` | GET | Returns Helia node status |
 
 ### Frontend helpers
 - `client/src/lib/ipfs.ts` — `uploadImageToIPFS(file)`, `ipfsImageUrl(cid)` (local cat URL), `ipfsPublicUrl(cid)` (ipfs.io gateway)
 - `client/src/components/IPFSImageUpload.tsx` — drag-and-drop upload widget (full and compact modes); shows CID + gateway links after upload
 
-### Schema fields (profiles table)
-- `avatarCid text` — CID of the user's avatar image stored on IPFS
-- `ipfsImages text[]` — array of CIDs for additional reef images
+### Schema fields
+- `profiles.avatarCid text` — CID of the user's avatar image
+- `profiles.ipfsImages text[]` — array of CIDs for additional reef images
+- `ipfs_blocks` table — `cid` (PK), `data` (base64 text), `mimeType`, `uploadedAt`
 
 ### UI integration
 - **Profile page** (`/profile`) — Compact IPFS upload strip below the circular avatar preview; CID saved to `avatarCid` on Save Profile
@@ -192,6 +195,6 @@ npm run db:push    # Sync database schema
 
 - **Build**: `npm run build` (script/build.ts) — Vite builds frontend to `dist/public/`, esbuild bundles server to `dist/index.mjs` (1.3 MB)
 - **Run**: `node dist/index.mjs`
-- **ESM strategy**: server bundle uses ESM format. CJS packages (express, pg, etc.) are bundled inline by esbuild (with a `createRequire` banner for any dynamic `require()` calls). ESM-only packages (helia, blockstore-fs, datastore-fs, @helia/unixfs) are **externalized** — they stay in node_modules and load via native ESM import, keeping `import.meta.url` correct in each module.
+- **ESM strategy**: server bundle uses ESM format. CJS packages (express, pg, etc.) are bundled inline by esbuild (with a `createRequire` banner for any dynamic `require()` calls). ESM-only packages (helia, blockstore-core, datastore-core, blockstore-fs, datastore-fs, @helia/unixfs, multiformats) are **externalized** — they stay in node_modules and load via native ESM import, keeping `import.meta.url` correct in each module.
 - **Static files**: `server/static.ts` serves `dist/public/` relative to `process.cwd()` (project root), so it works whether invoked from the bundle or directly via tsx.
-- **IPFS on autoscale**: FsBlockstore state is not shared across instances; uploaded content should be pinned to a public IPFS gateway for persistence across deployments.
+- **IPFS on autoscale**: Uses MemoryBlockstore + PostgreSQL `ipfs_blocks` table for persistence. No filesystem dependency; works correctly on ephemeral autoscale instances.

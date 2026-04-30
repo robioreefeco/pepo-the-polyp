@@ -222,6 +222,9 @@ export async function registerRoutes(
       try {
         if (!req.file) return res.status(400).json({ error: "No file provided" });
         const cid = await uploadToIPFS(req.file.buffer, req.file.originalname);
+        // Persist bytes to DB so they survive server restarts
+        const b64 = req.file.buffer.toString("base64");
+        await storage.saveIpfsBlock(cid, b64, req.file.mimetype);
         return res.json({
           cid,
           mimeType: req.file.mimetype,
@@ -238,22 +241,45 @@ export async function registerRoutes(
     }
   );
 
-  // GET /api/ipfs/cat/:cid — serve a file from the local Helia blockstore
+  // GET /api/ipfs/cat/:cid — serve a file (memory → DB → public gateway fallback)
   app.get("/api/ipfs/cat/:cid", async (req: Request, res: Response) => {
+    const cidStr = String(req.params.cid);
     try {
-      const bytes = await getIPFSBytes(String(req.params.cid));
-      if (!bytes) return res.status(404).json({ error: "CID not found in local store" });
-      // Detect content type from magic bytes
-      let contentType = "application/octet-stream";
-      if (bytes[0] === 0xff && bytes[1] === 0xd8) contentType = "image/jpeg";
-      else if (bytes[0] === 0x89 && bytes[1] === 0x50) contentType = "image/png";
-      else if (bytes[0] === 0x47 && bytes[1] === 0x49) contentType = "image/gif";
-      else if (bytes[0] === 0x52 && bytes[4] === 0x57) contentType = "image/webp";
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      return res.send(bytes);
+      // 1. Try in-memory Helia blockstore (fast, warm)
+      let bytes = await getIPFSBytes(cidStr);
+
+      // 2. If not in memory, check DB and re-hydrate
+      if (!bytes) {
+        const block = await storage.getIpfsBlock(cidStr);
+        if (block) {
+          const buf = Buffer.from(block.data, "base64");
+          // Re-hydrate into Helia memory so subsequent hits are fast
+          try { await (await import("./ipfs")).hydrateIPFS(buf); } catch { /* best-effort */ }
+          bytes = buf;
+          // Set content-type from stored mime
+          res.setHeader("Content-Type", block.mimeType || "application/octet-stream");
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          return res.send(bytes);
+        }
+      }
+
+      // 3. If found in memory, detect content type and serve
+      if (bytes) {
+        let contentType = "application/octet-stream";
+        if (bytes[0] === 0xff && bytes[1] === 0xd8) contentType = "image/jpeg";
+        else if (bytes[0] === 0x89 && bytes[1] === 0x50) contentType = "image/png";
+        else if (bytes[0] === 0x47 && bytes[1] === 0x49) contentType = "image/gif";
+        else if (bytes[0] === 0x52 && bytes[4] === 0x57) contentType = "image/webp";
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        return res.send(bytes);
+      }
+
+      // 4. Not found locally — redirect to public IPFS gateway
+      return res.redirect(302, `https://ipfs.io/ipfs/${cidStr}`);
     } catch (err: any) {
-      return res.status(500).json({ error: "Failed to retrieve from IPFS" });
+      console.error("[IPFS] cat error:", err);
+      return res.redirect(302, `https://ipfs.io/ipfs/${cidStr}`);
     }
   });
 

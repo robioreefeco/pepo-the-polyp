@@ -84,6 +84,18 @@ export const insertReefImageSchema = createInsertSchema(reefImages).omit({
 export type InsertReefImage = z.infer<typeof insertReefImageSchema>;
 export type ReefImage = typeof reefImages.$inferSelect;
 
+// ─── IPFS Blocks (DB-persisted content for production durability) ─────────────
+export const ipfsBlocks = pgTable("ipfs_blocks", {
+  cid: text("cid").primaryKey(),
+  data: text("data").notNull(),           // base64-encoded raw bytes
+  mimeType: text("mime_type").notNull().default("application/octet-stream"),
+  uploadedAt: integer("uploaded_at").notNull().default(sql`extract(epoch from now())::int`),
+});
+
+export const insertIpfsBlockSchema = createInsertSchema(ipfsBlocks).omit({ uploadedAt: true });
+export type InsertIpfsBlock = z.infer<typeof insertIpfsBlockSchema>;
+export type IpfsBlock = typeof ipfsBlocks.$inferSelect;
+
 // ─── Leaderboard (aggregated view) ────────────────────────────────────────────
 export interface LeaderboardEntry {
   id: string;

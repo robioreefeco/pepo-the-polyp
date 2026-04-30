@@ -1,12 +1,13 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, profiles, contributions, reefImages,
+  users, profiles, contributions, reefImages, ipfsBlocks,
   type User, type InsertUser,
   type Profile, type InsertProfile,
   type Contribution, type InsertContribution,
   type LeaderboardEntry,
   type ReefImage, type InsertReefImage,
+  type IpfsBlock,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -44,6 +45,10 @@ export interface IStorage {
   // Reef Images
   createReefImage(data: InsertReefImage): Promise<ReefImage>;
   getReefImages(): Promise<ReefImage[]>;
+
+  // IPFS Blocks (DB-persisted content store)
+  saveIpfsBlock(cid: string, data: string, mimeType: string): Promise<IpfsBlock>;
+  getIpfsBlock(cid: string): Promise<IpfsBlock | undefined>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -227,6 +232,22 @@ export class DbStorage implements IStorage {
 
   async getReefImages(): Promise<ReefImage[]> {
     return db.select().from(reefImages).orderBy(desc(reefImages.createdAt));
+  }
+
+  // ── IPFS Blocks ───────────────────────────────────────────────────────────
+  async saveIpfsBlock(cid: string, data: string, mimeType: string): Promise<IpfsBlock> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .insert(ipfsBlocks)
+      .values({ cid, data, mimeType, uploadedAt: now })
+      .onConflictDoUpdate({ target: ipfsBlocks.cid, set: { data, mimeType, uploadedAt: now } })
+      .returning();
+    return row;
+  }
+
+  async getIpfsBlock(cid: string): Promise<IpfsBlock | undefined> {
+    const [row] = await db.select().from(ipfsBlocks).where(eq(ipfsBlocks.cid, cid));
+    return row;
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────
