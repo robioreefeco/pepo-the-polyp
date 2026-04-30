@@ -874,6 +874,8 @@ export function UserProfileDashboard() {
       } catch {
         // non-blocking — local save succeeded
       }
+      // Background: pin updated profile to IPFS (Pinata) so it's live on the web too
+      void handleSyncToCeramic();
     }
 
     setSaved(true);
@@ -1233,9 +1235,15 @@ export function UserProfileDashboard() {
 
                       {ceramicStreamId ? (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#83eef00d] border border-[#83eef020]">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#83eef0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          {ipfsSyncLoading ? (
+                            <div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin flex-shrink-0" />
+                          ) : (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#83eef0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          )}
                           <div className="flex flex-col flex-1 min-w-0">
-                            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium">Profile synced</span>
+                            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium">
+                              {ipfsSyncLoading ? "Updating on web…" : "Live on IPFS"}
+                            </span>
                             <span className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[9px] font-mono truncate" data-testid="text-ceramic-stream-id">
                               {ceramicStreamId}
                             </span>
@@ -1246,14 +1254,14 @@ export function UserProfileDashboard() {
                             rel="noopener noreferrer"
                             data-testid="link-ceramic-explorer"
                             className="text-[#83eef066] hover:text-[#83eef0] transition-colors"
-                            title="View on IPFS gateway"
+                            title="View profile JSON on IPFS"
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                           </a>
                         </div>
                       ) : (
                         <p className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[10px] leading-4">
-                          Sync your profile to IPFS to store it on a decentralised network that you own and control.
+                          Your profile is automatically published to the decentralised web each time you save.
                         </p>
                       )}
 
@@ -1261,26 +1269,24 @@ export function UserProfileDashboard() {
                         <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px]">{ipfsSyncError}</p>
                       )}
 
-                      <button
-                        onClick={handleSyncToCeramic}
-                        disabled={ipfsSyncLoading}
-                        data-testid="button-sync-ceramic"
-                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl [font-family:'Inter',Helvetica] text-xs font-medium transition-all border ${
-                          ceramicSynced
-                            ? "bg-[#83eef015] border-[#83eef033] text-[#83eef0]"
-                            : ipfsSyncLoading
-                            ? "bg-[#83eef008] border-[#83eef015] text-[#83eef050] cursor-not-allowed"
-                            : "bg-[#83eef010] border-[#83eef030] text-[#83eef0b2] hover:bg-[#83eef01a] hover:text-[#83eef0] hover:border-[#83eef05a]"
-                        }`}
-                      >
-                        {ipfsSyncLoading ? (
-                          <><div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin" />Syncing…</>
-                        ) : ceramicSynced ? (
-                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Synced to IPFS!</>
-                        ) : (
-                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>{ceramicStreamId ? "Re-sync to IPFS" : "Sync to IPFS"}</>
-                        )}
-                      </button>
+                      {!ceramicStreamId && (
+                        <button
+                          onClick={handleSyncToCeramic}
+                          disabled={ipfsSyncLoading}
+                          data-testid="button-sync-ceramic"
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl [font-family:'Inter',Helvetica] text-xs font-medium transition-all border ${
+                            ipfsSyncLoading
+                              ? "bg-[#83eef008] border-[#83eef015] text-[#83eef050] cursor-not-allowed"
+                              : "bg-[#83eef010] border-[#83eef030] text-[#83eef0b2] hover:bg-[#83eef01a] hover:text-[#83eef0] hover:border-[#83eef05a]"
+                          }`}
+                        >
+                          {ipfsSyncLoading ? (
+                            <><div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin" />Publishing…</>
+                          ) : (
+                            <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>Publish to IPFS</>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 
