@@ -695,6 +695,7 @@ export function UserProfileDashboard() {
               body: JSON.stringify({ orcidId: sessionOrcidId, orcidName: sessionOrcidName || "" }),
             });
             queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
             queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
           } catch {
             // non-blocking
@@ -746,6 +747,7 @@ export function UserProfileDashboard() {
           });
           queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
           queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
         } catch {
           // non-blocking — local state is already set
         }
@@ -770,6 +772,7 @@ export function UserProfileDashboard() {
             headers: { "x-privy-token": token },
           });
           queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
           queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
         }
       } catch {
@@ -840,6 +843,7 @@ export function UserProfileDashboard() {
           }),
         });
         queryClient.invalidateQueries({ queryKey: ["/api/profiles", activeProfileId] });
+        queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
         queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       } catch {
         // non-blocking — local save succeeded
@@ -864,6 +868,7 @@ export function UserProfileDashboard() {
             }),
           });
           queryClient.invalidateQueries({ queryKey: ["/api/profiles", activeProfileId] });
+          queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
           queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
         }
       } catch {
