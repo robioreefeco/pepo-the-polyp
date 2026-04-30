@@ -749,6 +749,28 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/reef-images/mine — returns all reef images submitted by the authenticated user
+  // Must be registered BEFORE /api/reef-images to avoid any future /:id wildcard conflicts.
+  app.get("/api/reef-images/mine", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (verify.valid) profileId = verify.userId!;
+    }
+    if (!profileId && (req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    }
+    if (!profileId) return res.status(401).json({ error: "Authentication required" });
+    try {
+      const images = await storage.getReefImagesByProfile(profileId);
+      return res.json(images);
+    } catch (err) {
+      console.error("[reefImages/mine]", err);
+      return res.status(500).json({ error: "Failed to fetch your submissions" });
+    }
+  });
+
   // GET /api/reef-images — public; returns approved geo-tagged IPFS images for the map
   app.get("/api/reef-images", async (_req: Request, res: Response) => {
     try {

@@ -45,6 +45,7 @@ export interface IStorage {
   // Reef Images
   createReefImage(data: InsertReefImage): Promise<ReefImage>;
   getReefImages(status?: string): Promise<ReefImage[]>;
+  getReefImagesByProfile(profileId: string): Promise<ReefImage[]>;
   getCurationQueue(): Promise<ReefImage[]>;
   curateReefImage(id: string, status: "approved" | "rejected", curatedBy: string, curatorNote?: string): Promise<ReefImage | undefined>;
 
@@ -238,6 +239,12 @@ export class DbStorage implements IStorage {
   async getReefImages(status = "approved"): Promise<ReefImage[]> {
     return db.select().from(reefImages)
       .where(eq(reefImages.status, status))
+      .orderBy(desc(reefImages.createdAt));
+  }
+
+  async getReefImagesByProfile(profileId: string): Promise<ReefImage[]> {
+    return db.select().from(reefImages)
+      .where(eq(reefImages.profileId, profileId))
       .orderBy(desc(reefImages.createdAt));
   }
 

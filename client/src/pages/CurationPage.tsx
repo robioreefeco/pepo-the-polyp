@@ -221,6 +221,7 @@ function SubmitPanel({
       }
       queryClient.invalidateQueries({ queryKey: ["/api/reef-images"] });
       queryClient.invalidateQueries({ queryKey: ["/api/curation/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reef-images/mine"] });
       setSubmitState("success");
     } catch (e: any) {
       setSubmitError(e?.message || "Submission failed");
@@ -685,24 +686,164 @@ function ImageCard({
   );
 }
 
+// ─── My Submissions panel ─────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  if (status === "approved") {
+    return (
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1dd1a115] border border-[#1dd1a130] text-[#1dd1a1] [font-family:'Inter',Helvetica] text-[9px] font-semibold uppercase tracking-wide">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        Approved
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ff666615] border border-[#ff666630] text-[#ff8888] [font-family:'Inter',Helvetica] text-[9px] font-semibold uppercase tracking-wide">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        Rejected
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ffb34718] border border-[#ffb34735] text-[#ffb347] [font-family:'Inter',Helvetica] text-[9px] font-semibold uppercase tracking-wide">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2.5"/></svg>
+      Pending
+    </span>
+  );
+}
+
+function MySubmissionsPanel({ submissions, isLoading }: { submissions: ReefImage[]; isLoading: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  if (!isLoading && submissions.length === 0) return null;
+
+  const pending = submissions.filter(s => s.status === "pending").length;
+  const approved = submissions.filter(s => s.status === "approved").length;
+  const rejected = submissions.filter(s => s.status === "rejected").length;
+
+  return (
+    <div className="rounded-2xl border border-[#ffffff10] bg-[#ffffff06] backdrop-blur-sm overflow-hidden">
+      <button
+        data-testid="button-toggle-my-submissions"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ffffff06] transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#d4e9f308] border border-[#d4e9f318] flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#d4e9f3aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="#d4e9f3aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="text-left">
+            <div className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm">
+              My Submissions
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              {isLoading ? (
+                <span className="[font-family:'Inter',Helvetica] text-[#d4e9f344] text-[10px]">Loading…</span>
+              ) : (
+                <>
+                  {approved > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#1dd1a1]">{approved} approved</span>}
+                  {pending > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#ffb347]">{pending} pending</span>}
+                  {rejected > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#ff8888]">{rejected} rejected</span>}
+                  {submissions.length === 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f344]">No submissions yet</span>}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          className={`text-[#d4e9f344] transition-transform duration-200 flex-shrink-0 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="border-t border-[#ffffff08] px-5 py-4 flex flex-col gap-3">
+          {isLoading && (
+            <div className="flex items-center gap-2 py-4 justify-center">
+              <div className="w-4 h-4 rounded-full border-2 border-[#83eef0] border-t-transparent animate-spin" />
+              <span className="[font-family:'Inter',Helvetica] text-[#83eef0aa] text-xs">Loading submissions…</span>
+            </div>
+          )}
+          {!isLoading && submissions.map(img => (
+            <div
+              key={img.id}
+              data-testid={`card-submission-${img.id}`}
+              className="flex gap-3 p-3 rounded-xl bg-[#ffffff06] border border-[#ffffff0d]"
+            >
+              {/* Thumbnail */}
+              <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#00080c] flex-shrink-0 border border-[#ffffff0d]">
+                <img
+                  src={ipfsImageUrl(img.cid)}
+                  alt={img.title || "Reef image"}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+              {/* Details */}
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-xs leading-snug truncate">
+                    {img.title || <span className="text-[#d4e9f344] italic">Untitled</span>}
+                  </span>
+                  <StatusBadge status={img.status} />
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#83eef066] flex items-center gap-1">
+                    <PinIcon />
+                    {img.latitude.toFixed(3)}, {img.longitude.toFixed(3)}
+                  </span>
+                  <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#d4e9f333]">
+                    {formatDate(img.createdAt)}
+                  </span>
+                  <a
+                    href={ipfsPublicUrl(img.cid)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="[font-family:'Inter',Helvetica] text-[9px] font-mono text-[#83eef044] hover:text-[#83eef0] transition-colors no-underline"
+                  >
+                    {img.cid.slice(0, 8)}…
+                  </a>
+                </div>
+                {/* Curator note (shown when rejected/approved with a note) */}
+                {img.curatorNote && (
+                  <div className="mt-0.5 px-2.5 py-1.5 rounded-lg bg-[#ffffff06] border border-[#ffffff0d]">
+                    <span className="[font-family:'Inter',Helvetica] text-[9px] uppercase tracking-widest text-[#d4e9f344] block mb-0.5">
+                      Curator note
+                    </span>
+                    <p className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f3aa] leading-relaxed m-0">
+                      {img.curatorNote}
+                    </p>
+                  </div>
+                )}
+                {img.status === "pending" && (
+                  <p className="[font-family:'Inter',Helvetica] text-[9px] text-[#d4e9f333] italic">
+                    Awaiting review by an ORCID-verified curator…
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export function CurationPage() {
   const { authenticated: privyAuthenticated, user, getAccessToken } = usePrivy();
-  const { orcidAuthenticated, orcidId: orcidSessionId } = useOrcidAuth();
+  const { orcidAuthenticated, orcidId: orcidSessionId, orcidProfileId } = useOrcidAuth();
 
   const isAuthenticated = privyAuthenticated || orcidAuthenticated;
 
-  // Resolve ORCID iD from either auth path
-  const privyOrcidAccount = (user as any)?.linkedAccounts?.find?.((a: any) => a.type === "orcid");
-  const resolvedOrcidId: string | null =
-    orcidSessionId ||
-    privyOrcidAccount?.subject ||
-    privyOrcidAccount?.orcidId ||
-    null;
-  const resolvedOrcidName: string | null =
-    privyOrcidAccount?.name || null;
-
-  const hasOrcid = !!resolvedOrcidId;
+  // Active profile ID — same pattern as dashboard
+  const activeProfileId = orcidAuthenticated && !privyAuthenticated
+    ? orcidProfileId
+    : user?.id;
 
   async function authHeaders(): Promise<Record<string, string>> {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -713,6 +854,29 @@ export function CurationPage() {
     return h;
   }
 
+  // Load user's own profile from DB — source of truth for orcidId
+  const { data: savedProfile } = useQuery<any>({
+    queryKey: ["/api/profiles", activeProfileId],
+    enabled: isAuthenticated && !!activeProfileId,
+    staleTime: 60_000,
+  });
+  const dbProfile = savedProfile?.profile;
+
+  // Resolve ORCID iD — DB profile.orcidId is the source of truth for Privy users
+  // who linked ORCID via the app's own linking flow (not via Privy's native OAuth)
+  const privyOrcidAccount = (user as any)?.linkedAccounts?.find?.((a: any) => a.type === "orcid");
+  const resolvedOrcidId: string | null =
+    orcidSessionId ||
+    dbProfile?.orcidId ||
+    privyOrcidAccount?.subject ||
+    privyOrcidAccount?.orcidId ||
+    null;
+  const resolvedOrcidName: string | null =
+    dbProfile?.orcidName || privyOrcidAccount?.name || null;
+
+  const hasOrcid = !!resolvedOrcidId;
+
+  // Fetch pending curation queue (requires ORCID)
   const { data: queue, isLoading, error } = useQuery<ReefImage[]>({
     queryKey: ["/api/curation/queue"],
     queryFn: async () => {
@@ -724,8 +888,21 @@ export function CurationPage() {
       }
       return res.json();
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && hasOrcid,
     refetchInterval: 30000,
+  });
+
+  // Fetch the user's own submissions (all statuses)
+  const { data: mySubmissions = [], isLoading: submissionsLoading } = useQuery<ReefImage[]>({
+    queryKey: ["/api/reef-images/mine"],
+    queryFn: async () => {
+      const h = await authHeaders();
+      const res = await fetch("/api/reef-images/mine", { headers: h, credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
   });
 
   const [decidingId, setDecidingId] = useState<string | null>(null);
@@ -859,6 +1036,14 @@ export function CurationPage() {
             <SubmitPanel
               authHeaders={authHeaders}
               displayName={resolvedOrcidName || undefined}
+            />
+          )}
+
+          {/* My Submissions — shows status of the user's own submitted images */}
+          {isAuthenticated && (
+            <MySubmissionsPanel
+              submissions={mySubmissions}
+              isLoading={submissionsLoading}
             />
           )}
 
