@@ -199,70 +199,142 @@ function GuestView({ onLogin, error }: { onLogin: () => void; error?: string | n
   );
 }
 
-// ─── Photo upload zone ────────────────────────────────────────────────────────
-function PhotoUpload({
-  image, onChange,
-}: { image: string | null; onChange: (url: string) => void }) {
+// ─── Avatar IPFS upload (unified circle + CID badge) ─────────────────────────
+function AvatarIPFSUpload({
+  profileImage, avatarCid, onUpload,
+}: {
+  profileImage: string | null;
+  avatarCid: string;
+  onUpload: (result: { cid: string; localUrl: string }) => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5 MB."); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => onChange(e.target?.result as string);
-    reader.readAsDataURL(file);
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) { setError("Images only"); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Max 10 MB"); return; }
+    setError("");
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/ipfs/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Upload failed");
+      const data = await res.json();
+      onUpload({ cid: data.cid, localUrl: data.localUrl });
+    } catch (e: any) {
+      setError(e.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-    e.target.value = "";
-  }
-
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+  function copy(text: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2.5 shrink-0">
+      {/* Clickable avatar circle */}
       <div
-        className={`relative group cursor-pointer transition-all ${dragging ? "scale-105" : ""}`}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        data-testid="input-photo-upload"
+        className="relative group cursor-pointer"
+        onClick={() => !uploading && inputRef.current?.click()}
+        data-testid="input-avatar-ipfs-upload"
       >
-        {/* Avatar ring */}
-        <div className={`w-28 h-28 rounded-full overflow-hidden border-2 transition-colors ${dragging ? "border-[#83eef0]" : "border-[#83eef04c] group-hover:border-[#83eef099]"} bg-[#06232c] shadow-[0_0_24px_rgba(131,238,240,0.15)]`}>
-          {image ? (
-            <img src={image} alt="Profile" className="w-full h-full object-cover" />
+        <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-[#83eef04c] group-hover:border-[#83eef099] bg-[#06232c] shadow-[0_0_24px_rgba(131,238,240,0.15)] transition-colors">
+          {uploading ? (
+            <div className="w-full h-full flex items-center justify-center bg-[#00080c80]">
+              <div className="w-8 h-8 rounded-full border-2 border-[#83eef0] border-t-transparent animate-spin" />
+            </div>
+          ) : profileImage ? (
+            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-[#83eef060] group-hover:text-[#83eef0b2] transition-colors">
               <UploadIcon />
-              <span className="[font-family:'Inter',Helvetica] text-[9px] text-center px-2 leading-3">
-                Drop or click
+              <span className="[font-family:'Inter',Helvetica] text-[9px] text-center px-3 leading-3">
+                Upload to IPFS
               </span>
             </div>
           )}
         </div>
-
-        {/* Edit badge */}
-        <div className={`absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full flex items-center justify-center border-2 border-[#00080c] transition-colors shadow-md ${image ? "bg-[#3fb0b3]" : "bg-[#3fb0b380] group-hover:bg-[#3fb0b3]"}`}>
+        {/* Camera badge */}
+        <div className={`absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full flex items-center justify-center border-2 border-[#00080c] shadow-md transition-colors ${avatarCid ? "bg-[#3fb0b3]" : "bg-[#3fb0b360] group-hover:bg-[#3fb0b3]"}`}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
             <path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <circle cx="12" cy="13" r="3" stroke="white" strokeWidth="2"/>
           </svg>
         </div>
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onInputChange} />
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" data-testid="ipfs-avatar-file-input"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
       </div>
-      <div className="flex flex-col items-center gap-1">
-        <p className="[font-family:'Inter',Helvetica] text-[#d4e9f3b2] text-xs font-medium">Profile Photo</p>
-        <p className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[10px]">JPG, PNG, GIF · max 5 MB</p>
+
+      {/* Label */}
+      <div className="flex flex-col items-center gap-1 text-center">
+        <span className="[font-family:'Inter',Helvetica] text-[#d4e9f3b2] text-[11px] font-medium">
+          {uploading ? "Uploading…" : avatarCid ? "Stored on IPFS" : "Avatar Photo"}
+        </span>
+        <span className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[9px]">
+          {avatarCid ? "" : "JPG · PNG · GIF · max 10 MB"}
+        </span>
       </div>
+
+      {/* CID badge (shown after upload) */}
+      {avatarCid && (
+        <div style={{
+          display: "flex", flexDirection: "column", gap: 6,
+          background: "rgba(131,238,240,0.05)", border: "1px solid rgba(131,238,240,0.15)",
+          borderRadius: 10, padding: "8px 10px", width: "100%", maxWidth: 168,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#83eef0bb", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "Inter,sans-serif" }}>IPFS CID</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <code style={{ flex: 1, fontSize: 8.5, color: "#83eef099", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {avatarCid.slice(0, 22)}…
+            </code>
+            <button
+              type="button"
+              data-testid="ipfs-avatar-copy-cid"
+              onClick={() => copy(avatarCid)}
+              title="Copy CID"
+              style={{ background: "rgba(131,238,240,0.1)", border: "1px solid rgba(131,238,240,0.2)", borderRadius: 5, padding: "2px 6px", cursor: "pointer", fontSize: 8, color: "#83eef0", fontFamily: "Inter,sans-serif", flexShrink: 0 }}
+            >
+              {copied ? "✓" : "Copy"}
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <a
+              href={`https://ipfs.io/ipfs/${avatarCid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="ipfs-avatar-gateway-link"
+              style={{ fontSize: 8.5, color: "#83eef066", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+            >
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              ipfs.io
+            </a>
+            <span style={{ color: "#83eef030", fontSize: 8 }}>·</span>
+            <a
+              href={`https://cloudflare-ipfs.com/ipfs/${avatarCid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: 8.5, color: "#83eef066", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}
+            >
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              cloudflare
+            </a>
+          </div>
+        </div>
+      )}
+
+      {error && <p style={{ fontSize: 10, color: "#ff8888", fontFamily: "Inter,sans-serif", textAlign: "center", margin: 0 }}>{error}</p>}
     </div>
   );
 }
@@ -561,6 +633,7 @@ export function UserProfileDashboard() {
   const [saved, setSaved] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [avatarCid, setAvatarCid] = useState<string>("");
+  const [ipfsImages, setIpfsImages] = useState<string[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState(DEFAULT_BIO);
   const [location, setLocation] = useState("");
@@ -599,6 +672,9 @@ export function UserProfileDashboard() {
     if (savedProfile?.profile?.avatarCid) {
       setAvatarCid(savedProfile.profile.avatarCid);
       setProfileImage(ipfsImageUrl(savedProfile.profile.avatarCid));
+    }
+    if (savedProfile?.profile?.ipfsImages?.length) {
+      setIpfsImages(savedProfile.profile.ipfsImages);
     }
   }, [savedProfile]);
 
@@ -735,6 +811,10 @@ export function UserProfileDashboard() {
     localStorage.setItem("pepo_avatar_cid", result.cid);
   }
 
+  function handleIPFSReefImageUpload(result: { cid: string }) {
+    setIpfsImages(prev => prev.includes(result.cid) ? prev : [result.cid, ...prev]);
+  }
+
   async function handleSave() {
     localStorage.setItem("pepo_display_name", displayName);
     localStorage.setItem("pepo_profile_bio", bio);
@@ -755,6 +835,7 @@ export function UserProfileDashboard() {
             tags: selectedTags,
             avatarUrl: profileImage || "",
             avatarCid: avatarCid || "",
+            ipfsImages,
             isPublic: true,
           }),
         });
@@ -778,6 +859,7 @@ export function UserProfileDashboard() {
               tags: selectedTags,
               avatarUrl: profileImage || "",
               avatarCid: avatarCid || "",
+              ipfsImages,
               isPublic: true,
             }),
           });
@@ -972,33 +1054,12 @@ export function UserProfileDashboard() {
                   {/* Photo + Name section */}
                   <div className="flex flex-col gap-5 p-5 md:p-6 rounded-3xl bg-[#ffffff08] border border-[#83eef01a] backdrop-blur-sm">
                     <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-                      {/* Avatar — IPFS upload (compact) */}
-                      <div className="flex flex-col items-center gap-3 shrink-0">
-                        {/* Circular avatar preview */}
-                        <div className="relative group">
-                          <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-[#83eef04c] bg-[#06232c] shadow-[0_0_24px_rgba(131,238,240,0.15)]">
-                            {profileImage ? (
-                              <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-[#83eef060]">
-                                <UploadIcon />
-                                <span className="[font-family:'Inter',Helvetica] text-[9px] text-center px-2 leading-3">
-                                  Upload avatar
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {/* IPFS upload strip */}
-                        <div className="w-full min-w-[156px]">
-                          <IPFSImageUpload
-                            compact
-                            currentCid={avatarCid}
-                            label="Avatar · IPFS"
-                            onUpload={handleIPFSAvatarUpload}
-                          />
-                        </div>
-                      </div>
+                      {/* Avatar — unified IPFS upload */}
+                      <AvatarIPFSUpload
+                        profileImage={profileImage}
+                        avatarCid={avatarCid}
+                        onUpload={handleIPFSAvatarUpload}
+                      />
                       <div className="flex flex-col gap-4 flex-1 w-full">
                         <Field label="Display Name" hint="How others see you">
                           <input
@@ -1216,6 +1277,72 @@ export function UserProfileDashboard() {
                         )}
                       </button>
                     </div>
+                  </div>
+
+                  {/* IPFS Reef Photo Archive */}
+                  <div className="flex flex-col gap-4 p-5 md:p-6 rounded-3xl bg-[#ffffff08] border border-[#83eef01a] backdrop-blur-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3b2] text-xs uppercase tracking-wider">
+                          Reef Photo Archive
+                        </span>
+                      </div>
+                      {ipfsImages.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#83eef015] border border-[#83eef033] text-[#83eef0] [font-family:'Inter',Helvetica] text-[9px] font-semibold">
+                          {ipfsImages.length} on IPFS
+                        </span>
+                      )}
+                    </div>
+                    <p className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[11px] leading-5 -mt-1">
+                      Upload reef images to IPFS — they'll be stored permanently on the decentralised web and optionally pinned to the Regen Reef Network Map.
+                    </p>
+                    <IPFSImageUpload
+                      showMapPin
+                      onUpload={handleIPFSReefImageUpload}
+                      label="Upload Reef Image"
+                    />
+                    {ipfsImages.length > 0 && (
+                      <div className="flex flex-col gap-2 pt-2 border-t border-[#ffffff08]">
+                        <span className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] font-medium">
+                          Previously uploaded ({ipfsImages.length})
+                        </span>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {ipfsImages.slice(0, 12).map((cid) => (
+                            <a
+                              key={cid}
+                              href={`https://ipfs.io/ipfs/${cid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid={`ipfs-thumb-${cid.slice(-6)}`}
+                              title={cid}
+                              className="relative group"
+                            >
+                              <div className="w-full aspect-square rounded-xl overflow-hidden border border-[#83eef020] bg-[#06232c] group-hover:border-[#83eef066] transition-colors">
+                                <img
+                                  src={`/api/ipfs/cat/${cid}`}
+                                  alt={cid.slice(0, 8)}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = `https://ipfs.io/ipfs/${cid}`; }}
+                                />
+                              </div>
+                              <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 bg-[#00080c80] transition-opacity">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                        {ipfsImages.length > 12 && (
+                          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[10px]">
+                            +{ipfsImages.length - 12} more — save profile to persist all.
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Save button */}
