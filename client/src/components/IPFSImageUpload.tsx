@@ -49,6 +49,8 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
   const [pinState, setPinState] = useState<PinState>("idle");
   const [manualLat, setManualLat] = useState("");
   const [manualLon, setManualLon] = useState("");
+  const [pinTitle, setPinTitle] = useState("");
+  const [pinAuthor, setPinAuthor] = useState("");
   const [pinError, setPinError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +66,13 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
         method: "POST",
         headers,
         credentials: "include",
-        body: JSON.stringify({ cid, latitude: lat, longitude: lon }),
+        body: JSON.stringify({
+          cid,
+          latitude: lat,
+          longitude: lon,
+          title: pinTitle.trim(),
+          author: pinAuthor.trim(),
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       queryClient.invalidateQueries({ queryKey: ["/api/reef-images"] });
@@ -163,6 +171,32 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
           Your image will appear as a public marker on the map — visible to all visitors.
           Your precise location is only used to place the pin and is never shared beyond that.
         </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <input
+            data-testid="pin-title-input"
+            value={pinTitle}
+            onChange={e => setPinTitle(e.target.value)}
+            placeholder="Photo title (optional)"
+            maxLength={120}
+            style={{
+              background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+              borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+              fontFamily: "Inter, sans-serif", outline: "none",
+            }}
+          />
+          <input
+            data-testid="pin-author-input"
+            value={pinAuthor}
+            onChange={e => setPinAuthor(e.target.value)}
+            placeholder="Photographer / author credit (optional)"
+            maxLength={120}
+            style={{
+              background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+              borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+              fontFamily: "Inter, sans-serif", outline: "none",
+            }}
+          />
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             data-testid="pin-use-location"
@@ -245,6 +279,30 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
             }}
           />
         </div>
+        <input
+          data-testid="pin-title-input-manual"
+          value={pinTitle}
+          onChange={e => setPinTitle(e.target.value)}
+          placeholder="Photo title (optional)"
+          maxLength={120}
+          style={{
+            background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+            borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+            fontFamily: "Inter, sans-serif", outline: "none",
+          }}
+        />
+        <input
+          data-testid="pin-author-input-manual"
+          value={pinAuthor}
+          onChange={e => setPinAuthor(e.target.value)}
+          placeholder="Photographer / author credit (optional)"
+          maxLength={120}
+          style={{
+            background: "rgba(0,19,28,0.6)", border: "1px solid rgba(131,238,240,0.2)",
+            borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#d4e9f3",
+            fontFamily: "Inter, sans-serif", outline: "none",
+          }}
+        />
         {pinError && <p style={{ fontSize: 10.5, color: "#ff8888", margin: 0 }}>{pinError}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           <button

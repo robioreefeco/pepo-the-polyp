@@ -73,6 +73,7 @@ export const reefImages = pgTable("reef_images", {
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
   title: text("title").notNull().default(""),
+  author: text("author").notNull().default(""),
   profileId: varchar("profile_id"),
   createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
 });

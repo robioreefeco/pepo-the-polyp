@@ -644,7 +644,7 @@ export async function registerRoutes(
 
   // POST /api/reef-images — pin an IPFS image with coordinates (auth optional for attribution)
   app.post("/api/reef-images", generalLimiter, async (req: Request, res: Response) => {
-    const { cid, latitude, longitude, title = "" } = req.body;
+    const { cid, latitude, longitude, title = "", author = "" } = req.body;
     if (!cid || typeof cid !== "string" || cid.trim().length === 0) {
       return res.status(400).json({ error: "cid is required" });
     }
@@ -673,6 +673,7 @@ export async function registerRoutes(
         latitude: lat,
         longitude: lon,
         title: String(title).slice(0, 120),
+        author: String(author).slice(0, 120),
         profileId: profileId ?? undefined,
       });
       return res.status(201).json(img);
