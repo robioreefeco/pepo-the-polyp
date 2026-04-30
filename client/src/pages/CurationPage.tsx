@@ -180,13 +180,21 @@ function ImageCard({
 
 export function CurationPage() {
   const { authenticated: privyAuthenticated, user, getAccessToken } = usePrivy();
-  const { orcidAuthenticated, orcidId } = useOrcidAuth();
+  const { orcidAuthenticated, orcidId: orcidSessionId } = useOrcidAuth();
 
   const isAuthenticated = privyAuthenticated || orcidAuthenticated;
-  const hasOrcid = !!(
-    orcidId ||
-    (user as any)?.linkedAccounts?.find?.((a: any) => a.type === "orcid")
-  );
+
+  // Resolve ORCID iD from either auth path
+  const privyOrcidAccount = (user as any)?.linkedAccounts?.find?.((a: any) => a.type === "orcid");
+  const resolvedOrcidId: string | null =
+    orcidSessionId ||
+    privyOrcidAccount?.subject ||
+    privyOrcidAccount?.orcidId ||
+    null;
+  const resolvedOrcidName: string | null =
+    privyOrcidAccount?.name || null;
+
+  const hasOrcid = !!resolvedOrcidId;
 
   async function authHeaders(): Promise<Record<string, string>> {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -280,6 +288,42 @@ export function CurationPage() {
             <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm m-0">
               Review reef images submitted by community members. Approved images appear on the public map. You earn 5 points per decision. Leave a note to give the submitter feedback.
             </p>
+
+            {/* Curator identity badge — only shown when ORCID-verified */}
+            {isAuthenticated && hasOrcid && resolvedOrcidId && (
+              <div
+                data-testid="badge-curator-orcid"
+                className="flex items-center gap-2.5 self-start px-3 py-2 rounded-xl bg-[#a6ce3910] border border-[#a6ce3930] mt-1"
+              >
+                {/* ORCID logo */}
+                <svg width="18" height="18" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="128" cy="128" r="128" fill="#A6CE39"/>
+                  <path d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7C191.7 111.2 178 93 153 93h-28.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1c0-5.6 4.5-10.1 10.1-10.1s10.1 4.5 10.1 10.1z" fill="white"/>
+                </svg>
+                <div className="flex flex-col">
+                  <span className="[font-family:'Inter',Helvetica] text-[9px] uppercase tracking-widest text-[#a6ce3988] leading-none mb-0.5">
+                    Curating as verified researcher
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://orcid.org/${resolvedOrcidId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="link-curator-orcid"
+                      className="[font-family:'Inter',Helvetica] text-xs font-semibold text-[#a6ce39] no-underline hover:text-[#c5e85a] transition-colors"
+                    >
+                      orcid.org/{resolvedOrcidId}
+                    </a>
+                    {resolvedOrcidName && (
+                      <span className="[font-family:'Inter',Helvetica] text-[11px] text-[#d4e9f366]">· {resolvedOrcidName}</span>
+                    )}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                      <path d="M20 6L9 17l-5-5" stroke="#a6ce39" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Legend */}
             <div className="flex items-center gap-4 mt-1">
