@@ -198,6 +198,7 @@ function sanitizeString(value: unknown, maxLength = 2000): string | null {
 // ─── IPFS profile pinning (background, fire-and-forget) ───────────────────────
 async function pinProfileAsync(profile: Record<string, unknown>, profileId: string): Promise<void> {
   try {
+    const isFirstPin = !profile.ceramicStreamId;
     const jsonStr = JSON.stringify({
       ...profile,
       schema: "pepo-profile-v1",
@@ -211,6 +212,15 @@ async function pinProfileAsync(profile: Record<string, unknown>, profileId: stri
     const cid = result.cid;
     await storage.saveIpfsBlock(cid, buf.toString("base64"), "application/json");
     await storage.saveCeramic(profileId, cid, "did:ipfs");
+    // Award one-time points on first IPFS sync
+    if (isFirstPin) {
+      await storage.addContribution({
+        profileId,
+        type: "resource",
+        description: "Synced profile to IPFS via Pinata",
+        points: 30,
+      });
+    }
     console.log(`[IPFS] Profile pinned for ${profileId}: ${cid}`);
   } catch (err) {
     console.error("[IPFS] pinProfileAsync failed:", err);
@@ -581,8 +591,12 @@ export async function registerRoutes(
           description: "First time joining the Reef network",
           points: 50,
         });
+        // Pin new profile to IPFS in background (awards 30 pts on first pin)
+        void pinProfileAsync(profile as Record<string, unknown>, verify.userId!);
         return res.json({ profile, newUser: true });
       }
+      // Returning user — pin updated profile to IPFS in background on every login
+      void pinProfileAsync(existing as Record<string, unknown>, verify.userId!);
       return res.json({ profile: existing, newUser: false });
     } catch (err) {
       console.error("[syncProfile]", err);
@@ -1160,7 +1174,7 @@ export async function registerRoutes(
           : name || "";
 
       // Upsert the profile
-      await storage.upsertProfile({
+      const upserted = await storage.upsertProfile({
         id: profileId,
         displayName: resolvedDisplayName,
         bio: existing?.bio || "",
@@ -1186,6 +1200,9 @@ export async function registerRoutes(
       if (!alreadyToday) {
         await storage.addContribution({ profileId, type: "login", description: "ORCID sign-in", points: 10 });
       }
+
+      // Pin profile to IPFS in background on every ORCID sign-in (30 pts one-time)
+      void pinProfileAsync(upserted as Record<string, unknown>, profileId);
 
       // Establish session — store access token securely server-side (never sent to client)
       req.session.orcid = { orcidId: orcid, orcidName: name, profileId, accessToken, tokenExpiresAt };
