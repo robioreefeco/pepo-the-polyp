@@ -567,9 +567,13 @@ export async function registerRoutes(
     if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
 
     const { displayName, bio, location, website, avatarUrl, avatarCid, ipfsImages, tags, isPublic, twitterHandle, linkedinUrl, githubHandle, instagramHandle } = req.body;
+    const uid = verify.userId!;
     try {
+      // Snapshot the profile BEFORE changes so we can detect newly completed fields
+      const before = await storage.getProfile(uid);
+
       const profile = await storage.upsertProfile({
-        id: verify.userId!,
+        id: uid,
         displayName: sanitizeString(displayName) || "Explorer",
         bio: sanitizeString(bio, 500) || "",
         location: sanitizeString(location, 100) || "",
@@ -585,7 +589,29 @@ export async function registerRoutes(
         githubHandle: sanitizeString(githubHandle, 50) || "",
         instagramHandle: sanitizeString(instagramHandle, 50) || "",
       });
-      void pinProfileAsync(profile as Record<string, unknown>, verify.userId!);
+
+      // ── Award one-time points for newly completed profile fields ──────────
+      const newName = sanitizeString(displayName) || "";
+      const hadName = !!(before?.displayName && before.displayName !== "Explorer" && before.displayName !== "Researcher" && before.displayName.length > 0);
+      const hasName = newName !== "" && newName !== "Explorer" && newName !== "Researcher";
+      if (hasName && !hadName && !(await storage.hasContribution(uid, "profile_name"))) {
+        await storage.addContribution({ profileId: uid, type: "profile_name", description: "Set display name", points: 10 });
+      }
+
+      const newBio = sanitizeString(bio, 500) || "";
+      const hadBio = !!(before?.bio && before.bio.length >= 10);
+      if (newBio.length >= 10 && !hadBio && !(await storage.hasContribution(uid, "profile_bio"))) {
+        await storage.addContribution({ profileId: uid, type: "profile_bio", description: "Wrote a bio", points: 10 });
+      }
+
+      const newAvatarCid = sanitizeString(avatarCid, 200) || "";
+      const newAvatarUrl = sanitizeString(avatarUrl, 500) || "";
+      const hadAvatar = !!(before?.avatarCid || before?.avatarUrl);
+      if ((newAvatarCid || newAvatarUrl) && !hadAvatar && !(await storage.hasContribution(uid, "profile_avatar"))) {
+        await storage.addContribution({ profileId: uid, type: "profile_avatar", description: "Uploaded a profile photo", points: 15 });
+      }
+
+      void pinProfileAsync(profile as Record<string, unknown>, uid);
       return res.json(profile);
     } catch (err) {
       console.error("[upsertProfile]", err);
@@ -817,6 +843,17 @@ export async function registerRoutes(
         description: String(description).slice(0, 500),
         profileId: profileId ?? undefined,
       });
+
+      // Award submission points to the authenticated user
+      if (profileId) {
+        await storage.addContribution({
+          profileId,
+          type: "submission",
+          description: `Submitted reef image for curation: ${img.title || img.cid.slice(0, 12)}`,
+          points: 20,
+        });
+      }
+
       return res.status(201).json(img);
     } catch (err) {
       console.error("[reefImages POST]", err);
@@ -879,13 +916,23 @@ export async function registerRoutes(
       const updated = await storage.curateReefImage(id, decision, profileId, typeof curatorNote === "string" ? curatorNote.slice(0, 500) : "");
       if (!updated) return res.status(404).json({ error: "Image not found" });
 
-      // Award points for curation activity (5 pts per decision)
+      // Award points to the curator (5 pts per decision)
       await storage.addContribution({
         profileId,
-        type: "resource",
-        description: `Curated reef image ${id}: ${decision}`,
+        type: "curation",
+        description: `Curated reef image: ${decision}`,
         points: 5,
       });
+
+      // If approved, award the submitter a 50 pt bonus
+      if (decision === "approved" && updated.profileId && updated.profileId !== profileId) {
+        await storage.addContribution({
+          profileId: updated.profileId,
+          type: "submission_approved",
+          description: `Reef image approved: ${updated.title || updated.cid.slice(0, 12)}`,
+          points: 50,
+        });
+      }
 
       return res.json(updated);
     } catch (err) {
@@ -1091,6 +1138,39 @@ export async function registerRoutes(
       console.error("[github/issues]", err);
       return res.status(500).json({ error: "Failed to fetch GitHub data" });
     }
+  });
+
+  // POST /api/governance/vote-recorded — awards points after a successful on-chain vote
+  // Votes are verified on Vocdoni chain; this just records the points event (one-time per election)
+  app.post("/api/governance/vote-recorded", generalLimiter, async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) {
+      const verify = await verifyPrivyToken(token);
+      if (verify.valid) profileId = verify.userId!;
+    } else if ((req as any).session?.orcid?.profileId) {
+      profileId = (req as any).session.orcid.profileId;
+    }
+    if (!profileId) return res.status(401).json({ error: "Authentication required" });
+
+    const { electionId } = req.body;
+    if (!electionId || typeof electionId !== "string" || electionId.length < 8) {
+      return res.status(400).json({ error: "electionId required" });
+    }
+
+    // Use a per-election type key to prevent double-awarding
+    const voteType = `vote_${electionId.slice(0, 20)}`;
+    if (await storage.hasContribution(profileId, voteType)) {
+      return res.json({ alreadyRewarded: true, points: 0 });
+    }
+
+    await storage.addContribution({
+      profileId,
+      type: voteType,
+      description: `Voted on governance proposal`,
+      points: 15,
+    });
+    return res.json({ alreadyRewarded: false, points: 15 });
   });
 
   // ─── Vocdoni API proxy ─────────────────────────────────────────────────────

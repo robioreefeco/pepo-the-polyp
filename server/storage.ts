@@ -27,6 +27,7 @@ export interface IStorage {
   getContributions(profileId: string): Promise<Contribution[]>;
   addContribution(contribution: InsertContribution): Promise<Contribution>;
   hasContributionToday(profileId: string, type: string): Promise<boolean>;
+  hasContribution(profileId: string, type: string): Promise<boolean>;
 
   // leaderboard
   getLeaderboard(): Promise<LeaderboardEntry[]>;
@@ -147,6 +148,18 @@ export class DbStorage implements IStorage {
           AND ${contributions.type} = ${type}
           AND ${contributions.createdAt} >= ${startOfDay}`
       );
+    return rows.length > 0;
+  }
+
+  async hasContribution(profileId: string, type: string): Promise<boolean> {
+    const rows = await db
+      .select({ id: contributions.id })
+      .from(contributions)
+      .where(
+        sql`${contributions.profileId} = ${profileId}
+          AND ${contributions.type} = ${type}`
+      )
+      .limit(1);
     return rows.length > 0;
   }
 

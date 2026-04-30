@@ -88,14 +88,39 @@ Registered redirect URIs:
 
 ## Contribution Points System
 
-| Action | Points |
-|--------|--------|
-| First login | +50 |
-| Asking a question | +10 (once per day per user) |
-| Linking ORCID iD | +25 (once) |
+### One-time awards
+| Action | Points | Contribution type |
+|--------|--------|-------------------|
+| First login | +50 | `login` |
+| Set display name | +10 | `profile_name` |
+| Write a bio (≥10 chars) | +10 | `profile_bio` |
+| Upload avatar | +15 | `profile_avatar` |
+| Link ORCID iD | +25 | `verification` |
+| Sync profile to IPFS (first pin) | +30 | `resource` |
+| Submit first reef image | +20 | `submission` |
+| Reef image approved | +50 | `submission_approved` |
 
+### Per-event awards
+| Action | Points | Contribution type |
+|--------|--------|-------------------|
+| Daily coral clean | +10/day | `clean` |
+| Daily chat question | +10/day | `question` |
+| ORCID daily login | +10/day | `login` |
+| Curate a reef image | +5 each | `curation` |
+| Vote on governance proposal | +15 each | `vote_<electionId[:20]>` |
+
+- Guard: `hasContribution(profileId, type)` prevents double-awarding one-time events
+- Daily guard: `hasContributionToday(profileId, type)` for per-day limits
 - Leaderboard auto-refreshes every 30 seconds on the Community page
 - Points stored persistently in PostgreSQL `profiles.points`
+
+### Journey section (`JourneySection.tsx`)
+Displayed on the dashboard for all authenticated users. Shows:
+1. **Profile Setup** — 5 items (name, bio, avatar, ORCID, IPFS sync) with links
+2. **Community** — submit reef image, vote on governance proposal
+3. **Daily** — coral clean, chat question (both reset each day)
+4. **Points legend** — collapsible "How points work" section listing all rewards
+Stays visible even after completion so daily tasks remain accessible.
 
 ## Environment Variables / Secrets
 

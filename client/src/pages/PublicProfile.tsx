@@ -34,19 +34,50 @@ function rankBadge(rank: number) {
 }
 
 function contribColor(type: string) {
-  if (type === "question") return "#83eef0";
-  if (type === "answer") return "#a78bfa";
-  if (type === "resource") return "#34d399";
-  if (type === "verification") return "#f59e0b";
+  if (type === "question")             return "#83eef0";
+  if (type === "answer")               return "#a78bfa";
+  if (type === "resource")             return "#34d399";
+  if (type === "verification")         return "#f59e0b";
+  if (type === "login")                return "#60a5fa";
+  if (type === "clean")                return "#a6ce39";
+  if (type === "submission")           return "#fb923c";
+  if (type === "submission_approved")  return "#4ade80";
+  if (type === "curation")             return "#c084fc";
+  if (type === "profile_name")         return "#83eef0";
+  if (type === "profile_bio")          return "#83eef0";
+  if (type === "profile_avatar")       return "#83eef0";
+  if (type.startsWith("vote_"))        return "#f472b6";
   return "#d4e9f366";
 }
 
 function contribIcon(type: string) {
-  if (type === "question") return <MessageCircle size={12} />;
-  if (type === "answer") return <Activity size={12} />;
-  if (type === "resource") return <Microscope size={12} />;
-  if (type === "verification") return <Award size={12} />;
+  if (type === "question")             return <MessageCircle size={12} />;
+  if (type === "answer")               return <Activity size={12} />;
+  if (type === "resource")             return <Microscope size={12} />;
+  if (type === "verification")         return <Award size={12} />;
+  if (type === "login")                return <Star size={12} />;
+  if (type === "clean")                return <span style={{ fontSize: 11 }}>🧹</span>;
+  if (type === "submission")           return <span style={{ fontSize: 11 }}>🪸</span>;
+  if (type === "submission_approved")  return <Award size={12} />;
+  if (type === "curation")             return <Microscope size={12} />;
+  if (type === "profile_name")         return <span style={{ fontSize: 11 }}>✏️</span>;
+  if (type === "profile_bio")          return <span style={{ fontSize: 11 }}>📝</span>;
+  if (type === "profile_avatar")       return <span style={{ fontSize: 11 }}>🖼️</span>;
+  if (type.startsWith("vote_"))        return <span style={{ fontSize: 11 }}>🗳️</span>;
   return <Star size={12} />;
+}
+
+function contribLabel(type: string, description: string) {
+  if (type === "login")               return "Login bonus";
+  if (type === "clean")               return "Coral clean";
+  if (type === "submission")          return "Reef image submitted";
+  if (type === "submission_approved") return "Image approved!";
+  if (type === "curation")            return "Curated image";
+  if (type === "profile_name")        return "Set display name";
+  if (type === "profile_bio")         return "Wrote bio";
+  if (type === "profile_avatar")      return "Uploaded avatar";
+  if (type.startsWith("vote_"))       return "Governance vote";
+  return description || type;
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -413,23 +444,19 @@ export function PublicProfile() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span
-                          className="[font-family:'Inter',Helvetica] text-[10px] font-semibold capitalize px-1.5 py-0.5 rounded-full"
+                          className="flex items-center gap-1 [font-family:'Inter',Helvetica] text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                           style={{
                             color: contribColor(c.type),
                             background: `${contribColor(c.type)}15`,
                           }}
                         >
-                          {c.type}
+                          {contribIcon(c.type)}
+                          {contribLabel(c.type, c.description)}
                         </span>
                         <span className="ml-auto [font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f344] flex-shrink-0">
                           {formatRelative(c.createdAt)}
                         </span>
                       </div>
-                      {c.description && (
-                        <p className="[font-family:'Inter',Helvetica] text-xs text-[#9aaeb8] mt-1 leading-relaxed line-clamp-2">
-                          {c.description}
-                        </p>
-                      )}
                     </div>
                     <span
                       className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-xs flex-shrink-0 mt-0.5"

@@ -608,6 +608,8 @@ function VoteModal({
   election, onClose, onSuccess,
 }: { election: VocdoniElection; onClose: () => void; onSuccess: () => void }) {
   const { wallets } = useWallets();
+  const { authenticated: privyAuthenticated, getAccessToken } = usePrivy();
+  const { orcidAuthenticated } = useOrcidAuth();
   const strategy = strategyFromMeta(election.meta);
 
   const [choices, setChoices]               = useState<Record<number, number>>({});
@@ -727,6 +729,25 @@ function VoteModal({
           case VoteSteps.SIGN_TX:       setCurrentSdkStep("sign-tx"); break;
           case VoteSteps.DONE:          setCurrentSdkStep("done"); break;
         }
+      }
+
+      // Award governance vote points (fire-and-forget — don't block the success UX)
+      if (privyAuthenticated || orcidAuthenticated) {
+        (async () => {
+          try {
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (privyAuthenticated) {
+              const tok = await getAccessToken();
+              if (tok) headers["x-privy-token"] = tok;
+            }
+            await fetch("/api/governance/vote-recorded", {
+              method: "POST",
+              headers,
+              credentials: "include",
+              body: JSON.stringify({ electionId: election.electionId }),
+            });
+          } catch { /* non-critical */ }
+        })();
       }
 
       setPhase("success");
