@@ -35,8 +35,8 @@ export interface IStorage {
   saveOrcid(profileId: string, orcidId: string, orcidName: string): Promise<Profile>;
   clearOrcid(profileId: string): Promise<Profile>;
 
-  // Ceramic + IDX
-  saveCeramic(profileId: string, ceramicStreamId: string, ceramicDid: string): Promise<Profile>;
+  // IPFS / Pinata
+  saveIpfsCid(profileId: string, ipfsCid: string): Promise<Profile>;
 
   // Geolocation
   saveLocation(profileId: string, latitude: number, longitude: number): Promise<Profile>;
@@ -97,8 +97,7 @@ export class DbStorage implements IStorage {
           isPublic: profile.isPublic,
           orcidId: profile.orcidId,
           orcidName: profile.orcidName,
-          ceramicStreamId: profile.ceramicStreamId,
-          ceramicDid: profile.ceramicDid,
+          ipfsCid: profile.ipfsCid,
           twitterHandle: profile.twitterHandle,
           linkedinUrl: profile.linkedinUrl,
           githubHandle: profile.githubHandle,
@@ -171,20 +170,20 @@ export class DbStorage implements IStorage {
     return row;
   }
 
-  // ── Ceramic + IDX ─────────────────────────────────────────────────────────
-  async saveCeramic(profileId: string, ceramicStreamId: string, ceramicDid: string): Promise<Profile> {
+  // ── IPFS / Pinata ─────────────────────────────────────────────────────────
+  async saveIpfsCid(profileId: string, ipfsCid: string): Promise<Profile> {
     const now = Math.floor(Date.now() / 1000);
     const existing = await this.getProfile(profileId);
     if (!existing) {
       const [row] = await db
         .insert(profiles)
-        .values({ id: profileId, ceramicStreamId, ceramicDid, createdAt: now, updatedAt: now })
+        .values({ id: profileId, ipfsCid, createdAt: now, updatedAt: now })
         .returning();
       return row;
     }
     const [row] = await db
       .update(profiles)
-      .set({ ceramicStreamId, ceramicDid, updatedAt: now })
+      .set({ ipfsCid, updatedAt: now })
       .where(eq(profiles.id, profileId))
       .returning();
     return row;

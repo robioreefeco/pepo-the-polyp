@@ -35,9 +35,8 @@ export const profiles = pgTable("profiles", {
   linkedinUrl: text("linkedin_url").notNull().default(""),
   githubHandle: text("github_handle").notNull().default(""),
   instagramHandle: text("instagram_handle").notNull().default(""),
-  // Ceramic + IDX decentralized storage
-  ceramicStreamId: text("ceramic_stream_id").default(""),
-  ceramicDid: text("ceramic_did").default(""),
+  // IPFS / Pinata decentralised storage — CID of the pinned profile JSON
+  ipfsCid: text("ipfs_cid").default(""),
   // IPFS
   avatarCid: text("avatar_cid").default(""),
   ipfsImages: text("ipfs_images").array().notNull().default(sql`'{}'::text[]`),

@@ -198,7 +198,7 @@ function sanitizeString(value: unknown, maxLength = 2000): string | null {
 // ─── IPFS profile pinning (background, fire-and-forget) ───────────────────────
 async function pinProfileAsync(profile: Record<string, unknown>, profileId: string): Promise<void> {
   try {
-    const isFirstPin = !profile.ceramicStreamId;
+    const isFirstPin = !profile.ipfsCid;
     const jsonStr = JSON.stringify({
       ...profile,
       schema: "pepo-profile-v1",
@@ -211,7 +211,7 @@ async function pinProfileAsync(profile: Record<string, unknown>, profileId: stri
     const result = await pinata.upload.public.file(file);
     const cid = result.cid;
     await storage.saveIpfsBlock(cid, buf.toString("base64"), "application/json");
-    await storage.saveCeramic(profileId, cid, "did:ipfs");
+    await storage.saveIpfsCid(profileId, cid);
     // Award one-time points on first IPFS sync
     if (isFirstPin) {
       await storage.addContribution({
@@ -332,10 +332,10 @@ export async function registerRoutes(
       const gatewayBase = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
       const url = `https://${gatewayBase}/ipfs/${cid}`;
 
-      // Persist CID + award one-time points (mirrors /api/profiles/ceramic logic)
+      // Persist CID + award one-time points
       const existing = await storage.getProfile(verify.userId!);
-      await storage.saveCeramic(verify.userId!, cid, "did:ipfs");
-      if (existing && !existing.ceramicStreamId) {
+      await storage.saveIpfsCid(verify.userId!, cid);
+      if (existing && !existing.ipfsCid) {
         await storage.addContribution({
           profileId: verify.userId!,
           type: "resource",
@@ -683,33 +683,32 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/profiles/ceramic — save Ceramic stream ID + DID to profile
-  app.post("/api/profiles/ceramic", async (req: Request, res: Response) => {
+  // POST /api/profiles/ipfs — save Pinata IPFS CID to profile
+  app.post("/api/profiles/ipfs", async (req: Request, res: Response) => {
     const token = (req.headers["x-privy-token"] as string) || "";
     const verify = await verifyPrivyToken(token);
     if (!verify.valid) return res.status(401).json({ error: "Unauthorized" });
 
-    const streamId = sanitizeString(req.body?.ceramicStreamId, 200) || "";
-    const ceramicDid = sanitizeString(req.body?.ceramicDid, 200) || "";
-    if (!streamId) return res.status(400).json({ error: "ceramicStreamId required" });
+    const cid = sanitizeString(req.body?.ipfsCid, 200) || "";
+    if (!cid) return res.status(400).json({ error: "ipfsCid required" });
 
     try {
-      const profile = await storage.saveCeramic(verify.userId!, streamId, ceramicDid);
-
-      // Award points first time decentralised storage is activated
       const existing = await storage.getProfile(verify.userId!);
-      if (existing && !existing.ceramicStreamId) {
+      const profile = await storage.saveIpfsCid(verify.userId!, cid);
+
+      // Award points the first time IPFS storage is activated
+      if (existing && !existing.ipfsCid) {
         await storage.addContribution({
           profileId: verify.userId!,
           type: "resource",
-          description: "Activated Ceramic decentralised profile storage",
+          description: "Synced profile to IPFS via Pinata",
           points: 30,
         });
       }
       return res.json({ profile });
     } catch (err) {
-      console.error("[saveCeramic]", err);
-      return res.status(500).json({ error: "Failed to save Ceramic data" });
+      console.error("[saveIpfsCid]", err);
+      return res.status(500).json({ error: "Failed to save IPFS CID" });
     }
   });
 
@@ -1216,8 +1215,7 @@ export async function registerRoutes(
         isPublic: existing?.isPublic ?? true,
         orcidId: orcid,
         orcidName: name,
-        ceramicStreamId: existing?.ceramicStreamId || "",
-        ceramicDid: existing?.ceramicDid || "",
+        ipfsCid: existing?.ipfsCid || "",
       });
 
       // Award first-time verification bonus (25 pts, one-time for brand-new accounts)
@@ -1285,8 +1283,7 @@ export async function registerRoutes(
         isPublic: isPublic !== false,
         orcidId: existing?.orcidId || req.session.orcid.orcidId,
         orcidName: existing?.orcidName || req.session.orcid.orcidName,
-        ceramicStreamId: existing?.ceramicStreamId || "",
-        ceramicDid: existing?.ceramicDid || "",
+        ipfsCid: existing?.ipfsCid || "",
         twitterHandle: sanitizeString(twitterHandle, 50) || existing?.twitterHandle || "",
         linkedinUrl: sanitizeString(linkedinUrl, 200) || existing?.linkedinUrl || "",
         githubHandle: sanitizeString(githubHandle, 50) || existing?.githubHandle || "",

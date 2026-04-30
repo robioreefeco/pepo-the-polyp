@@ -131,33 +131,38 @@ Registered redirect URIs:
 | `/api/auth/orcid/session` | GET | Returns current ORCID session |
 | `/api/auth/orcid/logout` | POST | Destroys ORCID session |
 
-## IPFS / Helia Image Storage
+## IPFS / Pinata Storage
 
-Helia (the official js-IPFS successor) runs in offline mode on the server, backed by **in-memory stores** (`MemoryBlockstore` / `MemoryDatastore` from `blockstore-core` / `datastore-core`). No filesystem or libp2p networking required — works on ephemeral autoscale deployments.
+All IPFS content is pinned via **Pinata** using the `pinata` Web3 SDK. No Helia/Ceramic packages are used at runtime (those npm packages remain installed but are dead code).
 
-**Persistence**: uploaded image bytes are base64-encoded and saved to the `ipfs_blocks` PostgreSQL table. On a cold start, `/api/ipfs/cat/:cid` reads from DB and re-hydrates Helia memory, so images survive restarts. If a CID is not found locally, the endpoint redirects to `https://ipfs.io/ipfs/<cid>` as a final fallback.
+**Gateway**: configured via `PINATA_GATEWAY` env var (default: `gateway.pinata.cloud`). The Meso Reef DAO gateway is `teal-advisory-zebra-284.mypinata.cloud`.
+
+**Profile pinning**: every profile save auto-triggers `pinProfileAsync()` which uploads the profile JSON blob to Pinata, stores the CID in `profiles.ipfs_cid`, and (on first pin) awards 30 reef points.
 
 ### Server module
-- `server/ipfs.ts` — `uploadToIPFS(buffer)`, `getIPFSBytes(cid)`, `hydrateIPFS(buffer)` helpers; lazy-initialised Helia node using MemoryBlockstore/MemoryDatastore.
+- `server/ipfs.ts` — `uploadToIPFS(buffer, filename?)`, `gatewayUrl(cid)`, `gatewayUrls(cid)`, `primaryGatewayUrl(cid)` helpers; lazy-initialised `PinataSDK`.
 
 ### API routes
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/ipfs/upload` | POST (multipart) | Accepts an image (≤10 MB), stores via Helia + saves base64 to `ipfs_blocks` DB, returns `{ cid, size, mimeType }` |
-| `/api/ipfs/cat/:cid` | GET | Serves raw bytes: memory → DB → 302 redirect to ipfs.io gateway |
-| `/api/ipfs/info` | GET | Returns Helia node status |
+| `/api/ipfs/upload` | POST (multipart) | Accepts an image (≤10 MB), pins via Pinata + caches in `ipfs_blocks` DB, returns `{ cid, url, gateways }` |
+| `/api/ipfs/cat/:cid` | GET | Serves from DB cache; falls back to Pinata gateway redirect |
+| `/api/ipfs/profile` | POST (JSON, Privy auth) | Pins profile JSON to Pinata, saves CID, awards first-pin points |
+| `/api/ipfs/info` | GET | Returns Pinata gateway status |
+| `/api/profiles/ipfs` | POST `{ ipfsCid }` | Saves a pre-computed CID to the user's profile |
 
 ### Frontend helpers
-- `client/src/lib/ipfs.ts` — `uploadImageToIPFS(file)`, `ipfsImageUrl(cid)` (local cat URL), `ipfsPublicUrl(cid)` (ipfs.io gateway)
+- `client/src/lib/ipfs.ts` — `uploadImageToIPFS(file)`, `ipfsImageUrl(cid)` (local cat URL), `ipfsPublicUrl(cid)` (Pinata gateway URL)
 - `client/src/components/IPFSImageUpload.tsx` — drag-and-drop upload widget (full and compact modes); shows CID + gateway links after upload
 
 ### Schema fields
+- `profiles.ipfs_cid text` — CID of the most recent pinned profile JSON (previously `ceramic_stream_id`)
 - `profiles.avatarCid text` — CID of the user's avatar image
 - `profiles.ipfsImages text[]` — array of CIDs for additional reef images
 - `ipfs_blocks` table — `cid` (PK), `data` (base64 text), `mimeType`, `uploadedAt`
 
 ### UI integration
-- **Profile page** (`/profile`) — Compact IPFS upload strip below the circular avatar preview; CID saved to `avatarCid` on Save Profile
+- **Profile page** (`/profile`) — "IPFS Storage" card shows live CID with a Pinata gateway link when synced; "Publish to IPFS" button for manual trigger; auto-syncs on every Save Profile
 - **Workspace page** (`/workspace`) — "Coral Reef Image Archive" section (full drag-and-drop uploader + session image grid)
 
 ## External Integrations

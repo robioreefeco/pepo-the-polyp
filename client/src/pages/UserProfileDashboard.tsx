@@ -649,9 +649,9 @@ export function UserProfileDashboard() {
   const [orcidName, setOrcidName] = useState<string | null>(null);
   const [orcidError, setOrcidError] = useState<string | null>(null);
 
-  // Ceramic + IDX
-  const [ceramicStreamId, setCeramicStreamId] = useState<string | null>(null);
-  const [ceramicSynced, setCeramicSynced] = useState(false);
+  // IPFS / Pinata
+  const [ipfsCid, setIpfsCid] = useState<string | null>(null);
+  const [ipfsSynced, setIpfsSynced] = useState(false);
 
   // The active profile ID — Privy user ID, or ORCID-prefixed ID for ORCID-only logins
   const activeProfileId = orcidAuthenticated && !privyAuthenticated
@@ -696,7 +696,7 @@ export function UserProfileDashboard() {
       setOrcidId(p.orcidId);
       setOrcidName(p.orcidName || null);
     }
-    if (p.ceramicStreamId) setCeramicStreamId(p.ceramicStreamId);
+    if (p.ipfsCid) setIpfsCid(p.ipfsCid);
   }, [savedProfile]);
 
   // Hydrate from ORCID session; if Privy user just connected ORCID, also persist it to their profile
@@ -912,14 +912,14 @@ export function UserProfileDashboard() {
         // non-blocking — local save succeeded
       }
       // Background: pin updated profile to IPFS (Pinata) so it's live on the web too
-      void handleSyncToCeramic();
+      void handleSyncToIpfs();
     }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
 
-  async function handleSyncToCeramic() {
+  async function handleSyncToIpfs() {
     if (!user?.id) return;
     setIpfsSyncLoading(true);
     setIpfsSyncError(null);
@@ -950,10 +950,10 @@ export function UserProfileDashboard() {
         throw new Error(err.error || `Upload failed (${res.status})`);
       }
       const { cid } = await res.json();
-      setCeramicStreamId(cid);
-      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
-      setCeramicSynced(true);
-      setTimeout(() => setCeramicSynced(false), 4000);
+      setIpfsCid(cid);
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles", activeProfileId] });
+      setIpfsSynced(true);
+      setTimeout(() => setIpfsSynced(false), 4000);
     } catch (err: any) {
       setIpfsSyncError(err.message || "Failed to sync to IPFS");
     } finally {
@@ -1350,14 +1350,14 @@ export function UserProfileDashboard() {
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           IPFS Storage
                         </label>
-                        {ceramicStreamId && (
+                        {ipfsCid && (
                           <span className="px-2 py-0.5 rounded-full bg-[#83eef015] border border-[#83eef033] text-[#83eef0] [font-family:'Inter',Helvetica] text-[9px] font-semibold">
                             DECENTRALISED
                           </span>
                         )}
                       </div>
 
-                      {ceramicStreamId ? (
+                      {ipfsCid ? (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#83eef00d] border border-[#83eef020]">
                           {ipfsSyncLoading ? (
                             <div className="w-3 h-3 rounded-full border border-[#83eef0] border-t-transparent animate-spin flex-shrink-0" />
@@ -1366,17 +1366,17 @@ export function UserProfileDashboard() {
                           )}
                           <div className="flex flex-col flex-1 min-w-0">
                             <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium">
-                              {ipfsSyncLoading ? "Updating on web…" : "Live on IPFS"}
+                              {ipfsSyncLoading ? "Updating on web…" : "Live on IPFS via Pinata"}
                             </span>
-                            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[9px] font-mono truncate" data-testid="text-ceramic-stream-id">
-                              {ceramicStreamId}
+                            <span className="[font-family:'Inter',Helvetica] text-[#d4e9f350] text-[9px] font-mono truncate" data-testid="text-ipfs-cid">
+                              {ipfsCid}
                             </span>
                           </div>
                           <a
-                            href={ipfsPublicUrl(ceramicStreamId)}
+                            href={ipfsPublicUrl(ipfsCid)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            data-testid="link-ceramic-explorer"
+                            data-testid="link-ipfs-explorer"
                             className="text-[#83eef066] hover:text-[#83eef0] transition-colors"
                             title="View profile JSON on IPFS"
                           >
@@ -1385,7 +1385,7 @@ export function UserProfileDashboard() {
                         </div>
                       ) : (
                         <p className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[10px] leading-4">
-                          Your profile is automatically published to the decentralised web each time you save.
+                          Your profile is automatically published to the decentralised web via Pinata each time you save.
                         </p>
                       )}
 
@@ -1393,11 +1393,11 @@ export function UserProfileDashboard() {
                         <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px]">{ipfsSyncError}</p>
                       )}
 
-                      {!ceramicStreamId && (
+                      {!ipfsCid && (
                         <button
-                          onClick={handleSyncToCeramic}
+                          onClick={handleSyncToIpfs}
                           disabled={ipfsSyncLoading}
-                          data-testid="button-sync-ceramic"
+                          data-testid="button-sync-ipfs"
                           className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl [font-family:'Inter',Helvetica] text-xs font-medium transition-all border ${
                             ipfsSyncLoading
                               ? "bg-[#83eef008] border-[#83eef015] text-[#83eef050] cursor-not-allowed"
