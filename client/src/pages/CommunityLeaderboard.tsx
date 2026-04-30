@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { usePrivy } from "@privy-io/react-auth";
+import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { Trophy, MessageCircle, Star, Users, ArrowLeft, Globe, ChevronRight } from "lucide-react";
 import type { LeaderboardEntry } from "@shared/schema";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
@@ -248,6 +249,8 @@ function ProfileCard({ entry, rank }: { entry: LeaderboardEntry; rank: number })
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export function CommunityLeaderboard() {
   const { user, authenticated } = usePrivy();
+  const { orcidAuthenticated } = useOrcidAuth();
+  const isAuthenticated = authenticated || orcidAuthenticated;
 
   const { data: leaderboard = [], isLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
@@ -308,7 +311,7 @@ export function CommunityLeaderboard() {
         <p className="[font-family:'Inter',Helvetica] text-[#9aaeb8] text-sm max-w-md">
           Every question asked earns points. The most curious explorers rise to the top of the Reef Knowledge Network.
         </p>
-        {!authenticated && (
+        {!isAuthenticated && (
           <div className="mt-2 px-4 py-2 rounded-full bg-[#83eef010] border border-[#83eef033]">
             <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-xs">
               Log in and ask Pepo a question to join the leaderboard
