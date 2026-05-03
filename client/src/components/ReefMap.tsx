@@ -457,8 +457,8 @@ function ExpandedMapModal({
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
-  const [showWcsReefCloud,   setShowWcsReefCloud]   = useState(false);
-  const [showWcsCcSites,     setShowWcsCcSites]     = useState(false);
+  const [showWcsReefCloud,   setShowWcsReefCloud]   = useState(true);
+  const [showWcsCcSites,     setShowWcsCcSites]     = useState(true);
 
   const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + 1;
 
@@ -993,8 +993,8 @@ export function ReefMap({
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
-  const [showWcsReefCloud,  setShowWcsReefCloud]  = useState(false);
-  const [showWcsCcSites,    setShowWcsCcSites]    = useState(false);
+  const [showWcsReefCloud,  setShowWcsReefCloud]  = useState(true);
+  const [showWcsCcSites,    setShowWcsCcSites]    = useState(true);
   const [internalExpanded,  setInternalExpanded]  = useState(false);
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
