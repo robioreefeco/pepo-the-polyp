@@ -20,6 +20,92 @@ let _reefCheckCache:    { geojson: object; expiresAt: number } | null = null;
 let _reefLifeCache:     { geojson: object; expiresAt: number } | null = null;
 let _gcrmnMonSitesCache: { geojson: object; expiresAt: number } | null = null;
 
+// ─── Natural Earth geography caches (for GCRMN reverse geocoding) ────────────
+type NeFeature = { name: string; polygons: number[][][][] };
+let _neCountries: NeFeature[] | null = null;
+let _neAdmin1:    NeFeature[] | null = null;
+
+/** Ray-casting point-in-polygon for a single GeoJSON ring. */
+function _raycast(lon: number, lat: number, ring: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+/** Returns true if (lon, lat) is inside any polygon of a GeoJSON Multi/Polygon geometry. */
+function _pointInFeature(lon: number, lat: number, feature: NeFeature): boolean {
+  for (const poly of feature.polygons) {
+    if (_raycast(lon, lat, poly[0])) return true; // outer ring only (speed)
+  }
+  return false;
+}
+
+/**
+ * Find the nearest feature whose polygon boundary is within `maxDeg` degrees.
+ * Used as a fallback for ocean/reef points that sit outside all land polygons.
+ * Scanning polygon vertices is fast enough (~50k vertices) at the cell-cache scale.
+ */
+function _nearestByVertex(lon: number, lat: number, features: NeFeature[], maxDeg: number): string {
+  let best = "";
+  let minDist = maxDeg * maxDeg; // compare squared distance (avoids sqrt)
+  for (const feat of features) {
+    for (const poly of feat.polygons) {
+      for (const ring of poly) {
+        for (const v of ring) {
+          const d = (v[0] - lon) ** 2 + (v[1] - lat) ** 2;
+          if (d < minDist) { minDist = d; best = feat.name; }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/** Fetch + parse a Natural Earth GeoJSON, keeping only name + polygon rings. */
+async function _fetchNeGeoJSON(url: string, nameProps: string[]): Promise<NeFeature[]> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`Natural Earth fetch failed: ${res.status} ${url}`);
+  const gj = await res.json() as any;
+  return gj.features.map((f: any) => {
+    const name = nameProps.map(p => f.properties?.[p]).find(Boolean) ?? "";
+    const geom = f.geometry;
+    const polys: number[][][][] = geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
+    return { name, polygons: polys };
+  });
+}
+
+/** Load (and cache forever) Natural Earth 50m countries. */
+async function loadNeCountries(): Promise<NeFeature[]> {
+  if (_neCountries) return _neCountries;
+  _neCountries = await _fetchNeGeoJSON(
+    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson",
+    ["NAME"]
+  );
+  return _neCountries;
+}
+
+/** Load (and cache forever) Natural Earth 50m admin-1 states/provinces. */
+async function loadNeAdmin1(): Promise<NeFeature[]> {
+  if (_neAdmin1) return _neAdmin1;
+  _neAdmin1 = await _fetchNeGeoJSON(
+    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_1_states_provinces.geojson",
+    ["name", "NAME"]
+  );
+  return _neAdmin1;
+}
+
+/** Return {country, location} for a (lat, lon) pair using Natural Earth polygons. */
+async function reverseGeocode(lat: number, lon: number): Promise<{ country: string; location: string }> {
+  const [countries, admin1] = await Promise.all([loadNeCountries(), loadNeAdmin1()]);
+  const country = countries.find(f => _pointInFeature(lon, lat, f))?.name ?? "";
+  const location = admin1.find(f => _pointInFeature(lon, lat, f))?.name ?? "";
+  return { country, location };
+}
+
 const CORAL_MAPPING_FILES = [
   { name: "Bermuda",                          path: "Bermuda.geojson" },
   { name: "Brazil",                           path: "SmallSystems/Brazil.geojson" },
@@ -157,10 +243,15 @@ async function fetchWcsCcSites(): Promise<object> {
   return geojson;
 }
 
-// ─── GCRMN monitoring sites — global-monitoring-maps/all-lat-long-no-mermaid.csv (db == 'gcrmn')
+// ─── GCRMN monitoring sites — all-lat-long-no-mermaid.csv (db == 'gcrmn') ─────
+// Country + location are "NA" in the source CSV; we reverse-geocode each unique
+// 1-degree cell using Natural Earth polygons loaded in memory (no rate limits).
 async function fetchGcrmnMonitoringSites(): Promise<object> {
   const now = Date.now();
   if (_gcrmnMonSitesCache && now < _gcrmnMonSitesCache.expiresAt) return _gcrmnMonSitesCache.geojson;
+
+  // Pre-load Natural Earth data (cached after first fetch)
+  const [countries, admin1] = await Promise.all([loadNeCountries(), loadNeAdmin1()]);
 
   const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/all-lat-long-no-mermaid.csv";
   const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
@@ -168,9 +259,28 @@ async function fetchGcrmnMonitoringSites(): Promise<object> {
   const text = await res.text();
 
   const lines = text.trim().split("\n");
-  // cols: 0=db, 1=country, 2=location, 3=site, 4=latitude, 5=longitude
   const features: any[] = [];
   const seen = new Set<string>();
+
+  // 1-degree cell cache so each unique cell is only polygon-tested once
+  const cellCache = new Map<string, { country: string; location: string }>();
+
+  const lookupCell = (lat: number, lon: number) => {
+    const cellKey = `${Math.round(lat)},${Math.round(lon)}`;
+    if (cellCache.has(cellKey)) return cellCache.get(cellKey)!;
+    // Use the cell centre for the polygon test
+    const clat = Math.round(lat);
+    const clon = Math.round(lon);
+    // 1. Exact point-in-polygon
+    let country  = countries.find(f => _pointInFeature(clon, clat, f))?.name ?? "";
+    let location = admin1.find(f => _pointInFeature(clon, clat, f))?.name ?? "";
+    // 2. Fallback: nearest polygon vertex — 2.5° for country (~275 km), 1.0° for location
+    if (!country)  country  = _nearestByVertex(clon, clat, countries, 2.5);
+    if (!location) location = _nearestByVertex(clon, clat, admin1,    1.0);
+    const result = { country, location };
+    cellCache.set(cellKey, result);
+    return result;
+  };
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
@@ -179,22 +289,19 @@ async function fetchGcrmnMonitoringSites(): Promise<object> {
     const lat = parseFloat(cols[4]);
     const lon = parseFloat(cols[5]);
     if (!isFinite(lat) || !isFinite(lon)) continue;
-    // Deduplicate by rounded lat/lon
     const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const clean = (v: string) => { const s = v.trim(); return s === "NA" ? "" : s; };
+    const geo = lookupCell(lat, lon);
+    const site = cols[3].trim().replace(/^"|"$/g, "").replace(/^NA$/i, "");
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [lon, lat] },
-      properties: {
-        country:  clean(cols[1]),
-        location: clean(cols[2]),
-        site:     clean(cols[3]),
-      },
+      properties: { country: geo.country, location: geo.location, site },
     });
   }
 
+  console.log(`[gcrmnMonSites] ${features.length} sites, ${cellCache.size} cells geocoded via Natural Earth`);
   const geojson = { type: "FeatureCollection", features };
   _gcrmnMonSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
   return geojson;
