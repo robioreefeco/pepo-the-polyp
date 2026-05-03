@@ -13,6 +13,10 @@ let _gcrmnCache: { geojson: object; expiresAt: number } | null = null;
 // ─── CoralMapping / GlobalMappingRegions cache ───────────────────────────────
 let _coralMappingCache: { geojson: object; expiresAt: number } | null = null;
 
+// ─── WCS Marine layer caches ──────────────────────────────────────────────────
+let _wcsReefCloudCache: { geojson: object; expiresAt: number } | null = null;
+let _wcsCcSitesCache:   { geojson: object; expiresAt: number } | null = null;
+
 const CORAL_MAPPING_FILES = [
   { name: "Bermuda",                          path: "Bermuda.geojson" },
   { name: "Brazil",                           path: "SmallSystems/Brazil.geojson" },
@@ -87,6 +91,53 @@ async function fetchGcrmnRegions(): Promise<object> {
   const geojson = await shapefile.read(Buffer.from(shpBuf), Buffer.from(dbfBuf));
 
   _gcrmnCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
+// ─── WCS Marine — ReefCloud monitoring sites (global-monitoring-maps) ─────────
+async function fetchWcsReefCloudSites(): Promise<object> {
+  const now = Date.now();
+  if (_wcsReefCloudCache && now < _wcsReefCloudCache.expiresAt) return _wcsReefCloudCache.geojson;
+
+  const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/ReefCloud_Sites_Sep2024.geojson";
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`WCS ReefCloud fetch failed: ${res.status}`);
+  const geojson = await res.json();
+
+  _wcsReefCloudCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
+// ─── WCS Marine — coral cover survey sites (global-monitoring-maps cc_sites.csv)
+async function fetchWcsCcSites(): Promise<object> {
+  const now = Date.now();
+  if (_wcsCcSitesCache && now < _wcsCcSitesCache.expiresAt) return _wcsCcSitesCache.geojson;
+
+  const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/cc_sites.csv";
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`WCS cc_sites fetch failed: ${res.status}`);
+  const text = await res.text();
+
+  const lines = text.trim().split("\n");
+  const features: any[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    if (cols.length < 5) continue;
+    const lon = parseFloat(cols[cols.length - 1]);
+    const lat = parseFloat(cols[cols.length - 2]);
+    if (!isFinite(lat) || !isFinite(lon)) continue;
+    const db      = cols[0].trim();
+    const country = cols[1].trim();
+    const site    = cols.slice(2, cols.length - 2).join(",").trim();
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: { db, country, site },
+    });
+  }
+
+  const geojson = { type: "FeatureCollection", features };
+  _wcsCcSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
   return geojson;
 }
 
@@ -962,6 +1013,30 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[coralMappingRegions]", err);
       return res.status(500).json({ error: "Failed to fetch CoralMapping regions" });
+    }
+  });
+
+  // GET /api/wcs/reefcloud-sites — WCS-Marine/global-monitoring-maps ReefCloud monitoring sites
+  app.get("/api/wcs/reefcloud-sites", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchWcsReefCloudSites();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[wcsReefCloud]", err);
+      return res.status(500).json({ error: "Failed to fetch WCS ReefCloud sites" });
+    }
+  });
+
+  // GET /api/wcs/cc-sites — WCS-Marine/global-monitoring-maps coral cover sites (CSV→GeoJSON)
+  app.get("/api/wcs/cc-sites", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchWcsCcSites();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[wcsCcSites]", err);
+      return res.status(500).json({ error: "Failed to fetch WCS coral cover sites" });
     }
   });
 

@@ -39,7 +39,7 @@ client/src/
   components/
     PrivyLoginButton.tsx                  — Calls login() for Privy's native modal
     OrcidLoginButton.tsx                  — ORCID OAuth login button (redirects to /api/auth/orcid)
-    ReefMap.tsx                           — Leaflet map: Esri Ocean basemap + Allen Coral Atlas WMS + GCRMN region polygons (10 regions, from GCRMN/gcrmn_regions shapefile via /api/gcrmn/regions) + NOAA CRW DHW toggle + community member pins
+    ReefMap.tsx                           — Leaflet map: Esri Ocean basemap + MarineRegions EEZ WMS + CoralMapping reef regions (29 polygons) + GCRMN region polygons (10 regions, shapefile via /api/gcrmn/regions) + GCRMN territory sites (CircleMarkers, static array) + WCS ReefCloud Sites (14,501 pts, purple #e056fd, /api/wcs/reefcloud-sites, off by default) + WCS Coral Cover Sites (4,766 pts, pink #ff6b9d, /api/wcs/cc-sites, off by default) + DAO member pins + reef photo markers. Expanded modal has a 240 px side panel with LayerToggles, GCRMN region legend, Map Key, WCS Marine Datasets SideSection, and full Data Sources list.
   hooks/
     use-profile-sync.ts                   — Auto-syncs Privy user to DB on login; awards first-login bonus points
     use-geolocation.ts                    — Requests browser geolocation once per session; POSTs to /api/profiles/location

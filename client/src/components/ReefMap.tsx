@@ -440,12 +440,16 @@ function ExpandedMapModal({
   reefImgs,
   gcrmnGeoJson,
   coralMappingGeoJson,
+  wcsReefCloudGeoJson,
+  wcsCcSitesGeoJson,
   onClose,
 }: {
   markers: MapMarker[];
   reefImgs: ReefImageMarker[];
   gcrmnGeoJson: GeoJSON.FeatureCollection | undefined;
   coralMappingGeoJson: GeoJSON.FeatureCollection | undefined;
+  wcsReefCloudGeoJson: GeoJSON.FeatureCollection | undefined;
+  wcsCcSitesGeoJson: GeoJSON.FeatureCollection | undefined;
   onClose: () => void;
 }) {
   const [showGcrmn,          setShowGcrmn]          = useState(true);
@@ -453,8 +457,10 @@ function ExpandedMapModal({
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
+  const [showWcsReefCloud,   setShowWcsReefCloud]   = useState(false);
+  const [showWcsCcSites,     setShowWcsCcSites]     = useState(false);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + 1;
 
   return createPortal(
     <div
@@ -587,6 +593,41 @@ function ExpandedMapModal({
                 </Popup>
               </Marker>
             ))}
+            {showWcsReefCloud && wcsReefCloudGeoJson && (
+              <GeoJSON
+                key="wcs-reefcloud-expanded"
+                data={wcsReefCloudGeoJson}
+                pointToLayer={(_feature, latlng) =>
+                  L.circleMarker(latlng, {
+                    radius: 2.5, color: "#e056fd", weight: 0.8,
+                    fillColor: "#e056fd", fillOpacity: 0.55, opacity: 0.8,
+                  })
+                }
+              />
+            )}
+            {showWcsCcSites && wcsCcSitesGeoJson && (
+              <GeoJSON
+                key="wcs-cc-expanded"
+                data={wcsCcSitesGeoJson}
+                pointToLayer={(feature, latlng) => {
+                  const m = L.circleMarker(latlng, {
+                    radius: 3, color: "#ff6b9d", weight: 0.8,
+                    fillColor: "#ff6b9d", fillOpacity: 0.6, opacity: 0.85,
+                  });
+                  const p = feature.properties ?? {};
+                  m.bindPopup(
+                    `<div style="font-family:Inter,sans-serif;font-size:11px;min-width:150px;color:#d4e9f3">
+                      <div style="font-weight:700;color:#ff6b9d;font-size:12px;margin-bottom:4px">🪸 ${p.site || "Survey site"}</div>
+                      <div style="font-size:10px;color:#aaa;margin-bottom:4px">${p.country || ""}</div>
+                      <div style="font-size:9px;color:#666;border-top:1px solid rgba(131,238,240,0.12);padding-top:4px">Dataset: ${p.db || "—"}</div>
+                      <div style="font-size:8px;color:#555;margin-top:2px">WCS-Marine / global-monitoring-maps</div>
+                    </div>`,
+                    { maxWidth: 220 }
+                  );
+                  return m;
+                }}
+              />
+            )}
             {markers.length > 0 && <FitBounds markers={markers} />}
           </MapContainer>
         </div>
@@ -640,6 +681,22 @@ function ExpandedMapModal({
               onClick={() => setShowImgs((v) => !v)}
               testId="expanded-toggle-imgs"
             />
+            <LayerToggle
+              label="WCS ReefCloud Sites"
+              sublabel="14,501 global monitoring stations · WCS-Marine"
+              active={showWcsReefCloud}
+              color="#e056fd"
+              onClick={() => setShowWcsReefCloud((v) => !v)}
+              testId="expanded-toggle-wcs-reefcloud"
+            />
+            <LayerToggle
+              label="WCS Coral Cover Sites"
+              sublabel="4,766 field survey sites · WCS-Marine"
+              active={showWcsCcSites}
+              color="#ff6b9d"
+              onClick={() => setShowWcsCcSites((v) => !v)}
+              testId="expanded-toggle-wcs-cc-sites"
+            />
           </SideSection>
 
           {showGcrmn && (
@@ -684,7 +741,52 @@ function ExpandedMapModal({
               <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
               <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Community reef photo</span>
             </div>
+            {showWcsReefCloud && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(224,86,253,0.45)",border:"1.5px solid #e056fd",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS ReefCloud monitoring site</span>
+              </div>
+            )}
+            {showWcsCcSites && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(255,107,157,0.45)",border:"1.5px solid #ff6b9d",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS coral cover survey site</span>
+              </div>
+            )}
           </SideSection>
+
+          {(showWcsReefCloud || showWcsCcSites) && (
+            <SideSection title="WCS Marine Datasets">
+              <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
+                Wildlife Conservation Society (WCS) Marine Program global reef monitoring data, published via the <em>global-monitoring-maps</em> repository. ReefCloud sites cover 14,501 monitoring stations aggregated from national programs; coral cover sites capture 4,766 field survey records.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: 8 }}>
+                {[
+                  ["ReefCloud Sites", "14,501"],
+                  ["CC Survey Sites", "4,766"],
+                  ["Countries", "73+"],
+                  ["Data source", "WCS.org"],
+                ].map(([k, v]) => (
+                  <div key={String(k)} style={{ background: "rgba(224,86,253,0.07)", border: "1px solid rgba(224,86,253,0.25)", borderRadius: 6, padding: "5px 7px" }}>
+                    <div style={{ fontSize: 7.5, color: "#e056fd88", textTransform: "uppercase", letterSpacing: "0.07em" }}>{k}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#e056fd" }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              {[
+                { label: "WCS.org — Marine Program", href: "https://www.wcs.org/", color: "#e056fd" },
+                { label: "WCS-Marine / global-monitoring-maps", href: "https://github.com/WCS-Marine/global-monitoring-maps", color: "#e056fdbb" },
+                { label: "WCS-Marine / global-reef-data-layers", href: "https://github.com/WCS-Marine/global-reef-data-layers", color: "#e056fdbb" },
+                { label: "ReefCloud — AIMS reef monitoring", href: "https://reefcloud.ai", color: "#ff6b9d" },
+              ].map(({ label, href, color }) => (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                  style={{ display: "block", fontSize: 9, color, textDecoration: "none", padding: "2px 0", marginBottom: 2 }}
+                >
+                  ↗ {label}
+                </a>
+              ))}
+            </SideSection>
+          )}
 
           <SideSection title="GCRMN Benthos Dataset">
             <div style={{ fontSize: 9.5, color: "#d4e9f3aa", lineHeight: 1.5, marginBottom: 8 }}>
@@ -796,6 +898,9 @@ function ExpandedMapModal({
               { label: "CoralMapping / GlobalMappingRegions",          href: "https://github.com/CoralMapping/GlobalMappingRegions",     color: "#fd7272" },
               { label: "CoralMapping / proc_gee_utils",                href: "https://github.com/CoralMapping/proc_gee_utils",           color: "#fdcb6e" },
               { label: "GCRMN gcrmndb_benthos",                        href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
+              { label: "WCS-Marine / global-monitoring-maps",          href: "https://github.com/WCS-Marine/global-monitoring-maps",     color: "#e056fd" },
+              { label: "WCS-Marine / global-reef-data-layers",         href: "https://github.com/WCS-Marine/global-reef-data-layers",    color: "#ff6b9d" },
+              { label: "WCS.org — Marine Program",                     href: "https://www.wcs.org/",                                    color: "#e056fdaa" },
               { label: "Esri Ocean Basemap",                           href: "https://www.arcgis.com",                                  color: "#83eef099" },
               { label: "GCRMN Regions",                                href: "https://gcrmn.net",                                       color: "#83eef099" },
               { label: "NOAA Coral Reef Watch",                        href: "https://coralreefwatch.noaa.gov",                         color: "#83eef099" },
@@ -888,6 +993,8 @@ export function ReefMap({
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
+  const [showWcsReefCloud,  setShowWcsReefCloud]  = useState(false);
+  const [showWcsCcSites,    setShowWcsCcSites]    = useState(false);
   const [internalExpanded,  setInternalExpanded]  = useState(false);
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
@@ -913,6 +1020,18 @@ export function ReefMap({
   const { data: coralMappingGeoJson } = useQuery<GeoJSON.FeatureCollection>({
     queryKey: ["/api/coral-mapping/regions"],
     staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const { data: wcsReefCloudGeoJson } = useQuery<GeoJSON.FeatureCollection>({
+    queryKey: ["/api/wcs/reefcloud-sites"],
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: showWcsReefCloud,
+  });
+
+  const { data: wcsCcSitesGeoJson } = useQuery<GeoJSON.FeatureCollection>({
+    queryKey: ["/api/wcs/cc-sites"],
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: showWcsCcSites,
   });
 
   return (
@@ -996,6 +1115,30 @@ export function ReefMap({
               </Popup>
             </CircleMarker>
           ))}
+          {showWcsReefCloud && wcsReefCloudGeoJson && (
+            <GeoJSON
+              key="wcs-reefcloud-compact"
+              data={wcsReefCloudGeoJson}
+              pointToLayer={(_feature, latlng) =>
+                L.circleMarker(latlng, {
+                  radius: 1.5, color: "#e056fd", weight: 0.5,
+                  fillColor: "#e056fd", fillOpacity: 0.45, opacity: 0.7,
+                })
+              }
+            />
+          )}
+          {showWcsCcSites && wcsCcSitesGeoJson && (
+            <GeoJSON
+              key="wcs-cc-compact"
+              data={wcsCcSitesGeoJson}
+              pointToLayer={(_feature, latlng) =>
+                L.circleMarker(latlng, {
+                  radius: 2, color: "#ff6b9d", weight: 0.5,
+                  fillColor: "#ff6b9d", fillOpacity: 0.5, opacity: 0.75,
+                })
+              }
+            />
+          )}
           {markers.map((m) => (
             <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin()}>
               <Popup>
@@ -1086,6 +1229,19 @@ export function ReefMap({
           >
             <Camera size={8} /> Photos
           </button>
+          <button
+            data-testid="toggle-wcs-reefcloud-layer"
+            onClick={() => setShowWcsReefCloud((v) => !v)}
+            style={{
+              background: showWcsReefCloud ? "rgba(224,86,253,0.82)" : "rgba(0,19,28,0.75)",
+              border: `1px solid ${showWcsReefCloud ? "#e056fd" : "rgba(224,86,253,0.4)"}`,
+              borderRadius: 6, padding: "2px 7px", fontSize: 9,
+              color: showWcsReefCloud ? "#fff" : "#e056fdcc",
+              fontFamily: "Inter,sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.05em",
+            }}
+          >
+            WCS
+          </button>
         </div>
 
         {/* ── Expand button ── */}
@@ -1120,6 +1276,8 @@ export function ReefMap({
             {showGcrmn         && <span title="GCRMN region" style={{ width:10,height:6,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",borderRadius:2,display:"inline-block" }}/>}
             <span title="DAO member" style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>
             {showImgs && reefImgs.length > 0 && <span title="Reef photo" style={{ width:8,height:8,borderRadius:2,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block" }}/>}
+            {showWcsReefCloud  && <span title="WCS ReefCloud site" style={{ width:7,height:7,borderRadius:"50%",background:"rgba(224,86,253,0.4)",border:"1.5px solid #e056fd",display:"inline-block" }}/>}
+            {showWcsCcSites    && <span title="WCS coral cover site" style={{ width:7,height:7,borderRadius:"50%",background:"rgba(255,107,157,0.4)",border:"1.5px solid #ff6b9d",display:"inline-block" }}/>}
           </div>
           {/* Log in button */}
           {!authenticated && (
@@ -1171,6 +1329,8 @@ export function ReefMap({
           reefImgs={reefImgs}
           gcrmnGeoJson={gcrmnGeoJson}
           coralMappingGeoJson={coralMappingGeoJson}
+          wcsReefCloudGeoJson={wcsReefCloudGeoJson}
+          wcsCcSitesGeoJson={wcsCcSitesGeoJson}
           onClose={() => setExpanded(false)}
         />
       )}
