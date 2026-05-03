@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, GeoJSON, CircleMarker, useMap, useMapEvents } from "react-leaflet";
@@ -471,6 +471,23 @@ function ExpandedMapModal({
 
   const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + 1;
 
+  // Country breakdown for GCRMN legend — derived from live GeoJSON
+  const gcrmnCountryStats = useMemo(() => {
+    if (!gcrmnMonSitesGeoJson) return [];
+    const counts: Record<string, number> = {};
+    for (const f of gcrmnMonSitesGeoJson.features) {
+      const c = (f.properties?.country as string) || "";
+      if (c) counts[c] = (counts[c] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  }, [gcrmnMonSitesGeoJson]);
+
+  const gcrmnUniqueCountries = useMemo(() => {
+    if (!gcrmnMonSitesGeoJson) return 0;
+    const s = new Set(gcrmnMonSitesGeoJson.features.map(f => f.properties?.country).filter(Boolean));
+    return s.size;
+  }, [gcrmnMonSitesGeoJson]);
+
   return createPortal(
     <div
       data-testid="reef-map-expanded"
@@ -703,11 +720,20 @@ function ExpandedMapModal({
                     fillColor: "#26de81", fillOpacity: 0.6, opacity: 0.85,
                   });
                   const p = feature.properties ?? {};
+                  // Hover tooltip — country · location
+                  const ttParts = [p.country, p.location].filter(Boolean).join(" · ");
+                  m.bindTooltip(
+                    `<div style="font-family:Inter,sans-serif;font-size:10px;line-height:1.4;color:#d4e9f3">
+                      <span style="color:#26de81;font-weight:700">🔬 GCRMN</span>
+                      ${ttParts ? `<br/><span style="color:#d4e9f3cc">${ttParts}</span>` : ""}
+                    </div>`,
+                    { direction: "top", offset: [0, -5], sticky: false }
+                  );
                   m.bindPopup(
                     `<div style="font-family:Inter,sans-serif;font-size:11px;min-width:155px;color:#d4e9f3">
-                      <div style="font-weight:700;color:#26de81;font-size:12px;margin-bottom:4px">🔬 ${p.site || "GCRMN site"}</div>
+                      <div style="font-weight:700;color:#26de81;font-size:12px;margin-bottom:4px">🔬 GCRMN Benthic Site</div>
                       <table style="border-collapse:collapse;width:100%;font-size:10px">
-                        <tr><td style="color:#888;padding:1px 6px 1px 0">Country</td><td>${p.country || "-"}</td></tr>
+                        <tr><td style="color:#888;padding:1px 6px 1px 0">Country</td><td style="font-weight:600">${p.country || "-"}</td></tr>
                         <tr><td style="color:#888;padding:1px 6px 1px 0">Location</td><td>${p.location || "-"}</td></tr>
                       </table>
                       <div style="font-size:8px;color:#555;border-top:1px solid rgba(131,238,240,0.12);padding-top:4px;margin-top:4px">GCRMN · WCS-Marine / global-monitoring-maps</div>
@@ -886,6 +912,28 @@ function ExpandedMapModal({
               </div>
             )}
           </SideSection>
+
+          {showGcrmnMonSites && gcrmnCountryStats.length > 0 && (
+            <SideSection title="GCRMN Sites by Country">
+              <div style={{ fontSize: 9, color: "#26de8188", marginBottom: 7 }}>
+                Top countries · {gcrmnUniqueCountries} countries total · hover dots for details
+              </div>
+              {gcrmnCountryStats.map(([country, count]) => (
+                <div key={country} style={{ marginBottom: 5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+                    <span style={{ fontSize: 9.5, color: "#d4e9f3cc", maxWidth: 158, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{country}</span>
+                    <span style={{ fontSize: 9, color: "#26de81", fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>{count.toLocaleString()}</span>
+                  </div>
+                  <div style={{ height: 3, background: "rgba(38,222,129,0.1)", borderRadius: 2 }}>
+                    <div style={{ height: "100%", width: `${(count / gcrmnCountryStats[0][1]) * 100}%`, background: "#26de81", borderRadius: 2, opacity: 0.65 }} />
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 8.5, color: "#d4e9f333", marginTop: 4, borderTop: "1px solid rgba(38,222,129,0.08)", paddingTop: 5 }}>
+                Geocoded via Natural Earth 50m + Marine Regions EEZ
+              </div>
+            </SideSection>
+          )}
 
           {(showWcsReefCloud || showWcsCcSites || showReefCheck || showReefLife || showGcrmnMonSites) && (
             <SideSection title="WCS Marine Datasets">
@@ -1324,12 +1372,19 @@ export function ReefMap({
             <GeoJSON
               key="gcrmn-mon-sites-compact"
               data={gcrmnMonSitesGeoJson}
-              pointToLayer={(_feature, latlng) =>
-                L.circleMarker(latlng, {
+              pointToLayer={(feature, latlng) => {
+                const m = L.circleMarker(latlng, {
                   radius: 2, color: "#26de81", weight: 0.5,
                   fillColor: "#26de81", fillOpacity: 0.5, opacity: 0.75,
-                })
-              }
+                });
+                const p = feature.properties ?? {};
+                const ttParts = [p.country, p.location].filter(Boolean).join(" · ");
+                if (ttParts) m.bindTooltip(
+                  `<span style="font-family:Inter,sans-serif;font-size:10px;color:#26de81;font-weight:700">🔬</span> <span style="font-size:10px;color:#d4e9f3cc">${ttParts}</span>`,
+                  { direction: "top", offset: [0, -3] }
+                );
+                return m;
+              }}
             />
           )}
           {markers.map((m) => (
