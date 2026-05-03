@@ -16,6 +16,8 @@ let _coralMappingCache: { geojson: object; expiresAt: number } | null = null;
 // ─── WCS Marine layer caches ──────────────────────────────────────────────────
 let _wcsReefCloudCache: { geojson: object; expiresAt: number } | null = null;
 let _wcsCcSitesCache:   { geojson: object; expiresAt: number } | null = null;
+let _reefCheckCache:    { geojson: object; expiresAt: number } | null = null;
+let _reefLifeCache:     { geojson: object; expiresAt: number } | null = null;
 
 const CORAL_MAPPING_FILES = [
   { name: "Bermuda",                          path: "Bermuda.geojson" },
@@ -108,6 +110,19 @@ async function fetchWcsReefCloudSites(): Promise<object> {
   return geojson;
 }
 
+// ─── Quoted CSV parser (handles fields with commas inside double-quotes) ────────
+function parseCSVLine(line: string): string[] {
+  const res: string[] = [];
+  let cur = "", inQ = false;
+  for (const c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === "," && !inQ) { res.push(cur); cur = ""; }
+    else { cur += c; }
+  }
+  res.push(cur);
+  return res;
+}
+
 // ─── WCS Marine — coral cover survey sites (global-monitoring-maps cc_sites.csv)
 async function fetchWcsCcSites(): Promise<object> {
   const now = Date.now();
@@ -138,6 +153,93 @@ async function fetchWcsCcSites(): Promise<object> {
 
   const geojson = { type: "FeatureCollection", features };
   _wcsCcSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
+// ─── Reef Check sites — global-monitoring-maps/reef_check_all.csv ─────────────
+// Deduplicates by Reef_Check_ID; keeps most recent year + avg coral/bleaching
+async function fetchReefCheckSites(): Promise<object> {
+  const now = Date.now();
+  if (_reefCheckCache && now < _reefCheckCache.expiresAt) return _reefCheckCache.geojson;
+
+  const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/reef_check_all.csv";
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`Reef Check fetch failed: ${res.status}`);
+  const text = await res.text();
+
+  const lines = text.trim().split("\n");
+  // cols: 0=new_id 1=Reef_Check_ID 2=Lat 3=Long 4=Depth 5=Date 6=Year 7=Location 8=macro 9=parrot 10=bleaching 11=coral
+  const sites = new Map<string, { lat: number; lon: number; location: string; year: number; coral: number | null; bleaching: number | null; count: number }>();
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 12) continue;
+    const id       = cols[1].trim().replace(/^"|"$/g, "");
+    const lat      = parseFloat(cols[2]);
+    const lon      = parseFloat(cols[3]);
+    const year     = parseInt(cols[6], 10);
+    const location = cols[7].trim().replace(/^"|"$/g, "");
+    const coralStr = cols[11].trim();
+    const bleachStr = cols[10].trim();
+    if (!isFinite(lat) || !isFinite(lon) || !id) continue;
+
+    const coral     = coralStr    === "NA" ? null : parseFloat(coralStr);
+    const bleaching = bleachStr   === "NA" ? null : parseFloat(bleachStr);
+
+    const existing = sites.get(id);
+    if (!existing || year > existing.year) {
+      sites.set(id, { lat, lon, location, year, coral, bleaching, count: (existing?.count ?? 0) + 1 });
+    } else {
+      existing.count++;
+    }
+  }
+
+  const features = Array.from(sites.values()).map(({ lat, lon, location, year, coral, bleaching, count }) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [lon, lat] },
+    properties: { location, year, coral, bleaching, surveys: count },
+  }));
+
+  const geojson = { type: "FeatureCollection", features };
+  _reefCheckCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
+// ─── Reef Life Survey sites — global-monitoring-maps/reef_life_site_info.csv ──
+async function fetchReefLifeSites(): Promise<object> {
+  const now = Date.now();
+  if (_reefLifeCache && now < _reefLifeCache.expiresAt) return _reefLifeCache.geojson;
+
+  const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/reef_life_site_info.csv";
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`Reef Life Survey fetch failed: ${res.status}`);
+  const text = await res.text();
+
+  const lines = text.trim().split("\n");
+  // cols: 0=FID 1=country 2=area 3=location 4=site_code 5=site_name 6=old_site_codes 7=latitude 8=longitude 9=realm 10=province 11=ecoregion 12=lat_zone 13=programs 14=geom
+  const features: any[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 14) continue;
+    const lat       = parseFloat(cols[7]);
+    const lon       = parseFloat(cols[8]);
+    if (!isFinite(lat) || !isFinite(lon)) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: {
+        site_name:  cols[5].trim(),
+        country:    cols[1].trim(),
+        location:   cols[3].trim(),
+        realm:      cols[9].trim(),
+        ecoregion:  cols[11].trim(),
+        programs:   cols[13].trim(),
+      },
+    });
+  }
+
+  const geojson = { type: "FeatureCollection", features };
+  _reefLifeCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
   return geojson;
 }
 
@@ -1037,6 +1139,30 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[wcsCcSites]", err);
       return res.status(500).json({ error: "Failed to fetch WCS coral cover sites" });
+    }
+  });
+
+  // GET /api/wcs/reef-check — Reef Check survey sites (global-monitoring-maps/reef_check_all.csv)
+  app.get("/api/wcs/reef-check", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchReefCheckSites();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[reefCheck]", err);
+      return res.status(500).json({ error: "Failed to fetch Reef Check sites" });
+    }
+  });
+
+  // GET /api/wcs/reef-life — Reef Life Survey sites (global-monitoring-maps/reef_life_site_info.csv)
+  app.get("/api/wcs/reef-life", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchReefLifeSites();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[reefLife]", err);
+      return res.status(500).json({ error: "Failed to fetch Reef Life Survey sites" });
     }
   });
 
