@@ -18,6 +18,7 @@ let _wcsReefCloudCache: { geojson: object; expiresAt: number } | null = null;
 let _wcsCcSitesCache:   { geojson: object; expiresAt: number } | null = null;
 let _reefCheckCache:    { geojson: object; expiresAt: number } | null = null;
 let _reefLifeCache:     { geojson: object; expiresAt: number } | null = null;
+let _gcrmnMonSitesCache: { geojson: object; expiresAt: number } | null = null;
 
 const CORAL_MAPPING_FILES = [
   { name: "Bermuda",                          path: "Bermuda.geojson" },
@@ -153,6 +154,49 @@ async function fetchWcsCcSites(): Promise<object> {
 
   const geojson = { type: "FeatureCollection", features };
   _wcsCcSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return geojson;
+}
+
+// ─── GCRMN monitoring sites — global-monitoring-maps/all-lat-long-no-mermaid.csv (db == 'gcrmn')
+async function fetchGcrmnMonitoringSites(): Promise<object> {
+  const now = Date.now();
+  if (_gcrmnMonSitesCache && now < _gcrmnMonSitesCache.expiresAt) return _gcrmnMonSitesCache.geojson;
+
+  const url = "https://raw.githubusercontent.com/WCS-Marine/global-monitoring-maps/main/data/all-lat-long-no-mermaid.csv";
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`GCRMN sites fetch failed: ${res.status}`);
+  const text = await res.text();
+
+  const lines = text.trim().split("\n");
+  // cols: 0=db, 1=country, 2=location, 3=site, 4=latitude, 5=longitude
+  const features: any[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    if (cols.length < 6) continue;
+    if (cols[0].trim() !== "gcrmn") continue;
+    const lat = parseFloat(cols[4]);
+    const lon = parseFloat(cols[5]);
+    if (!isFinite(lat) || !isFinite(lon)) continue;
+    // Deduplicate by rounded lat/lon
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const clean = (v: string) => { const s = v.trim(); return s === "NA" ? "" : s; };
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: {
+        country:  clean(cols[1]),
+        location: clean(cols[2]),
+        site:     clean(cols[3]),
+      },
+    });
+  }
+
+  const geojson = { type: "FeatureCollection", features };
+  _gcrmnMonSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
   return geojson;
 }
 
@@ -1139,6 +1183,18 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[wcsCcSites]", err);
       return res.status(500).json({ error: "Failed to fetch WCS coral cover sites" });
+    }
+  });
+
+  // GET /api/wcs/gcrmn-mon-sites — GCRMN monitoring sites (all-lat-long-no-mermaid.csv, db=gcrmn)
+  app.get("/api/wcs/gcrmn-mon-sites", async (_req: Request, res: Response) => {
+    try {
+      const geojson = await fetchGcrmnMonitoringSites();
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.json(geojson);
+    } catch (err) {
+      console.error("[gcrmnMonSites]", err);
+      return res.status(500).json({ error: "Failed to fetch GCRMN monitoring sites" });
     }
   });
 
