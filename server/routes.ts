@@ -243,9 +243,62 @@ async function fetchWcsCcSites(): Promise<object> {
   return geojson;
 }
 
+// ─── EEZ overrides — sourced once from Marine Regions REST API, baked in ──────
+// Covers the 47 1-degree cells that sit in open ocean beyond Natural Earth land
+// polygons.  Key format: "Math.round(lat),Math.round(lon)" — same as cellCache.
+const EEZ_CELL_OVERRIDES: Record<string, { country: string; location: string }> = {
+  "-1,73":   { country: "Maldives",                 location: "" },
+  "-1,74":   { country: "Maldives",                 location: "" },
+  "-10,51":  { country: "Seychelles",               location: "" },
+  "-15,-148":{ country: "France",                   location: "French Polynesia" },
+  "-15,-149":{ country: "France",                   location: "French Polynesia" },
+  "-15,-168":{ country: "United States of America", location: "American Samoa" },
+  "-16,55":  { country: "France",                   location: "Tromelin Island" },
+  "-16,60":  { country: "Mauritius",                location: "" },
+  "-17,119": { country: "Australia",                location: "Argo-Rowley Terrace" },
+  "-17,60":  { country: "Mauritius",                location: "Cargados Carajos" },
+  "-18,-163":{ country: "New Zealand",              location: "Cook Islands" },
+  "-20,63":  { country: "Mauritius",                location: "" },
+  "-21,153": { country: "Australia",                location: "Great Barrier Reef" },
+  "-21,40":  { country: "France",                   location: "Bassas da India" },
+  "-22,40":  { country: "France",                   location: "Ile Europa" },
+  "-23,-149":{ country: "France",                   location: "French Polynesia" },
+  "-3,73":   { country: "Maldives",                 location: "" },
+  "-3,74":   { country: "Maldives",                 location: "" },
+  "-30,40":  { country: "",                         location: "" },
+  "-4,-32":  { country: "Brazil",                   location: "" },
+  "-4,73":   { country: "Mauritius",                location: "Chagos Islands" },
+  "-4,74":   { country: "Mauritius",                location: "Chagos Islands" },
+  "-5,74":   { country: "Mauritius",                location: "Chagos Islands" },
+  "-6,53":   { country: "Seychelles",               location: "" },
+  "-7,52":   { country: "Seychelles",               location: "" },
+  "-7,53":   { country: "Seychelles",               location: "" },
+  "-9,46":   { country: "Seychelles",               location: "" },
+  "-9,51":   { country: "Seychelles",               location: "" },
+  "0,-160":  { country: "United States of America", location: "Jarvis Island" },
+  "0,-176":  { country: "United States of America", location: "Howland and Baker Islands" },
+  "0,73":    { country: "Maldives",                 location: "" },
+  "1,-177":  { country: "United States of America", location: "Howland and Baker Islands" },
+  "10,-109": { country: "France",                   location: "Clipperton Island" },
+  "13,-81":  { country: "Colombia",                 location: "" },
+  "16,-80":  { country: "Jamaica",                  location: "" },
+  "17,-169": { country: "United States of America", location: "Johnston Atoll" },
+  "17,-170": { country: "United States of America", location: "Johnston Atoll" },
+  "17,168":  { country: "Marshall Islands",         location: "" },
+  "18,168":  { country: "United States of America", location: "Wake Island" },
+  "19,167":  { country: "United States of America", location: "Wake Island" },
+  "24,-166": { country: "United States of America", location: "Hawaii" },
+  "26,-174": { country: "United States of America", location: "Hawaii" },
+  "26,131":  { country: "Japan",                    location: "" },
+  "28,-176": { country: "United States of America", location: "Hawaii" },
+  "28,-178": { country: "United States of America", location: "Hawaii" },
+  "6,-162":  { country: "United States of America", location: "Palmyra Atoll" },
+  "6,-87":   { country: "Costa Rica",               location: "Cocos Island" },
+};
+
 // ─── GCRMN monitoring sites — all-lat-long-no-mermaid.csv (db == 'gcrmn') ─────
 // Country + location are "NA" in the source CSV; we reverse-geocode each unique
-// 1-degree cell using Natural Earth polygons loaded in memory (no rate limits).
+// 1-degree cell: EEZ overrides first, then NE polygon test, then nearest-vertex.
 async function fetchGcrmnMonitoringSites(): Promise<object> {
   const now = Date.now();
   if (_gcrmnMonSitesCache && now < _gcrmnMonSitesCache.expiresAt) return _gcrmnMonSitesCache.geojson;
@@ -268,13 +321,17 @@ async function fetchGcrmnMonitoringSites(): Promise<object> {
   const lookupCell = (lat: number, lon: number) => {
     const cellKey = `${Math.round(lat)},${Math.round(lon)}`;
     if (cellCache.has(cellKey)) return cellCache.get(cellKey)!;
-    // Use the cell centre for the polygon test
+    // 1. EEZ authoritative override (Marine Regions API, baked in)
+    if (EEZ_CELL_OVERRIDES[cellKey]) {
+      cellCache.set(cellKey, EEZ_CELL_OVERRIDES[cellKey]);
+      return EEZ_CELL_OVERRIDES[cellKey];
+    }
+    // 2. Natural Earth point-in-polygon (land polygons, 50m scale)
     const clat = Math.round(lat);
     const clon = Math.round(lon);
-    // 1. Exact point-in-polygon
     let country  = countries.find(f => _pointInFeature(clon, clat, f))?.name ?? "";
     let location = admin1.find(f => _pointInFeature(clon, clat, f))?.name ?? "";
-    // 2. Fallback: nearest polygon vertex — 2.5° for country (~275 km), 1.0° for location
+    // 3. Nearest polygon vertex fallback — 2.5° country, 1.0° location
     if (!country)  country  = _nearestByVertex(clon, clat, countries, 2.5);
     if (!location) location = _nearestByVertex(clon, clat, admin1,    1.0);
     const result = { country, location };
