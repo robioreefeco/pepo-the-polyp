@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, real, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -109,6 +109,20 @@ export const ipfsBlocks = pgTable("ipfs_blocks", {
 export const insertIpfsBlockSchema = createInsertSchema(ipfsBlocks).omit({ uploadedAt: true });
 export type InsertIpfsBlock = z.infer<typeof insertIpfsBlockSchema>;
 export type IpfsBlock = typeof ipfsBlocks.$inferSelect;
+
+// ─── GCRMN Benthic Monitoring Sites (geocoded, persisted) ─────────────────────
+export const gcrmnSites = pgTable("gcrmn_sites", {
+  id:       serial("id").primaryKey(),
+  lat:      real("lat").notNull(),
+  lon:      real("lon").notNull(),
+  site:     text("site").notNull().default(""),
+  location: text("location").notNull().default(""),
+  country:  text("country").notNull().default(""),
+});
+
+export const insertGcrmnSiteSchema = createInsertSchema(gcrmnSites).omit({ id: true });
+export type InsertGcrmnSite = z.infer<typeof insertGcrmnSiteSchema>;
+export type GcrmnSite = typeof gcrmnSites.$inferSelect;
 
 // ─── Leaderboard (aggregated view) ────────────────────────────────────────────
 export interface LeaderboardEntry {

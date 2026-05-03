@@ -299,10 +299,28 @@ const EEZ_CELL_OVERRIDES: Record<string, { country: string; location: string }> 
 // ─── GCRMN monitoring sites — all-lat-long-no-mermaid.csv (db == 'gcrmn') ─────
 // Country + location are "NA" in the source CSV; we reverse-geocode each unique
 // 1-degree cell: EEZ overrides first, then NE polygon test, then nearest-vertex.
+// On the first cold start the geocoded result is written to gcrmn_sites in the DB;
+// all subsequent calls skip geocoding entirely and read straight from the DB.
 async function fetchGcrmnMonitoringSites(): Promise<object> {
   const now = Date.now();
   if (_gcrmnMonSitesCache && now < _gcrmnMonSitesCache.expiresAt) return _gcrmnMonSitesCache.geojson;
 
+  // ── DB-first: if the table is already populated, serve from there ───────────
+  const dbCount = await storage.getGcrmnSiteCount();
+  if (dbCount > 0) {
+    const rows = await storage.getAllGcrmnSites();
+    const features = rows.map(r => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+      properties: { country: r.country, location: r.location, site: r.site },
+    }));
+    const geojson = { type: "FeatureCollection", features };
+    _gcrmnMonSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
+    console.log(`[gcrmnMonSites] served ${rows.length} sites from database`);
+    return geojson;
+  }
+
+  // ── First-run: geocode from source CSV, persist results to DB ───────────────
   // Pre-load Natural Earth data (cached after first fetch)
   const [countries, admin1] = await Promise.all([loadNeCountries(), loadNeAdmin1()]);
 
@@ -359,6 +377,22 @@ async function fetchGcrmnMonitoringSites(): Promise<object> {
   }
 
   console.log(`[gcrmnMonSites] ${features.length} sites, ${cellCache.size} cells geocoded via Natural Earth`);
+
+  // Persist geocoded results to DB so future restarts skip geocoding entirely
+  try {
+    const rows = features.map((f: any) => ({
+      lat:      f.geometry.coordinates[1] as number,
+      lon:      f.geometry.coordinates[0] as number,
+      site:     (f.properties.site     ?? "") as string,
+      location: (f.properties.location ?? "") as string,
+      country:  (f.properties.country  ?? "") as string,
+    }));
+    await storage.bulkInsertGcrmnSites(rows);
+    console.log(`[gcrmnMonSites] persisted ${rows.length} sites to database`);
+  } catch (err) {
+    console.error("[gcrmnMonSites] DB persist failed (non-fatal):", err);
+  }
+
   const geojson = { type: "FeatureCollection", features };
   _gcrmnMonSitesCache = { geojson, expiresAt: now + 24 * 60 * 60 * 1000 };
   return geojson;

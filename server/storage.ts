@@ -1,13 +1,14 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, profiles, contributions, reefImages, ipfsBlocks,
+  users, profiles, contributions, reefImages, ipfsBlocks, gcrmnSites,
   type User, type InsertUser,
   type Profile, type InsertProfile,
   type Contribution, type InsertContribution,
   type LeaderboardEntry,
   type ReefImage, type InsertReefImage,
   type IpfsBlock,
+  type GcrmnSite, type InsertGcrmnSite,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -54,6 +55,11 @@ export interface IStorage {
   // IPFS Blocks (DB-persisted content store)
   saveIpfsBlock(cid: string, data: string, mimeType: string): Promise<IpfsBlock>;
   getIpfsBlock(cid: string): Promise<IpfsBlock | undefined>;
+
+  // GCRMN Benthic Sites (geocoded, persisted)
+  getGcrmnSiteCount(): Promise<number>;
+  getAllGcrmnSites(): Promise<GcrmnSite[]>;
+  bulkInsertGcrmnSites(sites: InsertGcrmnSite[]): Promise<void>;
 }
 
 // ─── Database-backed storage ───────────────────────────────────────────────────
@@ -415,6 +421,23 @@ export class DbStorage implements IStorage {
       orcidId: r.orcidId,
       orcidName: r.orcidName,
     }));
+  }
+
+  // ── GCRMN Benthic Sites ────────────────────────────────────────────────────
+  async getGcrmnSiteCount(): Promise<number> {
+    const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(gcrmnSites);
+    return row?.count ?? 0;
+  }
+
+  async getAllGcrmnSites(): Promise<GcrmnSite[]> {
+    return db.select().from(gcrmnSites);
+  }
+
+  async bulkInsertGcrmnSites(sites: InsertGcrmnSite[]): Promise<void> {
+    const BATCH = 500;
+    for (let i = 0; i < sites.length; i += BATCH) {
+      await db.insert(gcrmnSites).values(sites.slice(i, i + BATCH));
+    }
   }
 }
 
