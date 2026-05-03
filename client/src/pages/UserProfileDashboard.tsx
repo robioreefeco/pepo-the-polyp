@@ -10,6 +10,7 @@ import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { OrcidLoginButton } from "@/components/OrcidLoginButton";
 import { IPFSImageUpload } from "@/components/IPFSImageUpload";
 import { ipfsImageUrl } from "@/lib/ipfs";
+import { JourneySection } from "@/components/JourneySection";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function MetaMaskIcon({ size = 14 }: { size?: number }) {
@@ -1008,6 +1009,9 @@ export function UserProfileDashboard() {
                   Your MesoReef DAO identity visible to the reef community.
                 </p>
               </div>
+
+              {/* Regen Reef Journey */}
+              <JourneySection className="rounded-[20px] border border-[#83eef01a] overflow-hidden" />
 
               {/* Two-column layout */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -94,7 +94,7 @@ function LegendItem({ emoji, label, pts, color = "#83eef0" }: { emoji: string; l
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export function JourneySection() {
+export function JourneySection({ className }: { className?: string }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const { authenticated: privyAuthenticated, user } = usePrivy();
@@ -263,7 +263,7 @@ export function JourneySection() {
 
   return (
     <div
-      className="shrink-0 mx-3 md:mx-6 mt-3 md:mt-4 rounded-[20px] border border-[#83eef01a] overflow-hidden"
+      className={className ?? "shrink-0 mx-3 md:mx-6 mt-3 md:mt-4 rounded-[20px] border border-[#83eef01a] overflow-hidden"}
       style={{ background: "rgba(0,8,12,0.7)", backdropFilter: "blur(12px)" }}
     >
       {/* Header */}
