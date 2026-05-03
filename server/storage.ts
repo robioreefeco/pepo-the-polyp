@@ -113,7 +113,13 @@ export class DbStorage implements IStorage {
   }
 
   async getAllProfiles(): Promise<Profile[]> {
-    return db.select().from(profiles).where(eq(profiles.isPublic, true)).orderBy(desc(profiles.points));
+    const rows = await db.select().from(profiles).where(eq(profiles.isPublic, true)).orderBy(desc(profiles.points));
+    // Deduplicate: if a privy profile and an orcid-prefixed profile share the same
+    // orcidId, suppress the orcid-prefixed one — the user linked their accounts.
+    const linkedOrcids = new Set(
+      rows.filter(r => !r.id.startsWith("orcid:") && r.orcidId).map(r => r.orcidId)
+    );
+    return rows.filter(r => !(r.id.startsWith("orcid:") && linkedOrcids.has(r.orcidId)));
   }
 
   // ── Contributions ─────────────────────────────────────────────────────────
@@ -391,7 +397,14 @@ export class DbStorage implements IStorage {
       .groupBy(profiles.id)
       .orderBy(desc(profiles.points));
 
-    return rows.map((r) => ({
+    // Deduplicate: suppress orcid-prefixed profiles when a linked privy profile
+    // exists with the same orcidId — the user connected their accounts.
+    const linkedOrcids = new Set(
+      rows.filter(r => !r.id.startsWith("orcid:") && r.orcidId).map(r => r.orcidId)
+    );
+    const deduped = rows.filter(r => !(r.id.startsWith("orcid:") && linkedOrcids.has(r.orcidId)));
+
+    return deduped.map((r) => ({
       id: r.id,
       displayName: r.displayName,
       avatarUrl: r.avatarUrl,
