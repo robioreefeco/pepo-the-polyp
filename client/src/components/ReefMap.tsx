@@ -1036,7 +1036,7 @@ function ExpandedMapModal({
               { label: "GCRMN gcrmndb_benthos",                        href: "https://github.com/GCRMN/gcrmndb_benthos#6-description-of-the-synthetic-dataset", color: "#A6CE39" },
               { label: "WCS-Marine / global-monitoring-maps",          href: "https://github.com/WCS-Marine/global-monitoring-maps",     color: "#e056fd" },
               { label: "WCS-Marine / global-reef-data-layers",         href: "https://github.com/WCS-Marine/global-reef-data-layers",    color: "#ff6b9d" },
-              { label: "WCS.org — Marine Program",                     href: "https://www.wcs.org/",                                    color: "#e056fdaa" },
+              { label: "WCS.org: Marine Program",                      href: "https://www.wcs.org/",                                    color: "#e056fdaa" },
               { label: "Esri Ocean Basemap",                           href: "https://www.arcgis.com",                                  color: "#83eef099" },
               { label: "GCRMN Regions",                                href: "https://gcrmn.net",                                       color: "#83eef099" },
               { label: "NOAA Coral Reef Watch",                        href: "https://coralreefwatch.noaa.gov",                         color: "#83eef099" },

@@ -303,7 +303,7 @@ export function JourneySection({ className }: { className?: string }) {
             <div className="flex items-center gap-2 py-3">
               <span className="text-base">🎉</span>
               <p className="text-xs [font-family:'Inter',Helvetica] text-[#a6ce39aa]">
-                All journey steps complete for today — come back tomorrow for your daily tasks!
+                All journey steps complete for today. Come back tomorrow for your daily tasks!
               </p>
             </div>
           ) : (

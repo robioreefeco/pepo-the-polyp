@@ -409,7 +409,7 @@ function SubmitPanel({
                     data-testid="submit-input-description"
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder="Description — species, reef condition, depth, date…"
+                    placeholder="Description: species, reef condition, depth, date…"
                     maxLength={500}
                     rows={3}
                     className={`${inputCls} resize-none`}

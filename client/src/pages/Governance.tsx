@@ -1345,13 +1345,13 @@ function HowVotingWorks() {
           <p className="text-[11px] leading-relaxed" style={{ fontFamily: "'Inter',sans-serif", color: "#d4e9f350" }}>
             MesoReef DAO votes are recorded on-chain via{" "}
             <a href="https://vocdoni.io" target="_blank" rel="noopener noreferrer" className="font-semibold no-underline" style={{ color: "#83eef0" }}>Vocdoni</a>
-            {" "}— a censorship-resistant, gasless governance protocol.
+            {": "}a censorship-resistant, gasless governance protocol.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
               { icon: "✅", name: "Standard",  desc: "One person, one vote. Most votes wins.", color: "#83eef0" },
               { icon: "🗳️", name: "Approval",  desc: "Vote for as many options as you support.", color: "#a78bfa" },
-              { icon: "⚡", name: "Quadratic", desc: "Allocate credits — costs more to concentrate.", color: "#f59e0b" },
+              { icon: "⚡", name: "Quadratic", desc: "Allocate credits; costs more to concentrate.", color: "#f59e0b" },
             ].map(m => (
               <div key={m.name} className="flex flex-col gap-1.5 p-3 rounded-xl" style={{ background: `${m.color}06`, border: `1px solid ${m.color}15` }}>
                 <div className="flex items-center gap-1.5">
@@ -1642,14 +1642,14 @@ export function Governance() {
                 <p className="text-sm leading-relaxed" style={{ fontFamily: "'Inter',sans-serif", color: "#9aaeb8" }}>
                   MesoReef DAO governance is powered by{" "}
                   <a href="https://vocdoni.io" target="_blank" rel="noopener noreferrer" className="font-semibold no-underline" style={{ color: "#83eef0" }}>Vocdoni</a>
-                  {" "}— gasless, censorship-resistant, on-chain voting. Proposals will appear here once the DAO org is live on Base.
+                  {": "}gasless, censorship-resistant, on-chain voting. Proposals will appear here once the DAO org is live on Base.
                 </p>
               </div>
 
               {/* Feature grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
                 {[
-                  { icon: <Zap size={18} style={{ color: "#83eef0" }} />, title: "Gasless", desc: "Zero gas fees — all voting is free", bg: "#83eef0" },
+                  { icon: <Zap size={18} style={{ color: "#83eef0" }} />, title: "Gasless", desc: "Zero gas fees, all voting is free", bg: "#83eef0" },
                   { icon: <Shield size={18} style={{ color: "#a78bfa" }} />, title: "On-chain", desc: "Every vote recorded on Vocdoni chain", bg: "#a78bfa" },
                   { icon: <Activity size={18} style={{ color: "#4ade80" }} />, title: "Verifiable", desc: "Results are transparent and auditable", bg: "#4ade80" },
                 ].map(f => (
@@ -1750,7 +1750,7 @@ export function Governance() {
                       <iframe
                         key={orgAddress}
                         src={`https://app.vocdoni.io/organization/${orgAddress}`}
-                        title="MesoReef DAO — Vocdoni App"
+                        title="MesoReef DAO: Vocdoni App"
                         className="w-full block"
                         style={{ height: "75vh", minHeight: "600px", border: "none", display: "block", background: "#000" }}
                         loading="lazy"

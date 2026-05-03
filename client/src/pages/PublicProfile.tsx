@@ -371,7 +371,7 @@ export function PublicProfile() {
             <StatTile icon={<MessageCircle size={16} />} value={questionCount} label="Questions" />
             <StatTile
               icon={<Award size={16} />}
-              value={rank ? `#${rank}` : "—"}
+              value={rank ? `#${rank}` : "-"}
               label="Rank"
             />
           </div>

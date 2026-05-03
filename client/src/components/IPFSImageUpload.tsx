@@ -322,7 +322,7 @@ export function IPFSImageUpload({ onUpload, currentCid, label, compact, showMapP
           data-testid="pin-description-input-manual"
           value={pinDescription}
           onChange={e => setPinDescription(e.target.value)}
-          placeholder="Brief description — species, reef condition, depth, date… (optional)"
+          placeholder="Brief description: species, reef condition, depth, date… (optional)"
           maxLength={500}
           rows={3}
           style={{

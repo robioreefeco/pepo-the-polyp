@@ -1477,7 +1477,7 @@ export function UserProfileDashboard() {
                         </div>
                         {ipfsImages.length > 12 && (
                           <span className="[font-family:'Inter',Helvetica] text-[#d4e9f340] text-[10px]">
-                            +{ipfsImages.length - 12} more — save profile to persist all.
+                            +{ipfsImages.length - 12} more. Save profile to persist all.
                           </span>
                         )}
                       </div>
