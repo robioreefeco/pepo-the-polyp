@@ -492,6 +492,56 @@ function buildCmsTileUrl(v: CmsVar, cmap: string, yyyymm: string): string {
   );
 }
 
+// ─── Live Ocean State layers (Physics + BGC analysis/forecast + SST NRT) ─────
+type LiveLayer = {
+  var: string; label: string; unit: string; color: string; cmap: string;
+  product: string; dataset: string; elevation: number | null;
+  time: () => string; toolboxId: string;
+};
+type LiveVar = "analysed_sst" | "zos" | "thetao" | "so" | "ph" | "o2" | "nppv";
+
+function liveDate(daysBack: number): string {
+  const d = new Date(); d.setDate(d.getDate() - daysBack);
+  return d.toISOString().slice(0, 10) + "T00:00:00Z";
+}
+
+const LIVE_LAYERS: LiveLayer[] = [
+  { var: "analysed_sst", label: "Sea Surface Temp.",  unit: "°C · NRT daily",         color: "#ff6b6b", cmap: "thermal",
+    product: "SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001", dataset: "METOFFICE-GLO-SST-L4-NRT-OBS-SST-V2",
+    elevation: null,   time: () => liveDate(2), toolboxId: "SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001" },
+  { var: "zos",          label: "Sea Surface Height", unit: "m · hourly forecast",     color: "#74b9ff", cmap: "balance",
+    product: "GLOBAL_ANALYSISFORECAST_PHY_001_024",     dataset: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    elevation: null,   time: () => liveDate(1), toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406" },
+  { var: "thetao",       label: "Ocean Temperature",  unit: "°C · 6H · 0.5 m depth",  color: "#e17055", cmap: "thermal",
+    product: "GLOBAL_ANALYSISFORECAST_PHY_001_024",     dataset: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406",
+    elevation: -0.494, time: () => liveDate(1), toolboxId: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406" },
+  { var: "so",           label: "Salinity",           unit: "PSU · 6H · 0.5 m depth", color: "#a29bfe", cmap: "haline",
+    product: "GLOBAL_ANALYSISFORECAST_PHY_001_024",     dataset: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406",
+    elevation: -0.494, time: () => liveDate(1), toolboxId: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406" },
+  { var: "ph",           label: "Ocean pH",           unit: "pH · monthly BGC",        color: "#fd79a8", cmap: "ice",
+    product: "GLOBAL_ANALYSISFORECAST_BGC_001_028",     dataset: "cmems_mod_glo_bgc-car_anfc_0.25deg_P1M-m_202311",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-car_anfc_0.25deg_P1M-m_202311" },
+  { var: "o2",           label: "Dissolved Oxygen",   unit: "mmol m⁻³ · monthly",      color: "#55efc4", cmap: "dense",
+    product: "GLOBAL_ANALYSISFORECAST_BGC_001_028",     dataset: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311" },
+  { var: "nppv",         label: "Primary Production", unit: "mgC m⁻³ d⁻¹ · monthly",  color: "#26de81", cmap: "amp",
+    product: "GLOBAL_ANALYSISFORECAST_BGC_001_028",     dataset: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",
+    elevation: null,   time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311" },
+];
+
+function buildLiveTileUrl(layer: LiveLayer): string {
+  return (
+    "https://wmts.marine.copernicus.eu/teroWmts" +
+    "?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile" +
+    `&LAYER=${encodeURIComponent(layer.product + "/" + layer.dataset + "/" + layer.var)}` +
+    `&STYLE=${encodeURIComponent("cmap:" + layer.cmap)}` +
+    "&FORMAT=image%2Fpng&TILEMATRIXSET=EPSG%3A3857" +
+    "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}" +
+    `&TIME=${encodeURIComponent(layer.time())}` +
+    (layer.elevation != null ? `&ELEVATION=${layer.elevation}` : "")
+  );
+}
+
 // ─── Expanded map modal ───────────────────────────────────────────────────────
 function ExpandedMapModal({
   markers,
@@ -528,7 +578,8 @@ function ExpandedMapModal({
   const [showGcrmnMonSites,  setShowGcrmnMonSites]  = useState(true);
   const [activeCmsVar,       setActiveCmsVar]       = useState<CmsVar | null>(null);
   const [cmsYYYYMM,          setCmsYYYYMM]          = useState(CMS_MAX_YM);
-  const [showToolbox,        setShowToolbox]        = useState(false);
+  const [showToolbox,        setShowToolbox]        = useState<'cms'|'live'|null>(null);
+  const [activeLiveVar,      setActiveLiveVar]      = useState<LiveVar|null>(null);
 
   const activeCmsLayer = activeCmsVar
     ? CMS_LAYERS.find(l => l.var === activeCmsVar) ?? null
@@ -537,7 +588,12 @@ function ExpandedMapModal({
     ? buildCmsTileUrl(activeCmsLayer.var as CmsVar, activeCmsLayer.cmap, cmsYYYYMM)
     : null;
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (activeCmsVar ? 1 : 0) + 1;
+  const activeLiveLayer = activeLiveVar
+    ? LIVE_LAYERS.find(l => l.var === activeLiveVar) ?? null
+    : null;
+  const liveTileUrl = activeLiveLayer ? buildLiveTileUrl(activeLiveLayer) : null;
+
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (activeCmsVar ? 1 : 0) + (activeLiveVar ? 1 : 0) + 1;
 
   // Country breakdown for GCRMN legend — derived from live GeoJSON
   const gcrmnCountryStats = useMemo(() => {
@@ -626,6 +682,15 @@ function ExpandedMapModal({
               <TileLayer
                 key={cmsTileUrl}
                 url={cmsTileUrl}
+                opacity={0.72}
+                maxZoom={10}
+                attribution='© <a href="https://marine.copernicus.eu">Copernicus Marine Service · Mercator Ocean International</a>'
+              />
+            )}
+            {liveTileUrl && (
+              <TileLayer
+                key={liveTileUrl}
+                url={liveTileUrl}
                 opacity={0.72}
                 maxZoom={10}
                 attribution='© <a href="https://marine.copernicus.eu">Copernicus Marine Service · Mercator Ocean International</a>'
@@ -832,80 +897,73 @@ function ExpandedMapModal({
           </MapContainer>
 
           {/* ── Copernicus Marine Toolbox panel ── */}
-          {showToolbox && activeCmsLayer && (
-            <div style={{
-              position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000,
-              background: "rgba(0,10,18,0.96)", borderTop: "1px solid rgba(0,184,148,0.3)",
-              backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif",
-              padding: "14px 18px 16px",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>⬇</span>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#00b894" }}>Copernicus Marine Toolbox</div>
-                    <div style={{ fontSize: 10, color: "#d4e9f366" }}>
-                      {activeCmsLayer.label} · {cmsMonthLabel(cmsYYYYMM)} · Dataset: {CMS_DATASET}
+          {showToolbox && (activeCmsLayer || activeLiveLayer) && (() => {
+            const isCms  = showToolbox === 'cms'  && activeCmsLayer;
+            const isLive = showToolbox === 'live' && activeLiveLayer;
+            const panelLabel = isCms
+              ? `${activeCmsLayer!.label} · ${cmsMonthLabel(cmsYYYYMM)} · Dataset: ${CMS_DATASET}`
+              : isLive
+                ? `${activeLiveLayer!.label} · ${activeLiveLayer!.unit} · Dataset: ${activeLiveLayer!.toolboxId}`
+                : "";
+            const dsId  = isCms ? CMS_DATASET : activeLiveLayer?.toolboxId ?? "";
+            const varId = isCms ? activeCmsLayer!.var : activeLiveLayer?.var ?? "";
+            const t0    = isCms ? `${cmsYYYYMM}-01` : activeLiveLayer?.time().slice(0,10) ?? "";
+            return (
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000,
+                background: "rgba(0,10,18,0.96)", borderTop: "1px solid rgba(0,184,148,0.3)",
+                backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif",
+                padding: "14px 18px 16px",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13 }}>⬇</span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#00b894" }}>Copernicus Marine Toolbox</div>
+                      <div style={{ fontSize: 10, color: "#d4e9f366" }}>{panelLabel}</div>
                     </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => setShowToolbox(false)}
-                  style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
-                >×</button>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* Install */}
-                <div>
-                  <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Install</div>
-                  <pre style={{
-                    margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                    background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                    color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                  }}>{`pip install copernicusmarine`}</pre>
+                  <button
+                    onClick={() => setShowToolbox(null)}
+                    style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                  >×</button>
                 </div>
 
-                {/* CLI */}
-                <div>
-                  <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>CLI</div>
-                  <pre style={{
-                    margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                    background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                    color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                  }}>{`copernicusmarine get \\
-  --dataset-id ${CMS_DATASET} \\
-  --variable ${activeCmsLayer.var} \\
-  --start-datetime "${cmsYYYYMM}-01" \\
-  --end-datetime "${cmsYYYYMM}-01"`}</pre>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Install</div>
+                    <pre style={{
+                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
+                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
+                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
+                    }}>{`pip install copernicusmarine`}</pre>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>CLI</div>
+                    <pre style={{
+                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
+                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
+                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
+                    }}>{`copernicusmarine get \\\n  --dataset-id ${dsId} \\\n  --variable ${varId} \\\n  --start-datetime "${t0}" \\\n  --end-datetime "${t0}"`}</pre>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Python API</div>
+                    <pre style={{
+                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
+                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
+                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
+                    }}>{`import copernicusmarine\n\ncopernicusmarine.get(\n    dataset_id="${dsId}",\n    variables=["${varId}"],\n    start_datetime="${t0}",\n    end_datetime="${t0}",\n    output_directory="./copernicus_data",\n)`}</pre>
+                  </div>
                 </div>
 
-                {/* Python API — full width */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Python API</div>
-                  <pre style={{
-                    margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                    background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                    color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                  }}>{`import copernicusmarine
-
-copernicusmarine.get(
-    dataset_id="${CMS_DATASET}",
-    variables=["${activeCmsLayer.var}"],
-    start_datetime="${cmsYYYYMM}-01",
-    end_datetime="${cmsYYYYMM}-01",
-    output_directory="./copernicus_data",
-)`}</pre>
+                <div style={{ marginTop: 10, fontSize: 9, color: "#d4e9f330" }}>
+                  © Mercator Ocean International · Copernicus Marine Service (CMEMS) ·{" "}
+                  <a href="https://github.com/mercator-ocean/copernicus-marine-toolbox" target="_blank" rel="noopener noreferrer"
+                    style={{ color: "#83eef066", textDecoration: "underline" }}>github.com/mercator-ocean/copernicus-marine-toolbox</a>
                 </div>
               </div>
-
-              <div style={{ marginTop: 10, fontSize: 9, color: "#d4e9f330" }}>
-                © Mercator Ocean International · Copernicus Marine Service (CMEMS) ·{" "}
-                <a href="https://github.com/mercator-ocean/copernicus-marine-toolbox" target="_blank" rel="noopener noreferrer"
-                  style={{ color: "#83eef066", textDecoration: "underline" }}>github.com/mercator-ocean/copernicus-marine-toolbox</a>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* ── Side panel ── */}
@@ -921,12 +979,12 @@ copernicusmarine.get(
             <div style={{ display: "flex", gap: 5, marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid rgba(131,238,240,0.08)" }}>
               <button
                 data-testid="expanded-toggle-all-layers"
-                onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setActiveCmsVar("CHL"); }}
+                onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
                 style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(131,238,240,0.12)", border: "1px solid rgba(131,238,240,0.3)", borderRadius: 6, padding: "4px 0", color: "#83eef0", cursor: "pointer" }}
               >All On</button>
               <button
                 data-testid="expanded-toggle-no-layers"
-                onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setActiveCmsVar(null); }}
+                onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
                 style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "4px 0", color: "#d4e9f355", cursor: "pointer" }}
               >All Off</button>
             </div>
@@ -988,13 +1046,13 @@ copernicusmarine.get(
               {activeCmsVar && (
                 <button
                   data-testid="expanded-toggle-toolbox"
-                  onClick={() => setShowToolbox(v => !v)}
+                  onClick={() => setShowToolbox(v => v === 'cms' ? null : 'cms')}
                   style={{
                     width: "100%", fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700,
                     padding: "5px 0", borderRadius: 6, cursor: "pointer",
-                    background: showToolbox ? "rgba(0,184,148,0.15)" : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${showToolbox ? "rgba(0,184,148,0.4)" : "rgba(255,255,255,0.1)"}`,
-                    color: showToolbox ? "#00b894" : "#d4e9f366",
+                    background: showToolbox === 'cms' ? "rgba(0,184,148,0.15)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${showToolbox === 'cms' ? "rgba(0,184,148,0.4)" : "rgba(255,255,255,0.1)"}`,
+                    color: showToolbox === 'cms' ? "#00b894" : "#d4e9f366",
                     transition: "all 0.15s",
                   }}
                 >⬇ Download via Copernicus Marine Toolbox</button>
@@ -1003,6 +1061,69 @@ copernicusmarine.get(
               {/* Attribution note */}
               <div style={{ fontSize: 7, color: "#d4e9f325", marginTop: 6, lineHeight: 1.4 }}>
                 © Mercator Ocean International · Copernicus Marine Service (CMEMS)
+              </div>
+            </div>
+
+            {/* ── Ocean State · Live (PHY + BGC + SST NRT) ── */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#d4e9f340" }}>
+                  Ocean State · Live
+                </span>
+                {activeLiveVar && (
+                  <button
+                    onClick={() => { setActiveLiveVar(null); setShowToolbox(null); }}
+                    style={{ fontSize: 8, background: "none", border: "none", color: "#83eef066", cursor: "pointer", fontFamily: "Inter,sans-serif", fontWeight: 600 }}
+                  >off</button>
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: activeLiveVar ? 8 : 0 }}>
+                {LIVE_LAYERS.map(layer => (
+                  <button
+                    key={layer.var}
+                    data-testid={`expanded-toggle-live-${layer.var}`}
+                    onClick={() => {
+                      setActiveLiveVar(v => (v === layer.var ? null : layer.var as LiveVar));
+                      setActiveCmsVar(null);
+                      if (showToolbox === 'cms') setShowToolbox(null);
+                    }}
+                    title={`${layer.label} · ${layer.unit}`}
+                    style={{
+                      fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600,
+                      padding: "3px 7px", borderRadius: 20, cursor: "pointer",
+                      background: activeLiveVar === layer.var ? layer.color + "22" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${activeLiveVar === layer.var ? layer.color + "99" : "rgba(255,255,255,0.1)"}`,
+                      color: activeLiveVar === layer.var ? layer.color : "#d4e9f355",
+                      transition: "all 0.15s",
+                    }}
+                  >{layer.label}</button>
+                ))}
+              </div>
+
+              {activeLiveVar && activeLiveLayer && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 8, color: "#d4e9f355", marginBottom: 4, fontFamily: "Inter,sans-serif" }}>
+                    <span style={{ color: activeLiveLayer.color, fontWeight: 700 }}>● </span>
+                    {activeLiveLayer.unit}
+                  </div>
+                  <button
+                    data-testid="expanded-toggle-live-toolbox"
+                    onClick={() => setShowToolbox(v => v === 'live' ? null : 'live')}
+                    style={{
+                      width: "100%", fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700,
+                      padding: "5px 0", borderRadius: 6, cursor: "pointer",
+                      background: showToolbox === 'live' ? "rgba(0,184,148,0.15)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${showToolbox === 'live' ? "rgba(0,184,148,0.4)" : "rgba(255,255,255,0.1)"}`,
+                      color: showToolbox === 'live' ? "#00b894" : "#d4e9f366",
+                      transition: "all 0.15s",
+                    }}
+                  >⬇ Download via Copernicus Marine Toolbox</button>
+                </div>
+              )}
+
+              <div style={{ fontSize: 7, color: "#d4e9f325", marginTop: activeLiveVar ? 0 : 4, lineHeight: 1.4 }}>
+                PHY_001_024 · BGC_001_028 · SST NRT · Mercator Ocean / CMEMS
               </div>
             </div>
 
@@ -1474,6 +1595,21 @@ export function ReefMap({
   const [showGcrmnMonSites, setShowGcrmnMonSites] = useState(true);
   const [showLayerMenu,     setShowLayerMenu]     = useState(false);
   const [internalExpanded,  setInternalExpanded]  = useState(false);
+  const [activeCmsVar,      setActiveCmsVar]      = useState<CmsVar | null>(null);
+  const [cmsYYYYMM,         setCmsYYYYMM]         = useState(CMS_MAX_YM);
+  const [showToolbox,       setShowToolbox]       = useState<'cms'|'live'|null>(null);
+  const [activeLiveVar,     setActiveLiveVar]     = useState<LiveVar|null>(null);
+
+  const activeCmsLayer = activeCmsVar
+    ? CMS_LAYERS.find(l => l.var === activeCmsVar) ?? null
+    : null;
+  const cmsTileUrl = activeCmsLayer
+    ? buildCmsTileUrl(activeCmsLayer.var as CmsVar, activeCmsLayer.cmap, cmsYYYYMM)
+    : null;
+  const activeLiveLayer = activeLiveVar
+    ? LIVE_LAYERS.find(l => l.var === activeLiveVar) ?? null
+    : null;
+  const liveTileUrl = activeLiveLayer ? buildLiveTileUrl(activeLiveLayer) : null;
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
   const setExpanded = onExpandChange ?? setInternalExpanded;
@@ -1571,6 +1707,15 @@ export function ReefMap({
             <TileLayer
               key={cmsTileUrl}
               url={cmsTileUrl}
+              opacity={0.72}
+              maxZoom={10}
+              attribution='© Copernicus Marine Service · Mercator Ocean International'
+            />
+          )}
+          {liveTileUrl && (
+            <TileLayer
+              key={liveTileUrl}
+              url={liveTileUrl}
               opacity={0.72}
               maxZoom={10}
               attribution='© Copernicus Marine Service · Mercator Ocean International'
@@ -1757,7 +1902,7 @@ export function ReefMap({
                   border: "1px solid rgba(131,238,240,0.25)",
                   borderRadius: 10, padding: "1px 7px",
                 }}>
-                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnMonSites, showGcrmnSites, showReefCheck, showReefLife, showWcsCcSites, showWcsReefCloud, showImgs, activeCmsVar].filter(Boolean).length} / 11
+                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnMonSites, showGcrmnSites, showReefCheck, showReefLife, showWcsCcSites, showWcsReefCloud, showImgs, activeCmsVar, activeLiveVar].filter(Boolean).length} / 12
                 </span>
               </div>
 
@@ -1765,12 +1910,12 @@ export function ReefMap({
               <div style={{ display: "flex", gap: 5, padding: "7px 10px 6px", borderBottom: "1px solid rgba(131,238,240,0.07)" }}>
                 <button
                   data-testid="toggle-all-layers"
-                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setActiveCmsVar("CHL"); }}
+                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(131,238,240,0.11)", border: "1px solid rgba(131,238,240,0.28)", borderRadius: 6, padding: "4px 0", color: "#83eef0", cursor: "pointer", transition: "background 0.15s" }}
                 >Select All</button>
                 <button
                   data-testid="toggle-no-layers"
-                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setActiveCmsVar(null); }}
+                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 0", color: "#d4e9f355", cursor: "pointer", transition: "background 0.15s" }}
                 >Clear All</button>
               </div>
@@ -1825,6 +1970,59 @@ export function ReefMap({
                         disabled={cmsYYYYMM >= CMS_MAX_YM}
                         style={{ fontSize: 12, background: "none", border: "1px solid rgba(131,238,240,0.2)", borderRadius: 4, color: cmsYYYYMM >= CMS_MAX_YM ? "#d4e9f322" : "#83eef0", cursor: cmsYYYYMM >= CMS_MAX_YM ? "default" : "pointer", padding: "0 5px", lineHeight: 1.4 }}
                       >›</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Ocean State · Live group ── */}
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px 4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 8, color: "#d4e9f333" }}>◎</span>
+                      <span style={{ fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#d4e9f340" }}>Ocean State · Live</span>
+                    </div>
+                    {activeLiveVar && (
+                      <button
+                        onClick={() => { setActiveLiveVar(null); setShowToolbox(null); }}
+                        style={{ fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: "1px 5px", color: "#d4e9f344", borderRadius: 4 }}
+                      >off</button>
+                    )}
+                  </div>
+                  <div style={{ padding: "0 10px 4px" }}>
+                    <select
+                      data-testid="compact-live-layer-select"
+                      value={activeLiveVar ?? ""}
+                      onChange={e => {
+                        const v = e.target.value as LiveVar;
+                        setActiveLiveVar(v || null);
+                        if (v) setActiveCmsVar(null);
+                      }}
+                      style={{
+                        width: "100%", fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 600,
+                        background: "rgba(116,185,255,0.08)", border: "1px solid rgba(116,185,255,0.25)",
+                        borderRadius: 6, padding: "4px 8px", color: activeLiveVar ? "#74b9ff" : "#d4e9f355",
+                        cursor: "pointer", outline: "none",
+                      }}
+                    >
+                      <option value="">— Off —</option>
+                      <optgroup label="SST NRT">
+                        <option value="analysed_sst">Sea Surface Temp. (NRT daily)</option>
+                      </optgroup>
+                      <optgroup label="Physics Forecast">
+                        <option value="zos">Sea Surface Height (hourly)</option>
+                        <option value="thetao">Ocean Temperature (6H · 0.5 m)</option>
+                        <option value="so">Salinity (6H · 0.5 m)</option>
+                      </optgroup>
+                      <optgroup label="BGC Forecast">
+                        <option value="ph">Ocean pH (monthly)</option>
+                        <option value="o2">Dissolved Oxygen (monthly)</option>
+                        <option value="nppv">Primary Production (monthly)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  {activeLiveVar && activeLiveLayer && (
+                    <div style={{ padding: "0 10px 2px", fontSize: 8, color: "#d4e9f355", fontFamily: "Inter,sans-serif" }}>
+                      <span style={{ color: activeLiveLayer.color }}>● </span>{activeLiveLayer.unit}
                     </div>
                   )}
                 </div>
