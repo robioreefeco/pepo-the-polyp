@@ -45,7 +45,7 @@ export interface IStorage {
 
   // Geolocation
   saveLocation(profileId: string, latitude: number, longitude: number): Promise<Profile>;
-  getMapMarkers(): Promise<{ id: string; displayName: string; avatarUrl: string; latitude: number; longitude: number; orcidId: string }[]>;
+  getMapMarkers(): Promise<{ id: string; displayName: string; avatarUrl: string; latitude: number; longitude: number; orcidId: string; points: number }[]>;
 
   // Reef Images
   createReefImage(data: InsertReefImage): Promise<ReefImage>;
@@ -244,7 +244,7 @@ export class DbStorage implements IStorage {
     return row;
   }
 
-  async getMapMarkers(): Promise<{ id: string; displayName: string; avatarUrl: string; latitude: number; longitude: number; orcidId: string }[]> {
+  async getMapMarkers(): Promise<{ id: string; displayName: string; avatarUrl: string; latitude: number; longitude: number; orcidId: string; points: number }[]> {
     const rows = await db
       .select({
         id: profiles.id,
@@ -253,6 +253,7 @@ export class DbStorage implements IStorage {
         latitude: profiles.latitude,
         longitude: profiles.longitude,
         orcidId: profiles.orcidId,
+        points: profiles.points,
       })
       .from(profiles)
       .where(eq(profiles.isPublic, true));
@@ -266,6 +267,7 @@ export class DbStorage implements IStorage {
         latitude: r.latitude as number,
         longitude: r.longitude as number,
         orcidId: r.orcidId,
+        points: r.points,
       }));
   }
 

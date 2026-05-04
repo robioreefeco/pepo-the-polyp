@@ -357,6 +357,7 @@ interface MapMarker {
   latitude: number;
   longitude: number;
   orcidId: string;
+  points: number;
 }
 
 interface ReefImageMarker {
@@ -719,6 +720,7 @@ function ExpandedMapModal({
   const [showCoralMapping,   setShowCoralMapping]   = useState(true);
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
+  const [showDaoMembers,     setShowDaoMembers]     = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
   const [showWcsReefCloud,   setShowWcsReefCloud]   = useState(false);
   const [showWcsCcSites,     setShowWcsCcSites]     = useState(false);
@@ -957,14 +959,27 @@ function ExpandedMapModal({
                 </Popup>
               </CircleMarker>
             ))}
-            {markers.map((m) => (
-              <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin()}>
-                <Popup>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11 }}>
-                    <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
+            {showDaoMembers && markers.map((m) => (
+              <CircleMarker key={m.id} center={[m.latitude, m.longitude]} radius={8}
+                pathOptions={{ color: "#83eef0", fillColor: "#83eef0", fillOpacity: 0.88, weight: 2 }}>
+                <Popup maxWidth={210}>
+                  <div style={{ fontFamily: "Inter,sans-serif", fontSize: 11, lineHeight: 1.5 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      {m.avatarUrl ? (
+                        <img src={m.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid #83eef0", objectFit: "cover", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(131,238,240,0.15)", border: "2px solid #83eef0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🪸</div>
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 700, color: "#00131c", fontSize: 12, lineHeight: 1.3 }}>{m.displayName}</div>
+                        {m.orcidId && <div style={{ fontSize: 9, color: "#00b894", fontWeight: 600, marginTop: 1 }}>ORCID ✓</div>}
+                      </div>
+                    </div>
+                    <div style={{ color: "#83eef0", fontWeight: 700, fontSize: 10, marginBottom: 2 }}>⚓ DAO Member · MesoReefDAO</div>
+                    {m.points > 0 && <div style={{ color: "#666", fontSize: 9 }}>{m.points.toLocaleString()} contribution pts</div>}
                   </div>
                 </Popup>
-              </Marker>
+              </CircleMarker>
             ))}
             {showImgs && reefImgs.map((img) => (
               <Marker key={img.id} position={[img.latitude, img.longitude]} icon={makeImagePin()}>
@@ -1454,12 +1469,12 @@ function ExpandedMapModal({
             <div style={{ display: "flex", gap: 5, marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid rgba(131,238,240,0.08)" }}>
               <button
                 data-testid="expanded-toggle-all-layers"
-                onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
+                onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setShowDaoMembers(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
                 style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(131,238,240,0.12)", border: "1px solid rgba(131,238,240,0.3)", borderRadius: 6, padding: "4px 0", color: "#83eef0", cursor: "pointer" }}
               >All On</button>
               <button
                 data-testid="expanded-toggle-no-layers"
-                onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
+                onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setShowDaoMembers(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
                 style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "4px 0", color: "#d4e9f355", cursor: "pointer" }}
               >All Off</button>
             </div>
@@ -1719,6 +1734,7 @@ function ExpandedMapModal({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "10px 0 4px" }}>
               <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#d4e9f340" }}>Community</span>
             </div>
+            <LayerToggle label="DAO Members"         sublabel={`${markers.length} members on the map · MesoReefDAO`}                                    active={showDaoMembers}    color="#83eef0" onClick={() => setShowDaoMembers(v => !v)} testId="expanded-toggle-dao-members" />
             <LayerToggle label="Reef Photos"         sublabel={`${reefImgs.length} community images`}                                                   active={showImgs}          color="#ff9f43" onClick={() => setShowImgs(v => !v)}          testId="expanded-toggle-imgs" />
           </SideSection>
 
@@ -2148,6 +2164,7 @@ export function ReefMap({
   const [showCoralMapping,  setShowCoralMapping]  = useState(true);
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
+  const [showDaoMembers,    setShowDaoMembers]    = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
   const [showLayerMenu,     setShowLayerMenu]     = useState(false);
   const [internalExpanded,  setInternalExpanded]  = useState(false);
@@ -2292,14 +2309,27 @@ export function ReefMap({
               </Popup>
             </CircleMarker>
           ))}
-          {markers.map((m) => (
-            <Marker key={m.id} position={[m.latitude, m.longitude]} icon={makePin()}>
-              <Popup>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11 }}>
-                  <span style={{ color: "#83eef0", fontWeight: 600 }}>DAO Member</span>
+          {showDaoMembers && markers.map((m) => (
+            <CircleMarker key={m.id} center={[m.latitude, m.longitude]} radius={7}
+              pathOptions={{ color: "#83eef0", fillColor: "#83eef0", fillOpacity: 0.88, weight: 2 }}>
+              <Popup maxWidth={200}>
+                <div style={{ fontFamily: "Inter,sans-serif", fontSize: 11, lineHeight: 1.5 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                    {m.avatarUrl ? (
+                      <img src={m.avatarUrl} alt="" style={{ width: 30, height: 30, borderRadius: "50%", border: "2px solid #83eef0", objectFit: "cover", flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(131,238,240,0.15)", border: "2px solid #83eef0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>🪸</div>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#00131c", fontSize: 12, lineHeight: 1.3 }}>{m.displayName}</div>
+                      {m.orcidId && <div style={{ fontSize: 9, color: "#00b894", fontWeight: 600, marginTop: 1 }}>ORCID ✓</div>}
+                    </div>
+                  </div>
+                  <div style={{ color: "#83eef0", fontWeight: 700, fontSize: 10, marginBottom: 2 }}>⚓ DAO Member · MesoReefDAO</div>
+                  {m.points > 0 && <div style={{ color: "#666", fontSize: 9 }}>{m.points.toLocaleString()} contribution pts</div>}
                 </div>
               </Popup>
-            </Marker>
+            </CircleMarker>
           ))}
           {showImgs && reefImgs.map((img) => (
             <Marker key={img.id} position={[img.latitude, img.longitude]} icon={makeImagePin()}>
@@ -2362,7 +2392,7 @@ export function ReefMap({
                   border: "1px solid rgba(131,238,240,0.25)",
                   borderRadius: 10, padding: "1px 7px",
                 }}>
-                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnSites, showImgs, activeCmsVar, activeLiveVar].filter(Boolean).length} / 7
+                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnSites, showImgs, showDaoMembers, activeCmsVar, activeLiveVar].filter(Boolean).length} / 8
                 </span>
               </div>
 
@@ -2370,12 +2400,12 @@ export function ReefMap({
               <div style={{ display: "flex", gap: 5, padding: "7px 10px 6px", borderBottom: "1px solid rgba(131,238,240,0.07)" }}>
                 <button
                   data-testid="toggle-all-layers"
-                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowImgs(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
+                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowImgs(true); setShowDaoMembers(true); setActiveCmsVar("CHL"); setActiveLiveVar(null); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(131,238,240,0.11)", border: "1px solid rgba(131,238,240,0.28)", borderRadius: 6, padding: "4px 0", color: "#83eef0", cursor: "pointer", transition: "background 0.15s" }}
                 >Select All</button>
                 <button
                   data-testid="toggle-no-layers"
-                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowImgs(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
+                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowImgs(false); setShowDaoMembers(false); setActiveCmsVar(null); setActiveLiveVar(null); setShowToolbox(null); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 0", color: "#d4e9f355", cursor: "pointer", transition: "background 0.15s" }}
                 >Clear All</button>
               </div>
@@ -2517,7 +2547,8 @@ export function ReefMap({
                     { testId: "toggle-gcrmn-sites-layer", label: "GCRMN Sites 2026", sublabel: `${GCRMN_SITES_2026.length} territories`, color: "#A6CE39", active: showGcrmnSites, toggle: () => setShowGcrmnSites(v => !v) },
                   ]},
                   { group: "Community", icon: "●", layers: [
-                    { testId: "toggle-imgs-layer",            label: "Reef Photos",         sublabel: "Community-submitted images",          color: "#ff9f43", active: showImgs,          toggle: () => setShowImgs(v => !v)          },
+                    { testId: "toggle-dao-members-layer",     label: "DAO Members",         sublabel: `${markers.length} members on the map`, color: "#83eef0", active: showDaoMembers,    toggle: () => setShowDaoMembers(v => !v)    },
+                    { testId: "toggle-imgs-layer",            label: "Reef Photos",         sublabel: "Community-submitted images",           color: "#ff9f43", active: showImgs,          toggle: () => setShowImgs(v => !v)          },
                   ]},
                 ]).map(({ group, icon, layers }) => {
                   const ls = layers as unknown as any[];
@@ -2587,7 +2618,7 @@ export function ReefMap({
             {showCoralMapping  && <span title="CoralMapping region" style={{ width:10,height:6,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",borderRadius:2,display:"inline-block" }}/>}
             {showGcrmnSites    && <span title="GCRMN monitoring site" style={{ width:8,height:8,borderRadius:"50%",background:"rgba(166,206,57,0.35)",border:"1.5px solid #A6CE39",display:"inline-block" }}/>}
             {showGcrmn         && <span title="GCRMN region" style={{ width:10,height:6,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",borderRadius:2,display:"inline-block" }}/>}
-            <span title="DAO member" style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>
+            {showDaoMembers && markers.length > 0 && <span title="DAO member" style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>}
             {showImgs && reefImgs.length > 0 && <span title="Reef photo" style={{ width:8,height:8,borderRadius:2,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block" }}/>}
           </div>
           {/* Log in button */}
@@ -2612,7 +2643,7 @@ export function ReefMap({
 
         {/* ── Counts badge ── */}
         <div className="absolute bottom-2 right-2 pointer-events-none flex flex-col gap-1 items-end" style={{ zIndex: 500 }}>
-          {markers.length > 0 && (
+          {showDaoMembers && markers.length > 0 && (
             <div style={{
               background: "rgba(0,19,28,0.8)", border: "1px solid rgba(131,238,240,0.25)",
               borderRadius: 8, padding: "2px 7px", fontSize: 10, color: "#83eef0",
