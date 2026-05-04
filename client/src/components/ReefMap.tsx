@@ -505,75 +505,120 @@ function buildCmsTileUrl(v: CmsVar, cmap: string, yyyymm: string): string {
   );
 }
 
-// ─── Live Ocean State layers (Physics + BGC analysis/forecast + SST NRT) ─────
+// ─── Live Ocean State layers ──────────────────────────────────────────────────
+// Products: PHY_001_024 · BGC_001_028 · WAV_001_027 · MULTIOBS_015_012
+//           SEALEVEL_008_047 · WIND_L4_NRT · SST NRT
 type LiveLayer = {
-  var: string; label: string; unit: string; color: string; cmap: string;
+  var: string;
+  wmtsVar?: string;   // actual CMEMS variable name when it differs from var
+  label: string; unit: string; color: string; cmap: string;
   product: string; dataset: string; elevation: number | null;
   time: () => string; toolboxId: string;
+  group: string;
 };
 type LiveVar =
-  | "thetao" | "so" | "sea_water_velocity" | "zos" | "VHM0" | "wind" | "siconc"
-  | "analysed_sst" | "ph" | "o2" | "phyc" | "nppv";
+  | "thetao" | "so" | "sea_water_velocity" | "zos" | "siconc"
+  | "analysed_sst"
+  | "to_obs" | "ugo"
+  | "adt" | "sla"
+  | "VHM0" | "VTPK" | "VMDR" | "wind"
+  | "ph" | "o2" | "phyc" | "nppv" | "no3" | "po4" | "si";
 
 function liveDate(daysBack: number, hour = "00:00:00"): string {
   const d = new Date(); d.setDate(d.getDate() - daysBack);
   return d.toISOString().slice(0, 10) + "T" + hour + "Z";
 }
 
-const PHY = "GLOBAL_ANALYSISFORECAST_PHY_001_024";
-const BGC = "GLOBAL_ANALYSISFORECAST_BGC_001_028";
-const SST = "SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001";
-const WAV = "GLOBAL_ANALYSISFORECAST_WAV_001_027";
-const WND = "WIND_GLO_PHY_L4_NRT_012_004";
+const PHY      = "GLOBAL_ANALYSISFORECAST_PHY_001_024";
+const BGC      = "GLOBAL_ANALYSISFORECAST_BGC_001_028";
+const SST      = "SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001";
+const WAV      = "GLOBAL_ANALYSISFORECAST_WAV_001_027";
+const WND      = "WIND_GLO_PHY_L4_NRT_012_004";
+const MULTIOBS = "MULTIOBS_GLO_PHY_TSUV_3D_MYNRT_015_012";
+const SEALEVEL = "SEALEVEL_GLO_PHY_L4_MY_008_047";
 
 const LIVE_LAYERS: LiveLayer[] = [
-  // ── Ocean Physics (PHY_001_024) ────────────────────────────────────────────
-  { var: "thetao",           label: "Temperature",       unit: "°C · 6H · 0.5 m",       color: "#e17055", cmap: "thermal",
-    product: PHY, dataset: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406",
-    elevation: -0.494, time: () => liveDate(1),         toolboxId: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406" },
-  { var: "so",               label: "Salinity",          unit: "PSU · 6H · 0.5 m",       color: "#a29bfe", cmap: "haline",
-    product: PHY, dataset: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406",
-    elevation: -0.494, time: () => liveDate(1),         toolboxId: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406" },
-  { var: "sea_water_velocity",label: "Currents",         unit: "m s⁻¹ · hourly · 0.5 m",color: "#00cec9", cmap: "speed",
-    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
-    elevation: -0.494, time: () => liveDate(1),         toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406" },
-  { var: "zos",              label: "Sea Surface Height",unit: "m · hourly",              color: "#74b9ff", cmap: "balance",
-    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
-    elevation: null,   time: () => liveDate(1),         toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406" },
-  { var: "siconc",           label: "Sea Ice",           unit: "fraction · daily",        color: "#dfe6e9", cmap: "ice",
-    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_P1D-m_202406",
-    elevation: null,   time: () => liveDate(2),         toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_P1D-m_202406" },
-  // ── Wave & Wind ────────────────────────────────────────────────────────────
-  { var: "VHM0",             label: "Wave Height",       unit: "m · 3H forecast",         color: "#6c5ce7", cmap: "matter",
-    product: WAV, dataset: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",
-    elevation: null,   time: () => liveDate(1, "03:00:00"), toolboxId: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411" },
-  { var: "wind",             label: "Wind Speed",        unit: "m s⁻¹ · hourly NRT",     color: "#fdcb6e", cmap: "speed",
-    product: WND, dataset: "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H_202207",
-    elevation: null,   time: () => "2023-11-20T00:00:00Z", toolboxId: "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H_202207" },
   // ── SST NRT ────────────────────────────────────────────────────────────────
-  { var: "analysed_sst",     label: "Sea Surface Temp.", unit: "°C · NRT daily",          color: "#ff6b6b", cmap: "thermal",
+  { var: "analysed_sst",      label: "Sea Surface Temp.",   unit: "°C · NRT daily",           color: "#ff6b6b", cmap: "thermal",
     product: SST, dataset: "METOFFICE-GLO-SST-L4-NRT-OBS-SST-V2",
-    elevation: null,   time: () => liveDate(2),         toolboxId: SST },
-  // ── Ocean BGC (BGC_001_028) ────────────────────────────────────────────────
-  { var: "ph",               label: "Acidity (pH)",      unit: "pH · monthly",            color: "#fd79a8", cmap: "ice",
+    elevation: null,   time: () => liveDate(2),              toolboxId: SST,                                   group: "SST NRT" },
+  // ── Ocean Physics — Model (PHY_001_024) ───────────────────────────────────
+  { var: "thetao",            label: "Temperature",         unit: "°C · 6H · 0.5 m",          color: "#e17055", cmap: "thermal",
+    product: PHY, dataset: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406",
+    elevation: -0.494, time: () => liveDate(1),              toolboxId: "cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i_202406", group: "Physics Forecast" },
+  { var: "so",                label: "Salinity",            unit: "PSU · 6H · 0.5 m",          color: "#a29bfe", cmap: "haline",
+    product: PHY, dataset: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406",
+    elevation: -0.494, time: () => liveDate(1),              toolboxId: "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i_202406",    group: "Physics Forecast" },
+  { var: "sea_water_velocity",label: "Currents",            unit: "m s⁻¹ · hourly · 0.5 m",   color: "#00cec9", cmap: "speed",
+    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    elevation: -0.494, time: () => liveDate(1),              toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",       group: "Physics Forecast" },
+  { var: "zos",               label: "SSH · Model",         unit: "m · hourly forecast",        color: "#74b9ff", cmap: "balance",
+    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    elevation: null,   time: () => liveDate(1),              toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",       group: "Physics Forecast" },
+  { var: "siconc",            label: "Sea Ice",             unit: "fraction · daily",            color: "#dfe6e9", cmap: "ice",
+    product: PHY, dataset: "cmems_mod_glo_phy_anfc_0.083deg_P1D-m_202406",
+    elevation: null,   time: () => liveDate(2),              toolboxId: "cmems_mod_glo_phy_anfc_0.083deg_P1D-m_202406",        group: "Physics Forecast" },
+  // ── Multi-observation Physics — ARMOR3D (MULTIOBS_015_012) ────────────────
+  { var: "to_obs", wmtsVar: "to", label: "Temp. (Obs.)",   unit: "°C · weekly multi-obs",     color: "#fab1a0", cmap: "thermal",
+    product: MULTIOBS, dataset: "dataset-armor-3d-nrt-weekly",
+    elevation: -0.494, time: () => liveDate(7),              toolboxId: "dataset-armor-3d-nrt-weekly",                         group: "Observation · Multi-sensor" },
+  { var: "ugo",               label: "Geostr. Velocity",   unit: "m s⁻¹ · weekly obs",         color: "#55efc4", cmap: "speed",
+    product: MULTIOBS, dataset: "dataset-armor-3d-nrt-weekly",
+    elevation: -0.494, time: () => liveDate(7),              toolboxId: "dataset-armor-3d-nrt-weekly",                         group: "Observation · Multi-sensor" },
+  // ── Sea Level Altimetry (SEALEVEL_008_047) ────────────────────────────────
+  { var: "adt",               label: "Abs. Sea Level",     unit: "m · L4 altimetry daily",     color: "#0984e3", cmap: "balance",
+    product: SEALEVEL, dataset: "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D",
+    elevation: null,   time: () => liveDate(3),              toolboxId: SEALEVEL,                                              group: "Sea Level Altimetry" },
+  { var: "sla",               label: "Sea Level Anomaly",  unit: "m · L4 altimetry daily",     color: "#6c5ce7", cmap: "diff",
+    product: SEALEVEL, dataset: "cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D",
+    elevation: null,   time: () => liveDate(3),              toolboxId: SEALEVEL,                                              group: "Sea Level Altimetry" },
+  // ── Wave & Wind (WAV_001_027 + WIND_L4_NRT) ──────────────────────────────
+  { var: "VHM0",              label: "Wave Height",        unit: "m · 3H forecast",             color: "#6c5ce7", cmap: "matter",
+    product: WAV, dataset: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",
+    elevation: null,   time: () => liveDate(1, "03:00:00"), toolboxId: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",       group: "Wave & Wind" },
+  { var: "VTPK",              label: "Peak Wave Period",   unit: "s · 3H forecast",             color: "#81ecec", cmap: "ice",
+    product: WAV, dataset: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",
+    elevation: null,   time: () => liveDate(1, "03:00:00"), toolboxId: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",       group: "Wave & Wind" },
+  { var: "VMDR",              label: "Wave Direction",     unit: "deg · 3H forecast",           color: "#b2bec3", cmap: "phase",
+    product: WAV, dataset: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",
+    elevation: null,   time: () => liveDate(1, "03:00:00"), toolboxId: "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",       group: "Wave & Wind" },
+  { var: "wind",              label: "Wind Speed",         unit: "m s⁻¹ · hourly NRT",         color: "#fdcb6e", cmap: "speed",
+    product: WND, dataset: "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H_202207",
+    elevation: null,   time: () => "2023-11-20T00:00:00Z",  toolboxId: "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H_202207", group: "Wave & Wind" },
+  // ── Ocean BGC — Model (BGC_001_028) ───────────────────────────────────────
+  { var: "ph",                label: "Acidity (pH)",       unit: "pH · monthly",               color: "#fd79a8", cmap: "ice",
     product: BGC, dataset: "cmems_mod_glo_bgc-car_anfc_0.25deg_P1M-m_202311",
-    elevation: -0.494, time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-car_anfc_0.25deg_P1M-m_202311" },
-  { var: "o2",               label: "Oxygen",            unit: "mmol m⁻³ · monthly",      color: "#55efc4", cmap: "dense",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-car_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "o2",                label: "Oxygen",             unit: "mmol m⁻³ · monthly",         color: "#55efc4", cmap: "dense",
     product: BGC, dataset: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",
-    elevation: -0.494, time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311" },
-  { var: "phyc",             label: "Biomass",           unit: "mgC m⁻³ · monthly",       color: "#26de81", cmap: "amp",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "phyc",              label: "Biomass",            unit: "mgC m⁻³ · monthly",          color: "#26de81", cmap: "amp",
     product: BGC, dataset: "cmems_mod_glo_bgc-pft_anfc_0.25deg_P1M-m_202311",
-    elevation: null,   time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-pft_anfc_0.25deg_P1M-m_202311" },
-  { var: "nppv",             label: "Primary Production",unit: "mgC m⁻³ d⁻¹ · monthly",  color: "#00b894", cmap: "algae",
+    elevation: null,   time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-pft_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "nppv",              label: "Primary Production", unit: "mgC m⁻³ d⁻¹ · monthly",     color: "#00b894", cmap: "algae",
     product: BGC, dataset: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",
-    elevation: null,   time: () => "2024-01-01T00:00:00Z", toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311" },
+    elevation: null,   time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-bio_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "no3",               label: "Nitrate",            unit: "mmol m⁻³ · monthly",         color: "#fd9644", cmap: "matter",
+    product: BGC, dataset: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "po4",               label: "Phosphate",          unit: "mmol m⁻³ · monthly",         color: "#a29bfe", cmap: "tempo",
+    product: BGC, dataset: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
+  { var: "si",                label: "Silicate",           unit: "mmol m⁻³ · monthly",         color: "#74b9ff", cmap: "deep",
+    product: BGC, dataset: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",
+    elevation: -0.494, time: () => "2024-01-01T00:00:00Z",  toolboxId: "cmems_mod_glo_bgc-nut_anfc_0.25deg_P1M-m_202311",    group: "BGC Forecast" },
 ];
+
+const LIVE_GROUPS = [
+  "SST NRT", "Physics Forecast", "Observation · Multi-sensor",
+  "Sea Level Altimetry", "Wave & Wind", "BGC Forecast",
+] as const;
 
 function buildLiveTileUrl(layer: LiveLayer): string {
   return (
     "https://wmts.marine.copernicus.eu/teroWmts" +
     "?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile" +
-    `&LAYER=${encodeURIComponent(layer.product + "/" + layer.dataset + "/" + layer.var)}` +
+    `&LAYER=${encodeURIComponent(layer.product + "/" + layer.dataset + "/" + (layer.wmtsVar ?? layer.var))}` +
     `&STYLE=${encodeURIComponent("cmap:" + layer.cmap)}` +
     "&FORMAT=image%2Fpng&TILEMATRIXSET=EPSG%3A3857" +
     "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}" +
@@ -1144,27 +1189,37 @@ function ExpandedMapModal({
                 )}
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: activeLiveVar ? 8 : 0 }}>
-                {LIVE_LAYERS.map(layer => (
-                  <button
-                    key={layer.var}
-                    data-testid={`expanded-toggle-live-${layer.var}`}
-                    onClick={() => {
-                      setActiveLiveVar(v => (v === layer.var ? null : layer.var as LiveVar));
-                      setActiveCmsVar(null);
-                      if (showToolbox === 'cms') setShowToolbox(null);
-                    }}
-                    title={`${layer.label} · ${layer.unit}`}
-                    style={{
-                      fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600,
-                      padding: "3px 7px", borderRadius: 20, cursor: "pointer",
-                      background: activeLiveVar === layer.var ? layer.color + "22" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${activeLiveVar === layer.var ? layer.color + "99" : "rgba(255,255,255,0.1)"}`,
-                      color: activeLiveVar === layer.var ? layer.color : "#d4e9f355",
-                      transition: "all 0.15s",
-                    }}
-                  >{layer.label}</button>
-                ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: activeLiveVar ? 8 : 0 }}>
+                {LIVE_GROUPS.map(grp => {
+                  const grpLayers = LIVE_LAYERS.filter(l => l.group === grp);
+                  return (
+                    <div key={grp}>
+                      <div style={{ fontSize: 7, fontFamily: "Inter,sans-serif", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#d4e9f322", marginBottom: 3 }}>{grp}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        {grpLayers.map(layer => (
+                          <button
+                            key={layer.var}
+                            data-testid={`expanded-toggle-live-${layer.var}`}
+                            onClick={() => {
+                              setActiveLiveVar(v => (v === layer.var ? null : layer.var as LiveVar));
+                              setActiveCmsVar(null);
+                              if (showToolbox === 'cms') setShowToolbox(null);
+                            }}
+                            title={`${layer.label} · ${layer.unit}`}
+                            style={{
+                              fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600,
+                              padding: "3px 7px", borderRadius: 20, cursor: "pointer",
+                              background: activeLiveVar === layer.var ? layer.color + "22" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${activeLiveVar === layer.var ? layer.color + "99" : "rgba(255,255,255,0.1)"}`,
+                              color: activeLiveVar === layer.var ? layer.color : "#d4e9f355",
+                              transition: "all 0.15s",
+                            }}
+                          >{layer.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {activeLiveVar && activeLiveLayer && (
@@ -1189,7 +1244,7 @@ function ExpandedMapModal({
               )}
 
               <div style={{ fontSize: 7, color: "#d4e9f325", marginTop: activeLiveVar ? 0 : 4, lineHeight: 1.4 }}>
-                PHY_001_024 · BGC_001_028 · WAV_001_027 · WIND_L4_NRT · SST NRT · Mercator Ocean / CMEMS
+                PHY_001_024 · BGC_001_028 · WAV_001_027 · MULTIOBS_015_012 · SEALEVEL_008_047 · WIND_L4_NRT · SST NRT · Mercator Ocean / CMEMS
               </div>
             </div>
 
@@ -1977,11 +2032,21 @@ export function ReefMap({
                         <option value="thetao">Temperature (6H · 0.5 m)</option>
                         <option value="so">Salinity (6H · 0.5 m)</option>
                         <option value="sea_water_velocity">Currents (hourly · 0.5 m)</option>
-                        <option value="zos">Sea Surface Height (hourly)</option>
+                        <option value="zos">SSH · Model (hourly)</option>
                         <option value="siconc">Sea Ice (daily)</option>
+                      </optgroup>
+                      <optgroup label="Observation · Multi-sensor">
+                        <option value="to_obs">Temp. — Multi-obs (weekly)</option>
+                        <option value="ugo">Geostr. Velocity (weekly)</option>
+                      </optgroup>
+                      <optgroup label="Sea Level Altimetry">
+                        <option value="adt">Abs. Sea Level / ADT (daily)</option>
+                        <option value="sla">Sea Level Anomaly (daily)</option>
                       </optgroup>
                       <optgroup label="Wave & Wind">
                         <option value="VHM0">Wave Height (3H)</option>
+                        <option value="VTPK">Peak Wave Period (3H)</option>
+                        <option value="VMDR">Mean Wave Direction (3H)</option>
                         <option value="wind">Wind Speed (NRT)</option>
                       </optgroup>
                       <optgroup label="BGC Forecast">
@@ -1989,6 +2054,9 @@ export function ReefMap({
                         <option value="o2">Oxygen (monthly)</option>
                         <option value="phyc">Biomass (monthly)</option>
                         <option value="nppv">Primary Production (monthly)</option>
+                        <option value="no3">Nitrate (monthly)</option>
+                        <option value="po4">Phosphate (monthly)</option>
+                        <option value="si">Silicate (monthly)</option>
                       </optgroup>
                     </select>
                   </div>
