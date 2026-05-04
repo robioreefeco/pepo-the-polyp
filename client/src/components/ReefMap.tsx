@@ -729,6 +729,48 @@ function buildLiveTileUrl(layer: LiveLayer, timeOverride?: string, elevOverride?
   );
 }
 
+// CSS gradient approximations for cmocean colormaps (left = min value, right = max value)
+const CMAP_CSS: Record<string, string> = {
+  thermal: "linear-gradient(90deg,#042333 0%,#2c3e50 15%,#31688e 28%,#35b779 45%,#fde725 65%,#f8a200 80%,#ff4500 92%,#7a0000 100%)",
+  haline:  "linear-gradient(90deg,#2a186c 0%,#1a4d8e 20%,#177b8a 38%,#36b07a 58%,#acd66a 78%,#fde725 100%)",
+  speed:   "linear-gradient(90deg,#f5f5f0 0%,#c8e6f2 15%,#6dccea 32%,#2bc573 52%,#f0d000 72%,#e86000 87%,#7a0000 100%)",
+  balance: "linear-gradient(90deg,#1a3a6a 0%,#4a7fc2 20%,#92b9dc 42%,#f5f5f5 50%,#e08080 58%,#c04040 80%,#6a1a1a 100%)",
+  diff:    "linear-gradient(90deg,#1a5276 0%,#2e86c1 25%,#aed6f1 45%,#f5f5f5 50%,#f1948a 55%,#c0392b 75%,#7b241c 100%)",
+  ice:     "linear-gradient(90deg,#041d38 0%,#08306b 20%,#2171b5 42%,#74c1e8 65%,#c8e4f5 85%,#f0f7ff 100%)",
+  matter:  "linear-gradient(90deg,#fdfecc 0%,#f9c62a 25%,#f07920 52%,#c62a2f 77%,#500d4b 100%)",
+  amp:     "linear-gradient(90deg,#f4f1e8 0%,#dab68b 30%,#b57a3a 55%,#843905 77%,#500000 100%)",
+  algae:   "linear-gradient(90deg,#d7f5e4 0%,#8dcbad 28%,#4a9874 52%,#1e6b47 77%,#053322 100%)",
+  dense:   "linear-gradient(90deg,#e6f0ff 0%,#9ab8e0 30%,#4b7ab8 55%,#1e3d6e 80%,#051524 100%)",
+  tempo:   "linear-gradient(90deg,#fff4f0 0%,#f7b7a0 30%,#e56b4c 55%,#a82c1a 80%,#5b0e0a 100%)",
+  deep:    "linear-gradient(90deg,#fdfdd9 0%,#d6d67a 25%,#5b9b5b 52%,#1a5c8a 77%,#0d0d4d 100%)",
+  phase:   "linear-gradient(90deg,#a777b5 0%,#e87a7a 25%,#f0d870 50%,#7ab870 75%,#4878c0 100%)",
+};
+
+// Approximate scientific value ranges [min, max, unit] per live layer variable
+const LAYER_VALUE_RANGES: Record<string, [number, number, string]> = {
+  analysed_sst:       [-2,   32,   "°C"],
+  thetao:             [-2,   32,   "°C"],
+  to_obs:             [-2,   32,   "°C"],
+  so:                 [30,   40,   "PSU"],
+  sea_water_velocity: [0,    1.5,  "m/s"],
+  ugo:                [0,    1.5,  "m/s"],
+  zos:                [-1.5, 1.5,  "m"],
+  adt:                [-1.5, 1.5,  "m"],
+  sla:                [-0.3, 0.3,  "m"],
+  siconc:             [0,    1,    ""],
+  VHM0:               [0,    8,    "m"],
+  VTPK:               [0,    30,   "s"],
+  VMDR:               [0,    360,  "°"],
+  wind:               [0,    20,   "m/s"],
+  ph:                 [7.8,  8.3,  "pH"],
+  o2:                 [0,    350,  "mmol/m³"],
+  phyc:               [0,    10,   "mgC/m³"],
+  nppv:               [0,    50,   "mgC/m³·d"],
+  no3:                [0,    50,   "mmol/m³"],
+  po4:                [0,    3,    "mmol/m³"],
+  si:                 [0,    80,   "mmol/m³"],
+};
+
 // ─── Expanded map modal ───────────────────────────────────────────────────────
 function ExpandedMapModal({
   markers,
@@ -772,6 +814,9 @@ function ExpandedMapModal({
   });
   const [liveDepthIdx,     setLiveDepthIdx]     = useState<number>(0);
   const [liveDragging,     setLiveDragging]     = useState<false | "time" | "depth">(false);
+  const [isPlaying,        setIsPlaying]        = useState(false);
+  const [playStepDays,     setPlayStepDays]     = useState(7);
+  const [isLooping,        setIsLooping]        = useState(false);
   const timelineTrackRef = useRef<HTMLDivElement>(null);
   const depthTrackRef    = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -781,6 +826,31 @@ function ExpandedMapModal({
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
+
+  // ── Time-lapse animation ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isPlaying || !activeLiveVar) return;
+    const interval = setInterval(() => {
+      setLiveDate(prev => {
+        const d = new Date(prev);
+        d.setDate(d.getDate() + playStepDays);
+        const maxD = new Date(); maxD.setDate(maxD.getDate() - 1);
+        if (d.getTime() >= maxD.getTime()) {
+          if (isLooping) {
+            const minD = new Date(liveMinDateStr);
+            return minD.toISOString().slice(0, 10) + "T00:00:00Z";
+          }
+          setIsPlaying(false);
+          return maxD.toISOString().slice(0, 10) + "T00:00:00Z";
+        }
+        return d.toISOString().slice(0, 10) + "T00:00:00Z";
+      });
+    }, 1100);
+    return () => clearInterval(interval);
+  }, [isPlaying, playStepDays, activeLiveVar, isLooping, liveMinDateStr]);
+
+  // Stop playing when layer changes
+  useEffect(() => { setIsPlaying(false); }, [activeLiveVar]);
 
   const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -945,7 +1015,10 @@ function ExpandedMapModal({
       {/* ── Body: map + side panel ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <div style={{ flex: 1, position: "relative" }}>
-          <style>{`.gcrmn-tooltip { background: rgba(0,19,28,0.88) !important; border: 1px solid rgba(131,238,240,0.25) !important; color: #d4e9f3 !important; font-family: Inter,sans-serif !important; font-size: 11px !important; padding: 3px 9px !important; border-radius: 6px !important; box-shadow: none !important; }`}</style>
+          <style>{`
+            .gcrmn-tooltip { background: rgba(0,19,28,0.88) !important; border: 1px solid rgba(131,238,240,0.25) !important; color: #d4e9f3 !important; font-family: Inter,sans-serif !important; font-size: 11px !important; padding: 3px 9px !important; border-radius: 6px !important; box-shadow: none !important; }
+            @keyframes recblink { 0%,49%{opacity:1} 50%,100%{opacity:0.15} }
+          `}</style>
 
           <MapContainer
             center={[12, 10]}
@@ -1252,7 +1325,7 @@ function ExpandedMapModal({
             )}
           </MapContainer>
 
-          {/* ── Live Layer Timeline Scrubber ─────────────────────────────── */}
+          {/* ── Live Layer Timeline + Play Controls ─────────────────────── */}
           {activeLiveVar && activeLiveLayer && (() => {
             const tCur = new Date(liveDate).getTime();
             const pos = Math.max(0, Math.min(1, (tCur - tMin) / (tMax - tMin)));
@@ -1261,13 +1334,14 @@ function ExpandedMapModal({
             const years: number[] = [];
             for (let y = minYear; y <= maxYear; y++) years.push(y);
             const curLabel = new Date(liveDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+            const MON_TICKS = [{ mo: 4, label: "Apr" }, { mo: 7, label: "Jul" }, { mo: 10, label: "Oct" }];
             return (
               <div
                 style={{
                   position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 800,
-                  height: 58, background: "rgba(0,5,12,0.90)",
-                  borderTop: "1px solid rgba(131,238,240,0.12)",
-                  backdropFilter: "blur(10px)",
+                  height: 68, background: "rgba(0,5,12,0.93)",
+                  borderTop: "1px solid rgba(131,238,240,0.14)",
+                  backdropFilter: "blur(12px)",
                   display: "flex", flexDirection: "column",
                   userSelect: "none", pointerEvents: "auto",
                 }}
@@ -1275,57 +1349,120 @@ function ExpandedMapModal({
                 onMouseUp={() => { if (liveDragging === "time") setLiveDragging(false); }}
                 onMouseLeave={() => { if (liveDragging === "time") setLiveDragging(false); }}
               >
-                {/* Top label row */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 14px 0", flexShrink: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: activeLiveLayer.color, display: "inline-block", flexShrink: 0, boxShadow: `0 0 6px ${activeLiveLayer.color}` }}/>
-                    <span style={{ fontSize: 8.5, fontWeight: 700, fontFamily: "Inter,sans-serif", color: activeLiveLayer.color, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                      {activeLiveLayer.label}
-                    </span>
-                    <span style={{ fontSize: 7.5, color: "#d4e9f344", fontFamily: "Inter,sans-serif" }}>· {activeLiveLayer.group} · {activeLiveLayer.unit}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* ── Controls row ── */}
+                <div style={{ display: "flex", alignItems: "center", padding: "5px 12px 0", flexShrink: 0, gap: 7 }}>
+                  {/* Layer pill */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, minWidth: 0, overflow: "hidden" }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: activeLiveLayer.color, flexShrink: 0, display: "inline-block", boxShadow: `0 0 6px ${activeLiveLayer.color}` }}/>
+                    <span style={{ fontSize: 8.5, fontWeight: 700, fontFamily: "Inter,sans-serif", color: activeLiveLayer.color, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{activeLiveLayer.label}</span>
+                    <span style={{ fontSize: 7.5, color: "#d4e9f344", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap" }}>· {activeLiveLayer.group}</span>
                     {activeLiveLayer.elevation != null && (
-                      <span style={{ fontSize: 8, color: activeLiveLayer.color, fontFamily: "Inter,sans-serif", fontWeight: 600, background: `${activeLiveLayer.color}1a`, border: `1px solid ${activeLiveLayer.color}44`, borderRadius: 4, padding: "1px 6px" }}>
+                      <span style={{ fontSize: 7.5, color: activeLiveLayer.color, fontFamily: "Inter,sans-serif", fontWeight: 600, background: `${activeLiveLayer.color}1a`, border: `1px solid ${activeLiveLayer.color}44`, borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap", flexShrink: 0 }}>
                         ↕ {depthLabel(DEPTH_LEVELS[liveDepthIdx])}
                       </span>
                     )}
-                    <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "Inter,sans-serif", color: "#d4e9f3bb" }}>{curLabel}</span>
                   </div>
+
+                  {/* ── Playback controls ── */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {/* ⏮ jump to start */}
+                    <button
+                      onClick={() => { setIsPlaying(false); setLiveDate(liveMinDateStr + "T00:00:00Z"); }}
+                      title="Jump to start"
+                      style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 1px" }}
+                    >⏮</button>
+
+                    {/* ▶ / ⏸ play-pause */}
+                    <button
+                      onClick={() => setIsPlaying(v => !v)}
+                      title={isPlaying ? "Pause" : "Play time-lapse"}
+                      style={{
+                        width: 28, height: 28, borderRadius: "50%",
+                        background: isPlaying ? activeLiveLayer.color : "rgba(255,255,255,0.09)",
+                        border: `1.5px solid ${activeLiveLayer.color}`,
+                        color: isPlaying ? "#000" : activeLiveLayer.color,
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, fontWeight: 700, transition: "all 0.13s", flexShrink: 0,
+                      }}
+                    >{isPlaying ? "⏸" : "▶"}</button>
+
+                    {/* ⏭ jump to end */}
+                    <button
+                      onClick={() => { setIsPlaying(false); setLiveDate(liveMaxDate.toISOString().slice(0, 10) + "T00:00:00Z"); }}
+                      title="Jump to end"
+                      style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 1px" }}
+                    >⏭</button>
+
+                    {/* ↻ loop toggle */}
+                    <button
+                      onClick={() => setIsLooping(v => !v)}
+                      title={isLooping ? "Loop: on" : "Loop: off"}
+                      style={{ background: "none", border: `1px solid ${isLooping ? activeLiveLayer.color + "88" : "rgba(255,255,255,0.13)"}`, borderRadius: 4, color: isLooping ? activeLiveLayer.color : "#d4e9f344", cursor: "pointer", padding: "2px 5px", fontSize: 11, lineHeight: 1.2, transition: "all 0.13s" }}
+                    >↻</button>
+
+                    {/* speed selector */}
+                    <select
+                      value={playStepDays}
+                      onChange={e => setPlayStepDays(parseInt(e.target.value))}
+                      style={{ fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)", borderRadius: 4, color: "#d4e9f377", padding: "2px 4px", cursor: "pointer", outline: "none" }}
+                    >
+                      <option value="1">+1 d</option>
+                      <option value="7">+7 d</option>
+                      <option value="30">+30 d</option>
+                    </select>
+
+                    {/* ● REC */}
+                    {isPlaying && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 2 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#ff4757", display: "inline-block", animation: "recblink 1s step-end infinite" }}/>
+                        <span style={{ fontSize: 8, fontWeight: 800, color: "#ff4757", fontFamily: "Inter,sans-serif", letterSpacing: "0.07em" }}>REC</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* current date */}
+                  <span style={{ fontSize: 8.5, fontWeight: 700, fontFamily: "Inter,sans-serif", color: "#d4e9f3aa", whiteSpace: "nowrap", flexShrink: 0 }}>{curLabel}</span>
                 </div>
-                {/* Track */}
+
+                {/* ── Scrubber track ── */}
                 <div
                   ref={timelineTrackRef}
                   onClick={e => handleTimelinePointer(e.clientX)}
                   onMouseDown={() => setLiveDragging("time")}
-                  style={{ flex: 1, position: "relative", cursor: "ew-resize", margin: "0 14px 6px" }}
+                  style={{ flex: 1, position: "relative", cursor: "ew-resize", margin: "0 12px 6px" }}
                 >
-                  {/* Background track */}
-                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", marginTop: -1, height: 2, background: "rgba(255,255,255,0.12)", borderRadius: 2 }}/>
-                  {/* Progress fill */}
+                  {/* background */}
+                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", marginTop: -1, height: 2, background: "rgba(255,255,255,0.1)", borderRadius: 2 }}/>
+                  {/* progress fill */}
                   <div style={{ position: "absolute", left: 0, right: `${(1 - pos) * 100}%`, top: "50%", marginTop: -1, height: 2, background: activeLiveLayer.color, borderRadius: 2, opacity: 0.8 }}/>
+
                   {/* Year markers */}
                   {years.map(y => {
                     const yT = new Date(`${y}-01-01`).getTime();
                     const yPos = (yT - tMin) / (tMax - tMin);
                     if (yPos < 0 || yPos > 1) return null;
                     return (
-                      <div key={y} style={{ position: "absolute", left: `${yPos * 100}%`, top: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", transform: "translateX(-50%)" }}>
-                        <div style={{ width: 1, height: 10, background: "rgba(255,255,255,0.3)", marginBottom: 2 }}/>
-                        <span style={{ fontSize: 8, fontWeight: 700, color: "#d4e9f377", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap" }}>{y}</span>
+                      <div key={y} style={{ position: "absolute", left: `${yPos * 100}%`, top: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none", transform: "translateX(-50%)" }}>
+                        <div style={{ width: 1, height: "46%", background: "rgba(255,255,255,0.35)" }}/>
+                        <span style={{ fontSize: 8, fontWeight: 700, color: "#d4e9f388", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap", marginTop: 1 }}>{y}</span>
                       </div>
                     );
                   })}
-                  {/* Quarterly ticks (Apr=4, Jul=7, Oct=10) */}
-                  {years.flatMap(y => [4, 7, 10].map(mo => {
+
+                  {/* Quarterly ticks with Apr / Jul / Oct labels */}
+                  {years.flatMap(y => MON_TICKS.map(({ mo, label }) => {
                     const tTick = new Date(`${y}-${String(mo).padStart(2, "0")}-01`).getTime();
                     const tPos = (tTick - tMin) / (tMax - tMin);
-                    if (tPos <= 0.001 || tPos >= 0.999) return null;
+                    if (tPos <= 0.002 || tPos >= 0.998) return null;
                     return (
-                      <div key={`${y}-${mo}`} style={{ position: "absolute", left: `${tPos * 100}%`, top: "30%", width: 1, height: 5, background: "rgba(255,255,255,0.18)", pointerEvents: "none" }}/>
+                      <div key={`${y}-${mo}`} style={{ position: "absolute", left: `${tPos * 100}%`, top: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none", transform: "translateX(-50%)" }}>
+                        <div style={{ width: 1, height: "32%", background: "rgba(255,255,255,0.22)" }}/>
+                        <span style={{ fontSize: 6.5, color: "#d4e9f344", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap", marginTop: 1 }}>{label}</span>
+                      </div>
                     );
                   }))}
-                  {/* Handle */}
+
+                  {/* Scrubber handle */}
                   <div style={{
                     position: "absolute", left: `${pos * 100}%`, top: "50%",
                     transform: "translate(-50%, -50%)",
@@ -1334,7 +1471,7 @@ function ExpandedMapModal({
                     border: `2.5px solid ${activeLiveLayer.color}`,
                     boxShadow: `0 0 10px ${activeLiveLayer.color}cc, 0 2px 6px rgba(0,0,0,0.6)`,
                     zIndex: 2, cursor: "grab", pointerEvents: "none",
-                    transition: liveDragging === "time" ? "none" : "left 0.15s",
+                    transition: (liveDragging === "time" || isPlaying) ? "none" : "left 0.15s",
                   }}/>
                 </div>
               </div>
@@ -1399,6 +1536,41 @@ function ExpandedMapModal({
               </div>
             );
           })()}
+
+          {/* ── Layer Colorbar Legend ────────────────────────────────────── */}
+          {activeLiveVar && activeLiveLayer && CMAP_CSS[activeLiveLayer.cmap] && LAYER_VALUE_RANGES[activeLiveVar] && (
+            <div style={{
+              position: "absolute", bottom: 72, left: 14, zIndex: 810,
+              background: "rgba(0,5,12,0.90)", border: "1px solid rgba(131,238,240,0.14)",
+              borderRadius: 9, backdropFilter: "blur(10px)",
+              padding: "7px 11px", minWidth: 178, maxWidth: 228,
+              fontFamily: "Inter,sans-serif", pointerEvents: "none",
+            }}>
+              {/* Header: layer name + date */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: activeLiveLayer.color, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                  {activeLiveLayer.label}
+                </span>
+                <span style={{ fontSize: 7, color: "#d4e9f355" }}>
+                  {new Date(liveDate).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
+                  {activeLiveLayer.elevation != null && ` · ${depthLabel(DEPTH_LEVELS[liveDepthIdx])}`}
+                </span>
+              </div>
+              {/* Gradient colorbar */}
+              <div style={{ height: 11, borderRadius: 4, background: CMAP_CSS[activeLiveLayer.cmap], marginBottom: 4, boxShadow: "0 0 8px rgba(0,0,0,0.4)" }}/>
+              {/* Scale labels */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontWeight: 700 }}>{LAYER_VALUE_RANGES[activeLiveVar][0]}</span>
+                <span style={{ fontSize: 7.5, color: "#d4e9f355" }}>{LAYER_VALUE_RANGES[activeLiveVar][2]}</span>
+                <span style={{ fontSize: 8.5, color: "#d4e9f3aa", fontWeight: 700 }}>{LAYER_VALUE_RANGES[activeLiveVar][1]}</span>
+              </div>
+              {/* Dataset metadata */}
+              <div style={{ paddingTop: 4, borderTop: "1px solid rgba(131,238,240,0.08)" }}>
+                <div style={{ fontSize: 7.5, color: "#d4e9f355", marginBottom: 1 }}>{activeLiveLayer.resolution} · {activeLiveLayer.cadence}</div>
+                <div style={{ fontSize: 7, color: "#d4e9f322", lineHeight: 1.35 }}>{activeLiveLayer.productTitle}</div>
+              </div>
+            </div>
+          )}
 
           {/* ── Map Tools Floating Toolbar ── */}
           {/* Result / settings panels — shown above (desktop) or below (mobile) buttons */}
@@ -1976,10 +2148,20 @@ function ExpandedMapModal({
                         <span style={{ fontSize: 7.5, color: "#d4e9f3aa", lineHeight: 1.3 }}>{v}</span>
                       </div>
                     ))}
-                    {/* Depth indicator if applicable */}
-                    {activeLiveLayer.elevation != null && (
-                      <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${activeLiveLayer.color}22`, fontSize: 7.5, color: "#d4e9f355" }}>
-                        Showing level: <span style={{ color: activeLiveLayer.color, fontWeight: 700 }}>{Math.abs(activeLiveLayer.elevation)} m depth</span>
+                    {/* Inline colorbar + depth indicator */}
+                    {CMAP_CSS[activeLiveLayer.cmap] && LAYER_VALUE_RANGES[activeLiveVar] && (
+                      <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${activeLiveLayer.color}22` }}>
+                        <div style={{ height: 8, borderRadius: 3, background: CMAP_CSS[activeLiveLayer.cmap], marginBottom: 3 }}/>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 7.5, color: "#d4e9f366" }}>
+                          <span style={{ fontWeight: 700 }}>{LAYER_VALUE_RANGES[activeLiveVar][0]}</span>
+                          <span>{LAYER_VALUE_RANGES[activeLiveVar][2]}</span>
+                          <span style={{ fontWeight: 700 }}>{LAYER_VALUE_RANGES[activeLiveVar][1]}</span>
+                        </div>
+                        {activeLiveLayer.elevation != null && (
+                          <div style={{ marginTop: 4, fontSize: 7.5, color: "#d4e9f355" }}>
+                            Depth: <span style={{ color: activeLiveLayer.color, fontWeight: 700 }}>{depthLabel(DEPTH_LEVELS[liveDepthIdx])}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
