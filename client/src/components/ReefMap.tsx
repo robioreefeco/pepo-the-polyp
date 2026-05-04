@@ -739,7 +739,14 @@ function ExpandedMapModal({
   const [toolArea,           setToolArea]           = useState<L.LatLng[]>([]);
   const [importedGeoJson,    setImportedGeoJson]    = useState<GeoJSON.FeatureCollection | null>(null);
   const [layerOpacity,       setLayerOpacity]       = useState(0.72);
+  const [isMobile,           setIsMobile]           = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
 
   const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1184,115 +1191,190 @@ function ExpandedMapModal({
           </MapContainer>
 
           {/* ── Map Tools Floating Toolbar ── */}
-          <div style={{
-            position: "absolute", left: 14, top: 14, zIndex: 900,
-            display: "flex", flexDirection: "column", gap: 6,
-            pointerEvents: "auto",
-          }}>
-            {/* Tool result readout — Points */}
-            {activeTool === 'points' && toolPoints.length > 0 && (
-              <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(0,184,148,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#00b894", marginBottom: 5 }}>📍 Points ({toolPoints.length})</div>
-                {toolPoints.slice(-3).map((pt, i) => (
-                  <div key={i} style={{ fontSize: 8.5, color: "#d4e9f3aa", marginBottom: 2 }}>
-                    {pt.lat.toFixed(4)}°N, {pt.lng.toFixed(4)}°E
-                  </div>
-                ))}
-                {toolPoints.length > 3 && <div style={{ fontSize: 8, color: "#d4e9f333" }}>+{toolPoints.length - 3} more</div>}
-                <button onClick={() => setToolPoints([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
-              </div>
-            )}
-
-            {/* Tool result readout — Lines */}
-            {activeTool === 'lines' && toolLine.length >= 2 && (
-              <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(253,203,110,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#fdcb6e", marginBottom: 5 }}>📏 Distance</div>
-                {toolLine.slice(1).map((pt, i) => (
-                  <div key={i} style={{ fontSize: 8.5, color: "#d4e9f3aa", marginBottom: 2 }}>
-                    Seg {i + 1}: {haversineDist(toolLine[i], pt).toFixed(2)} km
-                  </div>
-                ))}
-                {toolLine.length > 2 && (
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#fdcb6e", marginTop: 5, borderTop: "1px solid rgba(253,203,110,0.2)", paddingTop: 5 }}>
-                    Total: {toolLine.slice(1).reduce((acc, pt, i) => acc + haversineDist(toolLine[i], pt), 0).toFixed(2)} km
-                  </div>
-                )}
-                <button onClick={() => setToolLine([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
-              </div>
-            )}
-
-            {/* Tool result readout — Areas */}
-            {activeTool === 'areas' && toolArea.length >= 3 && (
-              <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(116,185,255,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#74b9ff", marginBottom: 5 }}>▱ Area</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#74b9ff" }}>{polygonAreaKm2(toolArea).toFixed(1)} km²</div>
-                <div style={{ fontSize: 8, color: "#d4e9f355", marginTop: 2 }}>{toolArea.length} vertices</div>
-                <button onClick={() => setToolArea([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
-              </div>
-            )}
-
-            {/* Settings panel */}
-            {activeTool === 'settings' && (
-              <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(131,238,240,0.3)", borderRadius: 8, padding: "10px 12px", minWidth: 168, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#83eef0", marginBottom: 10 }}>⚙ Layer Settings</div>
-                {(activeCmsVar || activeLiveVar) ? (
-                  <>
-                    <div style={{ fontSize: 8, color: "#d4e9f355", marginBottom: 6 }}>
-                      Opacity — <span style={{ color: "#83eef0", fontWeight: 700 }}>{Math.round(layerOpacity * 100)}%</span>
-                    </div>
-                    <input
-                      type="range" min={0} max={100} value={Math.round(layerOpacity * 100)}
-                      onChange={e => setLayerOpacity(parseInt(e.target.value) / 100)}
-                      style={{ width: "100%", accentColor: "#83eef0", marginBottom: 4 }}
-                    />
-                  </>
-                ) : (
-                  <div style={{ fontSize: 9, color: "#d4e9f355", lineHeight: 1.5 }}>Enable a Copernicus layer to adjust opacity.</div>
-                )}
-                {importedGeoJson && (
-                  <button onClick={() => setImportedGeoJson(null)} style={{ marginTop: 8, fontSize: 8, background: "rgba(253,121,168,0.1)", border: "1px solid rgba(253,121,168,0.3)", borderRadius: 4, color: "#fd79a8", cursor: "pointer", padding: "3px 8px", width: "100%", fontFamily: "Inter,sans-serif", fontWeight: 600 }}>
-                    Remove imported layer
+          {/* Result / settings panels — shown above (desktop) or below (mobile) buttons */}
+          {isMobile ? (
+            /* ── MOBILE: horizontal icon strip centred at top ── */
+            <div style={{
+              position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 900,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              pointerEvents: "auto",
+            }}>
+              {/* Tool readout panel — shown below buttons on mobile */}
+              {activeTool === 'points' && toolPoints.length > 0 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(0,184,148,0.4)", borderRadius: 8, padding: "7px 11px", backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif", minWidth: 160 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#00b894", marginBottom: 4 }}>📍 Points ({toolPoints.length})</div>
+                  {toolPoints.slice(-2).map((pt, i) => <div key={i} style={{ fontSize: 8.5, color: "#d4e9f3aa" }}>{pt.lat.toFixed(4)}°, {pt.lng.toFixed(4)}°</div>)}
+                  <button onClick={() => setToolPoints([])} style={{ marginTop: 5, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {activeTool === 'lines' && toolLine.length >= 2 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(253,203,110,0.4)", borderRadius: 8, padding: "7px 11px", backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif", minWidth: 160 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#fdcb6e", marginBottom: 4 }}>📏 Total: {toolLine.slice(1).reduce((acc, pt, i) => acc + haversineDist(toolLine[i], pt), 0).toFixed(2)} km</div>
+                  <button onClick={() => setToolLine([])} style={{ fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {activeTool === 'areas' && toolArea.length >= 3 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(116,185,255,0.4)", borderRadius: 8, padding: "7px 11px", backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif", minWidth: 140 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#74b9ff" }}>{polygonAreaKm2(toolArea).toFixed(1)} km²</div>
+                  <button onClick={() => setToolArea([])} style={{ marginTop: 4, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {activeTool === 'settings' && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(131,238,240,0.3)", borderRadius: 8, padding: "10px 12px", backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif", minWidth: 180 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#83eef0", marginBottom: 8 }}>⚙ Layer Settings</div>
+                  {(activeCmsVar || activeLiveVar) ? (
+                    <>
+                      <div style={{ fontSize: 8, color: "#d4e9f355", marginBottom: 5 }}>Opacity — <span style={{ color: "#83eef0", fontWeight: 700 }}>{Math.round(layerOpacity * 100)}%</span></div>
+                      <input type="range" min={0} max={100} value={Math.round(layerOpacity * 100)} onChange={e => setLayerOpacity(parseInt(e.target.value) / 100)} style={{ width: "100%", accentColor: "#83eef0" }} />
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 9, color: "#d4e9f355", lineHeight: 1.5 }}>Enable a Copernicus layer to adjust opacity.</div>
+                  )}
+                  {importedGeoJson && (
+                    <button onClick={() => setImportedGeoJson(null)} style={{ marginTop: 8, fontSize: 8, background: "rgba(253,121,168,0.1)", border: "1px solid rgba(253,121,168,0.3)", borderRadius: 4, color: "#fd79a8", cursor: "pointer", padding: "3px 8px", width: "100%", fontFamily: "Inter,sans-serif", fontWeight: 600 }}>Remove imported layer</button>
+                  )}
+                </div>
+              )}
+              {/* Icon-only row */}
+              <div style={{ display: "flex", flexDirection: "row", gap: 6 }}>
+                {([
+                  { id: 'points',   icon: '⊕', label: 'Points',   color: '#00b894' },
+                  { id: 'lines',    icon: '━', label: 'Lines',    color: '#fdcb6e' },
+                  { id: 'areas',    icon: '▱', label: 'Areas',    color: '#74b9ff' },
+                  { id: 'import',   icon: '↑', label: 'Import',   color: '#a29bfe' },
+                  { id: 'settings', icon: '⚙', label: 'Settings', color: '#83eef0' },
+                ] as const).map(tool => (
+                  <button
+                    key={tool.id}
+                    data-testid={`map-tool-${tool.id}`}
+                    onClick={() => {
+                      if (tool.id === 'import') { importInputRef.current?.click(); return; }
+                      setActiveTool(v => v === tool.id ? null : tool.id as MapTool);
+                    }}
+                    title={tool.label}
+                    style={{
+                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+                      background: activeTool === tool.id ? `rgba(0,10,18,0.94)` : "rgba(0,10,18,0.82)",
+                      border: `1.5px solid ${activeTool === tool.id ? `${tool.color}99` : "rgba(255,255,255,0.18)"}`,
+                      cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.14s",
+                      boxShadow: activeTool === tool.id ? `0 0 0 2px ${tool.color}33` : "none",
+                    }}
+                  >
+                    <span style={{ fontSize: 14, color: activeTool === tool.id ? tool.color : "#d4e9f3bb", lineHeight: 1 }}>{tool.icon}</span>
+                    <span style={{ fontSize: 7.5, fontWeight: 700, color: activeTool === tool.id ? tool.color : "#d4e9f355", fontFamily: "Inter,sans-serif", letterSpacing: "0.03em" }}>{tool.label}</span>
                   </button>
-                )}
+                ))}
               </div>
-            )}
-
-            {/* Toolbar buttons — MyOceanPro style */}
-            {([
-              { id: 'points',   icon: '⊕', label: 'Points',   color: '#00b894' },
-              { id: 'lines',    icon: '━', label: 'Lines',    color: '#fdcb6e' },
-              { id: 'areas',    icon: '▱', label: 'Areas',    color: '#74b9ff' },
-              { id: 'import',   icon: '↑', label: 'Import',   color: '#a29bfe' },
-              { id: 'settings', icon: '⚙', label: 'Settings', color: '#83eef0' },
-            ] as const).map(tool => (
-              <button
-                key={tool.id}
-                data-testid={`map-tool-${tool.id}`}
-                onClick={() => {
-                  if (tool.id === 'import') { importInputRef.current?.click(); return; }
-                  setActiveTool(v => v === tool.id ? null : tool.id as MapTool);
-                }}
-                title={tool.label}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  background: activeTool === tool.id ? `rgba(0,10,18,0.94)` : "rgba(0,10,18,0.82)",
-                  border: `1.5px solid ${activeTool === tool.id ? `${tool.color}99` : "rgba(255,255,255,0.14)"}`,
-                  borderRadius: 10, padding: "7px 13px 7px 9px", cursor: "pointer",
-                  backdropFilter: "blur(8px)", transition: "all 0.14s",
-                  fontFamily: "Inter,sans-serif", minWidth: 132,
-                  boxShadow: activeTool === tool.id ? `0 0 0 1px ${tool.color}33` : "none",
-                }}
-              >
-                <span style={{
-                  width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  background: activeTool === tool.id ? `${tool.color}22` : "rgba(255,255,255,0.07)",
-                  border: `1px solid ${activeTool === tool.id ? `${tool.color}55` : "rgba(255,255,255,0.1)"}`,
-                  fontSize: 13, color: activeTool === tool.id ? tool.color : "#d4e9f3aa", flexShrink: 0,
-                }}>{tool.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: activeTool === tool.id ? tool.color : "#d4e9f3cc" }}>{tool.label}</span>
-              </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            /* ── DESKTOP: vertical stack left side ── */
+            <div style={{
+              position: "absolute", left: 14, top: 14, zIndex: 900,
+              display: "flex", flexDirection: "column", gap: 6,
+              pointerEvents: "auto",
+            }}>
+              {/* Tool result readout — Points */}
+              {activeTool === 'points' && toolPoints.length > 0 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(0,184,148,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#00b894", marginBottom: 5 }}>📍 Points ({toolPoints.length})</div>
+                  {toolPoints.slice(-3).map((pt, i) => (
+                    <div key={i} style={{ fontSize: 8.5, color: "#d4e9f3aa", marginBottom: 2 }}>
+                      {pt.lat.toFixed(4)}°N, {pt.lng.toFixed(4)}°E
+                    </div>
+                  ))}
+                  {toolPoints.length > 3 && <div style={{ fontSize: 8, color: "#d4e9f333" }}>+{toolPoints.length - 3} more</div>}
+                  <button onClick={() => setToolPoints([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {/* Tool result readout — Lines */}
+              {activeTool === 'lines' && toolLine.length >= 2 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(253,203,110,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#fdcb6e", marginBottom: 5 }}>📏 Distance</div>
+                  {toolLine.slice(1).map((pt, i) => (
+                    <div key={i} style={{ fontSize: 8.5, color: "#d4e9f3aa", marginBottom: 2 }}>
+                      Seg {i + 1}: {haversineDist(toolLine[i], pt).toFixed(2)} km
+                    </div>
+                  ))}
+                  {toolLine.length > 2 && (
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#fdcb6e", marginTop: 5, borderTop: "1px solid rgba(253,203,110,0.2)", paddingTop: 5 }}>
+                      Total: {toolLine.slice(1).reduce((acc, pt, i) => acc + haversineDist(toolLine[i], pt), 0).toFixed(2)} km
+                    </div>
+                  )}
+                  <button onClick={() => setToolLine([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {/* Tool result readout — Areas */}
+              {activeTool === 'areas' && toolArea.length >= 3 && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(116,185,255,0.4)", borderRadius: 8, padding: "8px 11px", minWidth: 150, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#74b9ff", marginBottom: 5 }}>▱ Area</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#74b9ff" }}>{polygonAreaKm2(toolArea).toFixed(1)} km²</div>
+                  <div style={{ fontSize: 8, color: "#d4e9f355", marginTop: 2 }}>{toolArea.length} vertices</div>
+                  <button onClick={() => setToolArea([])} style={{ marginTop: 6, fontSize: 8, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, color: "#d4e9f366", cursor: "pointer", padding: "2px 8px", width: "100%", fontFamily: "Inter,sans-serif" }}>Clear</button>
+                </div>
+              )}
+              {/* Settings panel */}
+              {activeTool === 'settings' && (
+                <div style={{ background: "rgba(0,10,18,0.92)", border: "1px solid rgba(131,238,240,0.3)", borderRadius: 8, padding: "10px 12px", minWidth: 168, backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#83eef0", marginBottom: 10 }}>⚙ Layer Settings</div>
+                  {(activeCmsVar || activeLiveVar) ? (
+                    <>
+                      <div style={{ fontSize: 8, color: "#d4e9f355", marginBottom: 6 }}>
+                        Opacity — <span style={{ color: "#83eef0", fontWeight: 700 }}>{Math.round(layerOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range" min={0} max={100} value={Math.round(layerOpacity * 100)}
+                        onChange={e => setLayerOpacity(parseInt(e.target.value) / 100)}
+                        style={{ width: "100%", accentColor: "#83eef0", marginBottom: 4 }}
+                      />
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 9, color: "#d4e9f355", lineHeight: 1.5 }}>Enable a Copernicus layer to adjust opacity.</div>
+                  )}
+                  {importedGeoJson && (
+                    <button onClick={() => setImportedGeoJson(null)} style={{ marginTop: 8, fontSize: 8, background: "rgba(253,121,168,0.1)", border: "1px solid rgba(253,121,168,0.3)", borderRadius: 4, color: "#fd79a8", cursor: "pointer", padding: "3px 8px", width: "100%", fontFamily: "Inter,sans-serif", fontWeight: 600 }}>
+                      Remove imported layer
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* Toolbar buttons — MyOceanPro style, vertical with labels */}
+              {([
+                { id: 'points',   icon: '⊕', label: 'Points',   color: '#00b894' },
+                { id: 'lines',    icon: '━', label: 'Lines',    color: '#fdcb6e' },
+                { id: 'areas',    icon: '▱', label: 'Areas',    color: '#74b9ff' },
+                { id: 'import',   icon: '↑', label: 'Import',   color: '#a29bfe' },
+                { id: 'settings', icon: '⚙', label: 'Settings', color: '#83eef0' },
+              ] as const).map(tool => (
+                <button
+                  key={tool.id}
+                  data-testid={`map-tool-${tool.id}`}
+                  onClick={() => {
+                    if (tool.id === 'import') { importInputRef.current?.click(); return; }
+                    setActiveTool(v => v === tool.id ? null : tool.id as MapTool);
+                  }}
+                  title={tool.label}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: activeTool === tool.id ? `rgba(0,10,18,0.94)` : "rgba(0,10,18,0.82)",
+                    border: `1.5px solid ${activeTool === tool.id ? `${tool.color}99` : "rgba(255,255,255,0.14)"}`,
+                    borderRadius: 10, padding: "7px 13px 7px 9px", cursor: "pointer",
+                    backdropFilter: "blur(8px)", transition: "all 0.14s",
+                    fontFamily: "Inter,sans-serif", minWidth: 132,
+                    boxShadow: activeTool === tool.id ? `0 0 0 1px ${tool.color}33` : "none",
+                  }}
+                >
+                  <span style={{
+                    width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                    background: activeTool === tool.id ? `${tool.color}22` : "rgba(255,255,255,0.07)",
+                    border: `1px solid ${activeTool === tool.id ? `${tool.color}55` : "rgba(255,255,255,0.1)"}`,
+                    fontSize: 13, color: activeTool === tool.id ? tool.color : "#d4e9f3aa", flexShrink: 0,
+                  }}>{tool.icon}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: activeTool === tool.id ? tool.color : "#d4e9f3cc" }}>{tool.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Hidden file input for Import tool */}
           <input
@@ -1757,39 +1839,52 @@ function ExpandedMapModal({
           )}
 
           <SideSection title="Map Key">
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Exclusive Economic Zone (EEZ)</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>CoralMapping reef region</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:11,height:11,borderRadius:"50%",background:"#A6CE3988",border:"1.5px solid #A6CE39",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN monitoring territory</span>
-            </div>
-            <div style={{ fontSize: 8.5, color: "#d4e9f344", marginLeft: 19, marginBottom: 4, marginTop: -1 }}>
-              Circle size ∝ survey count
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:11,height:11,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>DAO Member</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-              <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
-              <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Community reef photo</span>
-            </div>
-            {showWcsReefCloud && (
+            {/* Each row only shows when its layer is active */}
+            {showMarineRegions && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(224,86,253,0.45)",border:"1.5px solid #e056fd",display:"inline-block",flexShrink:0 }}/>
-                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS ReefCloud monitoring site</span>
+                <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Exclusive Economic Zone (EEZ)</span>
               </div>
             )}
-            {showWcsCcSites && (
+            {showCoralMapping && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(255,107,157,0.45)",border:"1.5px solid #ff6b9d",display:"inline-block",flexShrink:0 }}/>
-                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS coral cover survey site</span>
+                <span style={{ width:13,height:8,borderRadius:2,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>CoralMapping reef region</span>
+              </div>
+            )}
+            {showGcrmn && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:13,height:8,borderRadius:2,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN monitoring region</span>
+              </div>
+            )}
+            {showGcrmnSites && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                  <span style={{ width:11,height:11,borderRadius:"50%",background:"#A6CE3988",border:"1.5px solid #A6CE39",display:"inline-block",flexShrink:0 }}/>
+                  <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN monitoring territory</span>
+                </div>
+                <div style={{ fontSize: 8.5, color: "#d4e9f344", marginLeft: 19, marginBottom: 2, marginTop: -1 }}>
+                  Circle size ∝ survey count
+                </div>
+              </>
+            )}
+            {showDaoMembers && markers.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:11,height:11,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>DAO Member</span>
+              </div>
+            )}
+            {showImgs && reefImgs.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Community reef photo</span>
+              </div>
+            )}
+            {showGcrmnMonSites && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(38,222,129,0.45)",border:"1.5px solid #26de81",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN Benthic Site</span>
               </div>
             )}
             {showReefCheck && (
@@ -1804,11 +1899,20 @@ function ExpandedMapModal({
                 <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Reef Life Survey site</span>
               </div>
             )}
-            {showGcrmnMonSites && (
+            {showWcsCcSites && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(38,222,129,0.45)",border:"1.5px solid #26de81",display:"inline-block",flexShrink:0 }}/>
-                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>GCRMN Benthic Site</span>
+                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(255,107,157,0.45)",border:"1.5px solid #ff6b9d",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS coral cover survey site</span>
               </div>
+            )}
+            {showWcsReefCloud && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:9,height:9,borderRadius:"50%",background:"rgba(224,86,253,0.45)",border:"1.5px solid #e056fd",display:"inline-block",flexShrink:0 }}/>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>WCS ReefCloud monitoring site</span>
+              </div>
+            )}
+            {!showMarineRegions && !showCoralMapping && !showGcrmn && !showGcrmnSites && !showDaoMembers && !showImgs && !showGcrmnMonSites && !showReefCheck && !showReefLife && !showWcsCcSites && !showWcsReefCloud && (
+              <div style={{ fontSize: 9, color: "#d4e9f333", fontStyle: "italic" }}>No point or boundary layers active</div>
             )}
           </SideSection>
 
@@ -2612,14 +2716,51 @@ export function ReefMap({
           className="absolute bottom-2 left-2 flex flex-col gap-1.5"
           style={{ zIndex: 500 }}
         >
-          {/* Colour swatches — no labels */}
-          <div className="flex items-center gap-1 pointer-events-none">
-            {showMarineRegions && <span title="EEZ boundary" style={{ width:10,height:6,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",borderRadius:2,display:"inline-block" }}/>}
-            {showCoralMapping  && <span title="CoralMapping region" style={{ width:10,height:6,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",borderRadius:2,display:"inline-block" }}/>}
-            {showGcrmnSites    && <span title="GCRMN monitoring site" style={{ width:8,height:8,borderRadius:"50%",background:"rgba(166,206,57,0.35)",border:"1.5px solid #A6CE39",display:"inline-block" }}/>}
-            {showGcrmn         && <span title="GCRMN region" style={{ width:10,height:6,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",borderRadius:2,display:"inline-block" }}/>}
-            {showDaoMembers && markers.length > 0 && <span title="DAO member" style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",display:"inline-block" }}/>}
-            {showImgs && reefImgs.length > 0 && <span title="Reef photo" style={{ width:8,height:8,borderRadius:2,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block" }}/>}
+          {/* Labelled legend — one row per active layer */}
+          <div
+            className="pointer-events-none"
+            style={{
+              background: "rgba(0,19,28,0.72)", backdropFilter: "blur(6px)",
+              border: "1px solid rgba(131,238,240,0.1)", borderRadius: 7,
+              padding: "4px 7px", display: "flex", flexDirection: "column", gap: 2,
+            }}
+          >
+            {showMarineRegions && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:10,height:6,borderRadius:2,background:"rgba(253,203,110,0.2)",border:"1.5px solid #fdcb6e",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>EEZ Boundary</span>
+              </div>
+            )}
+            {showCoralMapping && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:10,height:6,borderRadius:2,background:"rgba(253,114,114,0.2)",border:"1.5px solid #fd7272",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>Coral Reef Region</span>
+              </div>
+            )}
+            {showGcrmn && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:10,height:6,borderRadius:2,background:"rgba(29,209,161,0.35)",border:"1.5px solid #1dd1a1",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>GCRMN Region</span>
+              </div>
+            )}
+            {showGcrmnSites && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:8,height:8,borderRadius:"50%",background:"rgba(166,206,57,0.35)",border:"1.5px solid #A6CE39",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>GCRMN Territory</span>
+              </div>
+            )}
+            {showDaoMembers && markers.length > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:8,height:8,borderRadius:"50%",background:"#83eef0",border:"2px solid #83eef0",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>DAO Member</span>
+              </div>
+            )}
+            {showImgs && reefImgs.length > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:8,height:8,borderRadius:2,background:"#ff9f43",border:"1.5px solid #ffb347",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>Reef Photo</span>
+              </div>
+            )}
           </div>
           {/* Log in button */}
           {!authenticated && (
