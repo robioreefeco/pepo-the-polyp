@@ -300,6 +300,13 @@ function GcrmnZoomWatcher({ enabled, minZoom = 5 }: { enabled: boolean; minZoom?
   return null;
 }
 
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (b: L.LatLngBounds) => void }) {
+  const map = useMap();
+  useEffect(() => { onBoundsChange(map.getBounds()); }, [map]);
+  useMapEvents({ moveend: () => onBoundsChange(map.getBounds()), zoomend: () => onBoundsChange(map.getBounds()) });
+  return null;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MapMarker {
   id: string;
@@ -652,7 +659,9 @@ function ExpandedMapModal({
   const [activeCmsVar,       setActiveCmsVar]       = useState<CmsVar | null>(null);
   const [cmsYYYYMM,          setCmsYYYYMM]          = useState(CMS_MAX_YM);
   const [showToolbox,        setShowToolbox]        = useState<'cms'|'live'|null>(null);
+  const [toolboxTab,         setToolboxTab]         = useState<'cli'|'python'>('cli');
   const [activeLiveVar,      setActiveLiveVar]      = useState<LiveVar|null>(null);
+  const [mapBounds,          setMapBounds]          = useState<L.LatLngBounds | null>(null);
 
   // ── GeoJSON data — each layer fetched lazily when its toggle is enabled ──────
   const { data: gcrmnGeoJson } = useQuery<GeoJSON.FeatureCollection>({
@@ -1005,72 +1014,156 @@ function ExpandedMapModal({
             )}
             {markers.length > 0 && <FitBounds markers={markers} />}
             <GcrmnZoomWatcher enabled={showGcrmnMonSites} />
+            <MapBoundsTracker onBoundsChange={setMapBounds} />
           </MapContainer>
 
           {/* ── Copernicus Marine Toolbox panel ── */}
           {showToolbox && (activeCmsLayer || activeLiveLayer) && (() => {
-            const isCms  = showToolbox === 'cms'  && activeCmsLayer;
-            const isLive = showToolbox === 'live' && activeLiveLayer;
-            const panelLabel = isCms
-              ? `${activeCmsLayer!.label} · ${cmsMonthLabel(cmsYYYYMM)} · Dataset: ${CMS_DATASET}`
-              : isLive
-                ? `${activeLiveLayer!.label} · ${activeLiveLayer!.unit} · Dataset: ${activeLiveLayer!.toolboxId}`
-                : "";
-            const dsId  = isCms ? CMS_DATASET : activeLiveLayer?.toolboxId ?? "";
-            const varId = isCms ? activeCmsLayer!.var : activeLiveLayer?.var ?? "";
-            const t0    = isCms ? `${cmsYYYYMM}-01` : activeLiveLayer?.time().slice(0,10) ?? "";
+            const isCms   = showToolbox === 'cms'  && activeCmsLayer;
+            const isLive  = showToolbox === 'live' && activeLiveLayer;
+            const dsId    = isCms ? CMS_DATASET : activeLiveLayer?.toolboxId ?? "";
+            const varId   = isCms ? activeCmsLayer!.var : (activeLiveLayer?.wmtsVar ?? activeLiveLayer?.var) ?? "";
+            const t0      = isCms ? `${cmsYYYYMM}-01` : activeLiveLayer?.time().slice(0, 10) ?? "";
+            const hasElev = isLive && activeLiveLayer?.elevation != null;
+            const elevMin = Math.abs(activeLiveLayer?.elevation ?? 0).toFixed(3);
+            const elevMax = (Math.abs(activeLiveLayer?.elevation ?? 0) + 5).toFixed(3);
+            const clampLon = (v: number) => Math.max(-180, Math.min(180, v));
+            const west  = mapBounds ? clampLon(mapBounds.getWest()).toFixed(4)  : "-180.0000";
+            const east  = mapBounds ? clampLon(mapBounds.getEast()).toFixed(4)  : "180.0000";
+            const south = mapBounds ? Math.max(-90, mapBounds.getSouth()).toFixed(4) : "-90.0000";
+            const north = mapBounds ? Math.min(90,  mapBounds.getNorth()).toFixed(4) : "90.0000";
+            const depthArgs = hasElev
+              ? ` \\\n  --minimum-depth ${elevMin} \\\n  --maximum-depth ${elevMax}`
+              : "";
+            const depthPy = hasElev
+              ? `    minimum_depth=${elevMin},\n    maximum_depth=${elevMax},\n`
+              : "";
+
+            const snippetInstall  = `pip install copernicusmarine`;
+            const snippetSubset   =
+              `copernicusmarine subset \\\n` +
+              `  --dataset-id ${dsId} \\\n` +
+              `  --variable ${varId} \\\n` +
+              `  --start-datetime "${t0}T00:00:00" \\\n` +
+              `  --end-datetime "${t0}T23:59:59" \\\n` +
+              `  --minimum-longitude ${west} \\\n` +
+              `  --maximum-longitude ${east} \\\n` +
+              `  --minimum-latitude ${south} \\\n` +
+              `  --maximum-latitude ${north}` + depthArgs;
+            const snippetDescribe =
+              `copernicusmarine describe \\\n` +
+              `  --include-datasets \\\n` +
+              `  --contains "${dsId}"`;
+            const snippetPython   =
+              `import copernicusmarine\n\n` +
+              `# Stream as xarray Dataset (no local download needed)\n` +
+              `ds = copernicusmarine.open_dataset(\n` +
+              `    dataset_id="${dsId}",\n` +
+              `    variables=["${varId}"],\n` +
+              `    start_datetime="${t0}",\n` +
+              `    end_datetime="${t0}",\n` +
+              `    minimum_longitude=${west},\n` +
+              `    maximum_longitude=${east},\n` +
+              `    minimum_latitude=${south},\n` +
+              `    maximum_latitude=${north},\n` +
+              depthPy +
+              `)\n\n` +
+              `# Or download to a NetCDF file\n` +
+              `copernicusmarine.subset(\n` +
+              `    dataset_id="${dsId}",\n` +
+              `    variables=["${varId}"],\n` +
+              `    start_datetime="${t0}",\n` +
+              `    end_datetime="${t0}",\n` +
+              `    minimum_longitude=${west},\n` +
+              `    maximum_longitude=${east},\n` +
+              `    minimum_latitude=${south},\n` +
+              `    maximum_latitude=${north},\n` +
+              depthPy +
+              `    output_filename="${varId}_${t0}.nc",\n` +
+              `)`;
+
+            const preStyle: React.CSSProperties = {
+              margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.55,
+              background: "rgba(0,184,148,0.07)", border: "1px solid rgba(0,184,148,0.18)",
+              color: "#83eef0", overflowX: "auto", whiteSpace: "pre",
+            };
+            const labelStyle: React.CSSProperties = {
+              fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em",
+              textTransform: "uppercase", marginBottom: 4,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            };
+            const copyBtn = (text: string) => (
+              <button
+                onClick={() => navigator.clipboard?.writeText(text)}
+                style={{ fontSize: 8, background: "rgba(0,184,148,0.1)", border: "1px solid rgba(0,184,148,0.25)", borderRadius: 4, color: "#83eef0", cursor: "pointer", fontFamily: "Inter,sans-serif", padding: "1px 6px", letterSpacing: "0.04em" }}
+              >copy</button>
+            );
+
             return (
               <div style={{
                 position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000,
-                background: "rgba(0,10,18,0.96)", borderTop: "1px solid rgba(0,184,148,0.3)",
+                background: "rgba(0,10,18,0.97)", borderTop: "1px solid rgba(0,184,148,0.3)",
                 backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif",
-                padding: "14px 18px 16px",
+                maxHeight: "56%", overflowY: "auto",
               }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13 }}>⬇</span>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#00b894" }}>Copernicus Marine Toolbox</div>
-                      <div style={{ fontSize: 10, color: "#d4e9f366" }}>{panelLabel}</div>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px 8px", borderBottom: "1px solid rgba(131,238,240,0.08)" }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#00b894", marginBottom: 2 }}>
+                      ⬇ Copernicus Marine Toolbox
+                    </div>
+                    <div style={{ fontSize: 9, color: "#d4e9f344", fontFamily: "monospace" }}>
+                      {dsId} · <span style={{ color: "#83eef077" }}>{varId}</span>
+                      {mapBounds ? <span style={{ color: "#d4e9f322" }}> · {south}°–{north}°N  {west}°–{east}°E</span> : null}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowToolbox(null)}
-                    style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
-                  >×</button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Install</div>
-                    <pre style={{
-                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                    }}>{`pip install copernicusmarine`}</pre>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>CLI</div>
-                    <pre style={{
-                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                    }}>{`copernicusmarine get \\\n  --dataset-id ${dsId} \\\n  --variable ${varId} \\\n  --start-datetime "${t0}" \\\n  --end-datetime "${t0}"`}</pre>
-                  </div>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <div style={{ fontSize: 9, color: "#83eef066", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Python API</div>
-                    <pre style={{
-                      margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.5,
-                      background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.18)",
-                      color: "#83eef0", overflowX: "auto", whiteSpace: "pre-wrap",
-                    }}>{`import copernicusmarine\n\ncopernicusmarine.get(\n    dataset_id="${dsId}",\n    variables=["${varId}"],\n    start_datetime="${t0}",\n    end_datetime="${t0}",\n    output_directory="./copernicus_data",\n)`}</pre>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {(["cli", "python"] as const).map(tab => (
+                      <button key={tab} onClick={() => setToolboxTab(tab)} style={{
+                        fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 700, letterSpacing: "0.08em",
+                        padding: "3px 10px", borderRadius: 10, cursor: "pointer", textTransform: "uppercase",
+                        background: toolboxTab === tab ? "rgba(0,184,148,0.18)" : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${toolboxTab === tab ? "rgba(0,184,148,0.55)" : "rgba(255,255,255,0.1)"}`,
+                        color: toolboxTab === tab ? "#00b894" : "#d4e9f344",
+                        transition: "all 0.12s",
+                      }}>{tab === 'cli' ? 'CLI' : 'Python'}</button>
+                    ))}
+                    <button onClick={() => setShowToolbox(null)}
+                      style={{ background: "none", border: "none", color: "#d4e9f355", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px 0 8px" }}
+                    >×</button>
                   </div>
                 </div>
 
-                <div style={{ marginTop: 10, fontSize: 9, color: "#d4e9f330" }}>
-                  © Mercator Ocean International · Copernicus Marine Service (CMEMS) ·{" "}
-                  <a href="https://github.com/mercator-ocean/copernicus-marine-toolbox" target="_blank" rel="noopener noreferrer"
-                    style={{ color: "#83eef066", textDecoration: "underline" }}>github.com/mercator-ocean/copernicus-marine-toolbox</a>
+                {/* Body */}
+                <div style={{ padding: "10px 16px 14px" }}>
+                  {toolboxTab === 'cli' ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: 10, alignItems: "start" }}>
+                      <div>
+                        <div style={labelStyle}><span>Install</span>{copyBtn(snippetInstall)}</div>
+                        <pre style={preStyle}>{snippetInstall}</pre>
+                      </div>
+                      <div>
+                        <div style={labelStyle}><span>Subset · current viewport</span>{copyBtn(snippetSubset)}</div>
+                        <pre style={preStyle}>{snippetSubset}</pre>
+                      </div>
+                      <div>
+                        <div style={labelStyle}><span>Describe dataset</span>{copyBtn(snippetDescribe)}</div>
+                        <pre style={preStyle}>{snippetDescribe}</pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={labelStyle}><span>open_dataset · subset</span>{copyBtn(snippetPython)}</div>
+                      <pre style={preStyle}>{snippetPython}</pre>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 9, fontSize: 8, color: "#d4e9f325", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    <span>© Mercator Ocean International · Copernicus Marine Service (CMEMS)</span>
+                    <a href="https://github.com/mercator-ocean/copernicus-marine-toolbox" target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>GitHub</a>
+                    <a href="https://toolbox-docs.marine.copernicus.eu" target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Docs</a>
+                    <a href={`https://data.marine.copernicus.eu/viewer/expert?view=dataset&dataset=${dsId}`} target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Open in Copernicus Viewer</a>
+                  </div>
                 </div>
               </div>
             );
