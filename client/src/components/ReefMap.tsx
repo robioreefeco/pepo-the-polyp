@@ -691,7 +691,32 @@ const LIVE_GROUPS = [
   "Sea Level Altimetry", "Wave & Wind", "BGC Forecast",
 ] as const;
 
-function buildLiveTileUrl(layer: LiveLayer): string {
+// Standard CMEMS depth levels (metres, negative = below surface) — ARMOR3D / PHY 33-level grid
+const DEPTH_LEVELS = [
+  -0.494, -1.541, -2.646, -3.819, -5.078, -6.440, -7.929,
+  -9.573, -11.405, -13.467, -15.810, -18.495, -21.599, -25.211,
+  -29.444, -34.434, -40.344, -47.374, -55.764, -65.807, -77.854,
+  -92.326, -109.729, -130.666, -155.851, -186.126, -222.475, -266.040,
+  -318.127, -380.213, -453.938, -541.089, -643.567,
+] as const;
+
+function depthLabel(m: number): string {
+  const a = Math.abs(m);
+  if (a < 2) return "Surface";
+  if (a < 10) return `${a.toFixed(1)} m`;
+  if (a < 1000) return `${Math.round(a)} m`;
+  return `${(a / 1000).toFixed(1)} km`;
+}
+
+// Return the first date for the timeline based on product group
+function liveTimelineMin(group: string): string {
+  if (group === "Sea Level Altimetry" || group === "Observation · Multi-sensor") return "1993-01-01";
+  return "2019-01-01";
+}
+
+function buildLiveTileUrl(layer: LiveLayer, timeOverride?: string, elevOverride?: number | null): string {
+  const time = timeOverride ?? layer.time();
+  const elev = elevOverride !== undefined ? elevOverride : layer.elevation;
   return (
     "https://wmts.marine.copernicus.eu/teroWmts" +
     "?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile" +
@@ -699,8 +724,8 @@ function buildLiveTileUrl(layer: LiveLayer): string {
     `&STYLE=${encodeURIComponent("cmap:" + layer.cmap)}` +
     "&FORMAT=image%2Fpng&TILEMATRIXSET=EPSG%3A3857" +
     "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}" +
-    `&TIME=${encodeURIComponent(layer.time())}` +
-    (layer.elevation != null ? `&ELEVATION=${layer.elevation}` : "")
+    `&TIME=${encodeURIComponent(time)}` +
+    (elev != null ? `&ELEVATION=${elev}` : "")
   );
 }
 
@@ -740,6 +765,15 @@ function ExpandedMapModal({
   const [importedGeoJson,    setImportedGeoJson]    = useState<GeoJSON.FeatureCollection | null>(null);
   const [layerOpacity,       setLayerOpacity]       = useState(0.72);
   const [isMobile,           setIsMobile]           = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+  // ── Live layer time + depth controls ──────────────────────────────────────
+  const [liveDate,         setLiveDate]         = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 3);
+    return d.toISOString().slice(0, 10) + "T00:00:00Z";
+  });
+  const [liveDepthIdx,     setLiveDepthIdx]     = useState<number>(0);
+  const [liveDragging,     setLiveDragging]     = useState<false | "time" | "depth">(false);
+  const timelineTrackRef = useRef<HTMLDivElement>(null);
+  const depthTrackRef    = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -811,7 +845,35 @@ function ExpandedMapModal({
   const activeLiveLayer = activeLiveVar
     ? LIVE_LAYERS.find(l => l.var === activeLiveVar) ?? null
     : null;
-  const liveTileUrl = activeLiveLayer ? buildLiveTileUrl(activeLiveLayer) : null;
+  const liveTileUrl = activeLiveLayer
+    ? buildLiveTileUrl(
+        activeLiveLayer,
+        liveDate,
+        activeLiveLayer.elevation != null ? DEPTH_LEVELS[liveDepthIdx] : null,
+      )
+    : null;
+
+  // Timeline date-range helpers (recomputed when active layer changes)
+  const liveMinDateStr = activeLiveLayer ? liveTimelineMin(activeLiveLayer.group) : "2019-01-01";
+  const liveMaxDate = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
+  const tMin = new Date(liveMinDateStr).getTime();
+  const tMax = liveMaxDate.getTime();
+
+  const handleTimelinePointer = (clientX: number) => {
+    const rect = timelineTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const ms = tMin + ratio * (tMax - tMin);
+    const d = new Date(ms);
+    setLiveDate(d.toISOString().slice(0, 10) + "T00:00:00Z");
+  };
+
+  const handleDepthPointer = (clientY: number) => {
+    const rect = depthTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    setLiveDepthIdx(Math.round(ratio * (DEPTH_LEVELS.length - 1)));
+  };
 
   const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (activeCmsVar ? 1 : 0) + (activeLiveVar ? 1 : 0) + 1;
 
@@ -1189,6 +1251,154 @@ function ExpandedMapModal({
               />
             )}
           </MapContainer>
+
+          {/* ── Live Layer Timeline Scrubber ─────────────────────────────── */}
+          {activeLiveVar && activeLiveLayer && (() => {
+            const tCur = new Date(liveDate).getTime();
+            const pos = Math.max(0, Math.min(1, (tCur - tMin) / (tMax - tMin)));
+            const minYear = parseInt(liveMinDateStr.slice(0, 4));
+            const maxYear = liveMaxDate.getFullYear();
+            const years: number[] = [];
+            for (let y = minYear; y <= maxYear; y++) years.push(y);
+            const curLabel = new Date(liveDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+            return (
+              <div
+                style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 800,
+                  height: 58, background: "rgba(0,5,12,0.90)",
+                  borderTop: "1px solid rgba(131,238,240,0.12)",
+                  backdropFilter: "blur(10px)",
+                  display: "flex", flexDirection: "column",
+                  userSelect: "none", pointerEvents: "auto",
+                }}
+                onMouseMove={e => { if (liveDragging === "time") handleTimelinePointer(e.clientX); }}
+                onMouseUp={() => { if (liveDragging === "time") setLiveDragging(false); }}
+                onMouseLeave={() => { if (liveDragging === "time") setLiveDragging(false); }}
+              >
+                {/* Top label row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 14px 0", flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: activeLiveLayer.color, display: "inline-block", flexShrink: 0, boxShadow: `0 0 6px ${activeLiveLayer.color}` }}/>
+                    <span style={{ fontSize: 8.5, fontWeight: 700, fontFamily: "Inter,sans-serif", color: activeLiveLayer.color, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      {activeLiveLayer.label}
+                    </span>
+                    <span style={{ fontSize: 7.5, color: "#d4e9f344", fontFamily: "Inter,sans-serif" }}>· {activeLiveLayer.group} · {activeLiveLayer.unit}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {activeLiveLayer.elevation != null && (
+                      <span style={{ fontSize: 8, color: activeLiveLayer.color, fontFamily: "Inter,sans-serif", fontWeight: 600, background: `${activeLiveLayer.color}1a`, border: `1px solid ${activeLiveLayer.color}44`, borderRadius: 4, padding: "1px 6px" }}>
+                        ↕ {depthLabel(DEPTH_LEVELS[liveDepthIdx])}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "Inter,sans-serif", color: "#d4e9f3bb" }}>{curLabel}</span>
+                  </div>
+                </div>
+                {/* Track */}
+                <div
+                  ref={timelineTrackRef}
+                  onClick={e => handleTimelinePointer(e.clientX)}
+                  onMouseDown={() => setLiveDragging("time")}
+                  style={{ flex: 1, position: "relative", cursor: "ew-resize", margin: "0 14px 6px" }}
+                >
+                  {/* Background track */}
+                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", marginTop: -1, height: 2, background: "rgba(255,255,255,0.12)", borderRadius: 2 }}/>
+                  {/* Progress fill */}
+                  <div style={{ position: "absolute", left: 0, right: `${(1 - pos) * 100}%`, top: "50%", marginTop: -1, height: 2, background: activeLiveLayer.color, borderRadius: 2, opacity: 0.8 }}/>
+                  {/* Year markers */}
+                  {years.map(y => {
+                    const yT = new Date(`${y}-01-01`).getTime();
+                    const yPos = (yT - tMin) / (tMax - tMin);
+                    if (yPos < 0 || yPos > 1) return null;
+                    return (
+                      <div key={y} style={{ position: "absolute", left: `${yPos * 100}%`, top: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", transform: "translateX(-50%)" }}>
+                        <div style={{ width: 1, height: 10, background: "rgba(255,255,255,0.3)", marginBottom: 2 }}/>
+                        <span style={{ fontSize: 8, fontWeight: 700, color: "#d4e9f377", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap" }}>{y}</span>
+                      </div>
+                    );
+                  })}
+                  {/* Quarterly ticks (Apr=4, Jul=7, Oct=10) */}
+                  {years.flatMap(y => [4, 7, 10].map(mo => {
+                    const tTick = new Date(`${y}-${String(mo).padStart(2, "0")}-01`).getTime();
+                    const tPos = (tTick - tMin) / (tMax - tMin);
+                    if (tPos <= 0.001 || tPos >= 0.999) return null;
+                    return (
+                      <div key={`${y}-${mo}`} style={{ position: "absolute", left: `${tPos * 100}%`, top: "30%", width: 1, height: 5, background: "rgba(255,255,255,0.18)", pointerEvents: "none" }}/>
+                    );
+                  }))}
+                  {/* Handle */}
+                  <div style={{
+                    position: "absolute", left: `${pos * 100}%`, top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: 14, height: 14, borderRadius: "50%",
+                    background: "#fff",
+                    border: `2.5px solid ${activeLiveLayer.color}`,
+                    boxShadow: `0 0 10px ${activeLiveLayer.color}cc, 0 2px 6px rgba(0,0,0,0.6)`,
+                    zIndex: 2, cursor: "grab", pointerEvents: "none",
+                    transition: liveDragging === "time" ? "none" : "left 0.15s",
+                  }}/>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Live Layer Depth Bar ─────────────────────────────────────── */}
+          {activeLiveVar && activeLiveLayer && activeLiveLayer.elevation != null && (() => {
+            const depthPos = liveDepthIdx / (DEPTH_LEVELS.length - 1);
+            const labelIdxs = [0, 6, 11, 15, 19, 22, 26, 30, DEPTH_LEVELS.length - 1];
+            return (
+              <div
+                style={{
+                  position: "absolute", right: 58, top: 60, bottom: 66, zIndex: 800,
+                  width: 48, pointerEvents: "auto",
+                  background: "rgba(0,5,12,0.85)",
+                  border: "1px solid rgba(131,238,240,0.12)",
+                  borderRadius: 8, backdropFilter: "blur(8px)",
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  padding: "6px 0 4px",
+                  userSelect: "none",
+                }}
+                onMouseMove={e => { if (liveDragging === "depth") handleDepthPointer(e.clientY); }}
+                onMouseUp={() => { if (liveDragging === "depth") setLiveDragging(false); }}
+                onMouseLeave={() => { if (liveDragging === "depth") setLiveDragging(false); }}
+              >
+                {/* Header label */}
+                <div style={{ fontSize: 7, fontWeight: 700, color: "#d4e9f355", fontFamily: "Inter,sans-serif", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Depth</div>
+                {/* Current depth pill */}
+                <div style={{ fontSize: 7.5, fontWeight: 700, color: activeLiveLayer.color, fontFamily: "Inter,sans-serif", marginBottom: 4, textAlign: "center", lineHeight: 1.2, padding: "1px 4px", background: `${activeLiveLayer.color}1a`, border: `1px solid ${activeLiveLayer.color}44`, borderRadius: 4 }}>
+                  {depthLabel(DEPTH_LEVELS[liveDepthIdx])}
+                </div>
+                {/* Vertical track */}
+                <div
+                  ref={depthTrackRef}
+                  onClick={e => handleDepthPointer(e.clientY)}
+                  onMouseDown={() => setLiveDragging("depth")}
+                  style={{ flex: 1, width: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3, position: "relative", cursor: "ns-resize" }}
+                >
+                  {/* Progress fill (top = 0 m, increasing depth = more fill) */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${depthPos * 100}%`, background: activeLiveLayer.color, borderRadius: 3, opacity: 0.75 }}/>
+                  {/* Depth tick marks */}
+                  {labelIdxs.map(idx => {
+                    const p = idx / (DEPTH_LEVELS.length - 1);
+                    return (
+                      <div key={idx} style={{ position: "absolute", top: `${p * 100}%`, left: -10, width: 8, height: 1, background: "rgba(255,255,255,0.2)", pointerEvents: "none" }}/>
+                    );
+                  })}
+                  {/* Handle */}
+                  <div style={{
+                    position: "absolute", top: `${depthPos * 100}%`,
+                    left: "50%", transform: "translate(-50%, -50%)",
+                    width: 12, height: 12, borderRadius: "50%",
+                    background: "#fff", border: `2.5px solid ${activeLiveLayer.color}`,
+                    boxShadow: `0 0 8px ${activeLiveLayer.color}99`,
+                    pointerEvents: "none",
+                    transition: liveDragging === "depth" ? "none" : "top 0.15s",
+                  }}/>
+                </div>
+                {/* Bottom depth label */}
+                <div style={{ fontSize: 6.5, color: "#d4e9f333", fontFamily: "Inter,sans-serif", marginTop: 4, textAlign: "center" }}>−644 m</div>
+              </div>
+            );
+          })()}
 
           {/* ── Map Tools Floating Toolbar ── */}
           {/* Result / settings panels — shown above (desktop) or below (mobile) buttons */}
@@ -2280,6 +2490,10 @@ export function ReefMap({
   const [cmsYYYYMM,         setCmsYYYYMM]         = useState(CMS_MAX_YM);
   const [showToolbox,       setShowToolbox]       = useState<'cms'|'live'|null>(null);
   const [activeLiveVar,     setActiveLiveVar]     = useState<LiveVar|null>(null);
+  const [compactLiveDate,   setCompactLiveDate]   = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 3);
+    return d.toISOString().slice(0, 10) + "T00:00:00Z";
+  });
 
   const activeCmsLayer = activeCmsVar
     ? CMS_LAYERS.find(l => l.var === activeCmsVar) ?? null
@@ -2290,7 +2504,9 @@ export function ReefMap({
   const activeLiveLayer = activeLiveVar
     ? LIVE_LAYERS.find(l => l.var === activeLiveVar) ?? null
     : null;
-  const liveTileUrl = activeLiveLayer ? buildLiveTileUrl(activeLiveLayer) : null;
+  const liveTileUrl = activeLiveLayer
+    ? buildLiveTileUrl(activeLiveLayer, compactLiveDate, null)
+    : null;
 
   const expanded  = externalExpanded !== undefined ? externalExpanded : internalExpanded;
   const setExpanded = onExpandChange ?? setInternalExpanded;
@@ -2638,10 +2854,36 @@ export function ReefMap({
                       </optgroup>
                     </select>
                   </div>
+                  {/* Compact date navigator for live layers */}
                   {activeLiveVar && activeLiveLayer && (
-                    <div style={{ padding: "0 10px 2px", fontSize: 8, color: "#d4e9f355", fontFamily: "Inter,sans-serif" }}>
-                      <span style={{ color: activeLiveLayer.color }}>● </span>{activeLiveLayer.unit}
-                    </div>
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 10px 3px" }}>
+                        <button
+                          onClick={() => {
+                            const d = new Date(compactLiveDate);
+                            d.setDate(d.getDate() - 7);
+                            const min = new Date(liveTimelineMin(activeLiveLayer.group));
+                            if (d >= min) setCompactLiveDate(d.toISOString().slice(0, 10) + "T00:00:00Z");
+                          }}
+                          style={{ fontSize: 12, background: "none", border: "1px solid rgba(116,185,255,0.2)", borderRadius: 4, color: "#74b9ff", cursor: "pointer", padding: "0 5px", lineHeight: 1.4 }}
+                        >‹</button>
+                        <span style={{ flex: 1, textAlign: "center", fontSize: 8.5, fontFamily: "Inter,sans-serif", fontWeight: 600, color: "#74b9ff" }}>
+                          {new Date(compactLiveDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const d = new Date(compactLiveDate);
+                            d.setDate(d.getDate() + 7);
+                            const max = new Date(); max.setDate(max.getDate() - 1);
+                            if (d <= max) setCompactLiveDate(d.toISOString().slice(0, 10) + "T00:00:00Z");
+                          }}
+                          style={{ fontSize: 12, background: "none", border: "1px solid rgba(116,185,255,0.2)", borderRadius: 4, color: "#74b9ff", cursor: "pointer", padding: "0 5px", lineHeight: 1.4 }}
+                        >›</button>
+                      </div>
+                      <div style={{ padding: "0 10px 2px", fontSize: 8, color: "#d4e9f355", fontFamily: "Inter,sans-serif" }}>
+                        <span style={{ color: activeLiveLayer.color }}>● </span>{activeLiveLayer.unit}
+                      </div>
+                    </>
                   )}
                 </div>
 
