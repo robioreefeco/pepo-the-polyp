@@ -13,6 +13,7 @@ import { CommunityLeaderboard } from "@/pages/CommunityLeaderboard";
 import { Governance } from "@/pages/Governance";
 import { PublicProfile } from "@/pages/PublicProfile";
 import { MobileMapPage } from "@/pages/MobileMapPage";
+import { ReefMapPage } from "@/pages/ReefMapPage";
 import { WorkspacePage } from "@/pages/WorkspacePage";
 import { CurationPage } from "@/pages/CurationPage";
 import { PRIVY_ENABLED, PRIVY_APP_ID } from "@/lib/privy";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/governance" component={Governance} />
       <Route path="/members/:id" component={PublicProfile} />
       <Route path="/map" component={MobileMapPage} />
+      <Route path="/reef-map" component={ReefMapPage} />
       <Route path="/workspace" component={WorkspacePage} />
       <Route path="/curation" component={CurationPage} />
       <Route component={NotFound} />

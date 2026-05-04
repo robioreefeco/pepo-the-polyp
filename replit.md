@@ -32,9 +32,10 @@ client/src/
     PublicProfile.tsx                     — Public member profile at /members/:id; shows avatar, bio, ORCID badge, stats, activity feed, IPFS permanence card (CID + gateway links), wallet address card
     UserProfileDashboard.tsx              — My Profile edit page (bio, tags, links, ORCID linking)
     WorkspacePage.tsx                     — /workspace page: Fileverse dDocs + dSheets integration cards with launch buttons, About Fileverse section
+    ReefMapPage.tsx                       — /reef-map page: dedicated full-screen Regen Reef Network Map page; forces ReefMap into expanded modal mode via portal; closing navigates back to /; accessible from sidebar "Reef Map" nav pill and mobile bottom nav
     sections/
       ApplicationHeaderSection.tsx        — Top nav with Privy auth button + Workspace link
-      ExplorerNavigationSidebarSection.tsx — Sidebar with nav, Telegram bot link, Reef Workspace (dDocs/dSheets), Reef Network Map
+      ExplorerNavigationSidebarSection.tsx — Sidebar with nav (Knowledge Graph, Community, Governance, Reef Map, Curation, My Profile, Telegram Bot), Reef Workspace (dDocs/dSheets), compact Reef Network Map widget
       ReefInsightDashboardSection.tsx      — Bonfires Knowledge Graph iframe + Telegram Bot panel
   components/
     PrivyLoginButton.tsx                  — Calls login() for Privy's native modal

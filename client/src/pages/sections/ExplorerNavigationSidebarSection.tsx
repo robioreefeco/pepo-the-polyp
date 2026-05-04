@@ -274,6 +274,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
   const isCommunity = location === "/community";
   const isGovernance = location === "/governance";
   const isCuration = location === "/curation";
+  const isReefMap = location === "/reef-map";
 
   return (
     <nav className="flex flex-col w-64 min-h-screen items-start justify-between p-6 bg-[#00080c99] border-r border-[#ffffff0d] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)_brightness(100%)] relative z-10">
@@ -332,6 +333,25 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           </div>
           <span className={`${TEXT_BASE} ${isGovernance ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
             Governance
+          </span>
+        </Link>
+
+        {/* Reef Map */}
+        <Link
+          href="/reef-map"
+          data-testid="link-reef-map"
+          className={`${PILL_BASE} ${isReefMap ? PILL_ACTIVE : PILL_INACTIVE}`}
+          style={isReefMap ? EMBOSS : {}}
+        >
+          <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke={isReefMap ? "#83eef0" : "#d4e9f380"} strokeWidth="1.8"/>
+              <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"
+                stroke={isReefMap ? "#83eef0" : "#d4e9f380"} strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <span className={`${TEXT_BASE} ${isReefMap ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
+            Reef Map
           </span>
         </Link>
 
