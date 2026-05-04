@@ -482,8 +482,21 @@ function ExpandedMapModal({
   const [showReefCheck,      setShowReefCheck]      = useState(true);
   const [showReefLife,       setShowReefLife]        = useState(true);
   const [showGcrmnMonSites,  setShowGcrmnMonSites]  = useState(true);
+  const [showChlLayer,       setShowChlLayer]       = useState(false);
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + 1;
+  // ── WMTS tile URL for Copernicus Chlorophyll-a (CHL) ─────────────────────────
+  const CHL_WMTS_URL =
+    "https://wmts.marine.copernicus.eu/teroWmts" +
+    "?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile" +
+    "&LAYER=OCEANCOLOUR_GLO_BGC_L4_MY_009_104%2F" +
+      "cmems_obs-oc_glo_bgc-plankton_my_l4-multi-4km_P1M_202603%2FCHL" +
+    "&STYLE=cmap%3Aalgae" +
+    "&FORMAT=image%2Fpng" +
+    "&TILEMATRIXSET=EPSG%3A3857" +
+    "&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}" +
+    "&TIME=2026-03-01T00%3A00%3A00Z";
+
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (showChlLayer ? 1 : 0) + 1;
 
   // Country breakdown for GCRMN legend — derived from live GeoJSON
   const gcrmnCountryStats = useMemo(() => {
@@ -568,6 +581,14 @@ function ExpandedMapModal({
               attribution="© Esri"
               maxZoom={10}
             />
+            {showChlLayer && (
+              <TileLayer
+                url={CHL_WMTS_URL}
+                opacity={0.72}
+                maxZoom={10}
+                attribution='© <a href="https://marine.copernicus.eu">Copernicus Marine Service · E.U.</a>'
+              />
+            )}
             {showMarineRegions && (
               <WMSTileLayer
                 url="https://geo.vliz.be/geoserver/MarineRegions/wms"
@@ -792,8 +813,25 @@ function ExpandedMapModal({
               >All Off</button>
             </div>
 
-            {/* ── Boundaries ── */}
+            {/* ── Satellite ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#d4e9f340" }}>Satellite</span>
+              <button
+                onClick={() => setShowChlLayer(v => !v)}
+                style={{ fontSize: 8, background: "none", border: "none", color: "#83eef066", cursor: "pointer", fontFamily: "Inter,sans-serif", fontWeight: 600 }}
+              >{showChlLayer ? "off" : "all"}</button>
+            </div>
+            <LayerToggle
+              label="Ocean Chlorophyll-a"
+              sublabel="Monthly CHL · 4 km · Copernicus Marine (1997–2026)"
+              active={showChlLayer}
+              color="#00b894"
+              onClick={() => setShowChlLayer(v => !v)}
+              testId="expanded-toggle-chl-layer"
+            />
+
+            {/* ── Boundaries ── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, marginTop: 10 }}>
               <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#d4e9f340" }}>Boundaries</span>
               <button
                 onClick={() => { const all = showCoralMapping && showMarineRegions && showGcrmn; setShowCoralMapping(!all); setShowMarineRegions(!all); setShowGcrmn(!all); }}
@@ -1353,6 +1391,14 @@ export function ReefMap({
             attribution="© Esri"
             maxZoom={10}
           />
+          {showChlLayer && (
+            <TileLayer
+              url={CHL_WMTS_URL}
+              opacity={0.72}
+              maxZoom={10}
+              attribution='© Copernicus Marine Service'
+            />
+          )}
           {showMarineRegions && (
             <WMSTileLayer
               url="https://geo.vliz.be/geoserver/MarineRegions/wms"
@@ -1534,7 +1580,7 @@ export function ReefMap({
                   border: "1px solid rgba(131,238,240,0.25)",
                   borderRadius: 10, padding: "1px 7px",
                 }}>
-                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnMonSites, showGcrmnSites, showReefCheck, showReefLife, showWcsCcSites, showWcsReefCloud, showImgs].filter(Boolean).length} / 10
+                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnMonSites, showGcrmnSites, showReefCheck, showReefLife, showWcsCcSites, showWcsReefCloud, showImgs, showChlLayer].filter(Boolean).length} / 11
                 </span>
               </div>
 
@@ -1542,12 +1588,12 @@ export function ReefMap({
               <div style={{ display: "flex", gap: 5, padding: "7px 10px 6px", borderBottom: "1px solid rgba(131,238,240,0.07)" }}>
                 <button
                   data-testid="toggle-all-layers"
-                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); }}
+                  onClick={() => { setShowMarineRegions(true); setShowCoralMapping(true); setShowGcrmn(true); setShowGcrmnSites(true); setShowGcrmnMonSites(true); setShowWcsReefCloud(true); setShowWcsCcSites(true); setShowReefCheck(true); setShowReefLife(true); setShowImgs(true); setShowChlLayer(true); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(131,238,240,0.11)", border: "1px solid rgba(131,238,240,0.28)", borderRadius: 6, padding: "4px 0", color: "#83eef0", cursor: "pointer", transition: "background 0.15s" }}
                 >Select All</button>
                 <button
                   data-testid="toggle-no-layers"
-                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); }}
+                  onClick={() => { setShowMarineRegions(false); setShowCoralMapping(false); setShowGcrmn(false); setShowGcrmnSites(false); setShowGcrmnMonSites(false); setShowWcsReefCloud(false); setShowWcsCcSites(false); setShowReefCheck(false); setShowReefLife(false); setShowImgs(false); setShowChlLayer(false); }}
                   style={{ flex: 1, fontSize: 9, fontFamily: "Inter,sans-serif", fontWeight: 700, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 0", color: "#d4e9f355", cursor: "pointer", transition: "background 0.15s" }}
                 >Clear All</button>
               </div>
@@ -1555,6 +1601,9 @@ export function ReefMap({
               {/* ── Layer groups ── */}
               <div style={{ padding: "6px 6px 8px", maxHeight: 360, overflowY: "auto" }}>
                 {([
+                  { group: "Satellite", icon: "◎", layers: [
+                    { testId: "toggle-chl-layer",             label: "Ocean Chlorophyll-a", sublabel: "Monthly CHL · 4 km · Copernicus Marine", color: "#00b894", active: showChlLayer,      toggle: () => setShowChlLayer(v => !v)      },
+                  ]},
                   { group: "Boundaries", icon: "◈", layers: [
                     { testId: "toggle-coral-mapping-layer",   label: "Coral Reef Regions",  sublabel: "29 zones · UQ / Allen Coral Atlas",  color: "#fd7272", active: showCoralMapping,  toggle: () => setShowCoralMapping(v => !v)  },
                     { testId: "toggle-marine-regions-layer",  label: "EEZ Boundaries",      sublabel: "Excl. Economic Zones · VLIZ",         color: "#fdcb6e", active: showMarineRegions, toggle: () => setShowMarineRegions(v => !v) },
