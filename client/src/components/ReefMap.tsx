@@ -260,6 +260,19 @@ function makeImagePin() {
   });
 }
 
+// ─── Fix Leaflet map sizing when rendered inside portals / flex containers ────
+// Leaflet calculates map dimensions synchronously on mount, before the browser
+// has finished applying CSS flex layout.  A short setTimeout gives the layout
+// engine one tick to settle, then tells Leaflet to re-measure.
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => { map.invalidateSize(); }, 50);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
+
 // ─── Auto-fit to member markers ───────────────────────────────────────────────
 function FitBounds({ markers }: { markers: { latitude: number; longitude: number }[] }) {
   const map = useMap();
@@ -700,6 +713,7 @@ function ExpandedMapModal({
             attributionControl={true}
             style={{ width: "100%", height: "100%", background: "#00131c" }}
           >
+            <MapResizer />
             <TileLayer
               url="https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
               attribution="© Esri"
@@ -1725,6 +1739,7 @@ export function ReefMap({
           attributionControl={false}
           style={{ width: "100%", height: "100%", background: "#00131c" }}
         >
+          <MapResizer />
           <TileLayer
             url="https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
             attribution="© Esri"
