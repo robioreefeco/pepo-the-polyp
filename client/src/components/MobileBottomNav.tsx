@@ -109,6 +109,24 @@ export function MobileBottomNav() {
         </span>
       </Link>
 
+      {/* Graph */}
+      <Link
+        href="/graph"
+        data-testid="nav-mobile-graph"
+        className={`flex flex-col items-center justify-center gap-1 flex-1 py-3 min-h-[56px] no-underline transition-opacity ${active("/graph") ? "opacity-100" : "opacity-50"}`}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="5" cy="12" r="2.5" fill={active("/graph") ? "#83eef0" : "#d4e9f380"} />
+          <circle cx="19" cy="6" r="2.5" fill={active("/graph") ? "#83eef066" : "#d4e9f340"} />
+          <circle cx="19" cy="18" r="2.5" fill={active("/graph") ? "#83eef066" : "#d4e9f340"} />
+          <line x1="7" y1="11" x2="17" y2="7" stroke={active("/graph") ? "#83eef0" : "#d4e9f380"} strokeWidth="1.5"/>
+          <line x1="7" y1="13" x2="17" y2="17" stroke={active("/graph") ? "#83eef0" : "#d4e9f380"} strokeWidth="1.5"/>
+        </svg>
+        <span className={`text-[9px] ${active("/graph") ? "text-[#83eef0] font-medium" : "text-[#d4e9f380]"}`}>
+          {t("mobile.graph")}
+        </span>
+      </Link>
+
       {/* Governance */}
       <Link
         href="/governance"

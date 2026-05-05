@@ -195,6 +195,7 @@ const en = {
     workspace: "Workspace",
     reefMap: "Reef Map",
     logIn: "Log in",
+    graph: "Graph",
     telegram: "Telegram",
   },
   cookies: {

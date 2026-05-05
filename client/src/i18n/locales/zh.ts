@@ -195,6 +195,7 @@ const zh = {
     workspace: "工作区",
     reefMap: "珊瑚礁地图",
     logIn: "登录",
+    graph: "知识图谱",
     telegram: "Telegram",
   },
   cookies: {

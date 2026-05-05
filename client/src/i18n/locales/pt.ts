@@ -195,6 +195,7 @@ const pt = {
     workspace: "Espaço de trabalho",
     reefMap: "Mapa",
     logIn: "Entrar",
+    graph: "Grafo",
     telegram: "Telegram",
   },
   cookies: {

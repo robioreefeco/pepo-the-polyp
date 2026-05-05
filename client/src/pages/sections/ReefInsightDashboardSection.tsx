@@ -73,7 +73,7 @@ function KnowledgeGraphPanel() {
             height: "100%",
             border: "none",
           }}
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          allow="clipboard-write; clipboard-read; pointer-lock"
           loading="lazy"
           data-testid="iframe-knowledge-graph"
         />

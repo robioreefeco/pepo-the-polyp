@@ -195,6 +195,7 @@ const it = {
     workspace: "Workspace",
     reefMap: "Mappa Barriera",
     logIn: "Accedi",
+    graph: "Grafo",
     telegram: "Telegram",
   },
   cookies: {
