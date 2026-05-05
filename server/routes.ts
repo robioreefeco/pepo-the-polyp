@@ -783,6 +783,80 @@ export async function registerRoutes(
     });
   });
 
+  // ── Full reverse proxy for Bonfires.ai ──────────────────────────────────────
+  // The iframe HTML is served from thepolyp.xyz, so all dynamic fetch() calls
+  // (RSC payloads, graph API, etc.) must go through here to avoid CORS errors.
+  // Static /_next/ chunks are loaded via <base href> as plain <script> tags
+  // (no CORS restriction) so they are NOT proxied here.
+  app.use("/bonfires-proxy", async (req: Request, res: Response) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Access-Control-Expose-Headers", "*");
+
+    if (req.method === "OPTIONS") return res.status(204).send();
+
+    try {
+      const upstreamUrl = `https://pepo.app.bonfires.ai${req.url}`;
+
+      const forwardHeaders: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0 (compatible; MesoReefDAO/1.0)",
+        "Accept": (req.headers["accept"] as string) || "*/*",
+      };
+      // Carry Next.js RSC headers so server-component payloads work
+      const passThrough = [
+        "rsc", "next-router-state-tree", "next-router-prefetch",
+        "next-router-segment-prefetch", "next-url", "next-action",
+        "content-type", "cookie",
+      ];
+      for (const h of passThrough) {
+        if (req.headers[h]) forwardHeaders[h] = req.headers[h] as string;
+      }
+
+      const fetchOptions: RequestInit = {
+        method: req.method,
+        headers: forwardHeaders,
+        signal: AbortSignal.timeout(20000),
+      };
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        // Express body-parser may have already consumed the stream; fall back to req.body
+        const rawBody = await new Promise<Buffer>((resolve) => {
+          if ((req as any).readable === false || (req as any)._readableState?.ended) {
+            // Already consumed — use the parsed body
+            const parsed = (req as any).body;
+            if (parsed && Object.keys(parsed).length) {
+              resolve(Buffer.from(JSON.stringify(parsed)));
+            } else {
+              resolve(Buffer.alloc(0));
+            }
+            return;
+          }
+          const chunks: Buffer[] = [];
+          (req as any).on("data", (c: Buffer) => chunks.push(c));
+          (req as any).on("end", () => resolve(Buffer.concat(chunks)));
+          (req as any).on("error", () => resolve(Buffer.alloc(0)));
+        });
+        if (rawBody.length) fetchOptions.body = rawBody;
+      }
+
+      const upstream = await fetch(upstreamUrl, fetchOptions);
+
+      // Strip upstream headers that would conflict; forward content-type
+      const ct = upstream.headers.get("content-type");
+      if (ct) res.setHeader("Content-Type", ct);
+      // Override any restrictive CSP our middleware injected — proxy responses
+      // are consumed as API data, not rendered documents, but clear it anyway
+      res.removeHeader("Content-Security-Policy");
+      res.removeHeader("X-Frame-Options");
+
+      res.status(upstream.status);
+      return res.send(Buffer.from(await upstream.arrayBuffer()));
+    } catch (err) {
+      console.error("[bonfires-proxy]", err);
+      return res.status(502).send("Bonfires proxy error");
+    }
+  });
+
   // Proxy: serve Bonfires.ai /graph page with EXPLORER panel hidden via injected script
   app.get("/api/graph-embed", async (_req: Request, res: Response) => {
     try {
@@ -813,16 +887,28 @@ export async function registerRoutes(
   body { padding-top: 0 !important; margin-top: 0 !important; }
 </style>
 <script>
-/* ── 0. Rewrite all relative fetch/XHR/WebSocket calls to Bonfires.ai ────── */
-/* This is essential: Next.js inside the iframe issues relative API calls     */
-/* like /api/bonfire/… which would hit thepolyp.xyz — we redirect them.       */
+/* ── 0. Route ALL Bonfires.ai fetch/XHR calls through our same-origin proxy ─ */
+/* Root cause: the HTML body is 100% client-side rendered (BAILOUT_TO_CSR).   */
+/* Bonfires.ai returns zero CORS headers, so any cross-origin fetch() from    */
+/* thepolyp.xyz is silently blocked. Solution: redirect everything through     */
+/* /bonfires-proxy/* which adds Access-Control-Allow-Origin: * and forwards.  */
 (function () {
-  var BONFIRES = "https://pepo.app.bonfires.ai";
-  var BONFIRES_WS = "wss://pepo.app.bonfires.ai";
+  var PROXY = "/bonfires-proxy";
 
   function rewriteUrl(url) {
-    if (typeof url === "string" && url.charAt(0) === "/" && url.charAt(1) !== "/") {
-      return BONFIRES + url;
+    if (typeof url !== "string") return url;
+    /* Already routed through our proxy — leave alone */
+    if (url.indexOf("/bonfires-proxy") !== -1) return url;
+    /* /_next/static/ chunks load as <script> tags via <base href> — no fetch  */
+    if (url.indexOf("/_next/static/") !== -1) return url;
+    /* Absolute Bonfires URL → strip origin, prefix with proxy path */
+    if (url.indexOf("pepo.app.bonfires.ai") !== -1) {
+      var path = url.replace(/^https?:\/\/pepo\.app\.bonfires\.ai/, "");
+      return PROXY + path;
+    }
+    /* Relative URL → prefix with proxy path */
+    if (url.charAt(0) === "/" && url.charAt(1) !== "/") {
+      return PROXY + url;
     }
     return url;
   }
@@ -833,13 +919,8 @@ export async function registerRoutes(
     var url = typeof resource === "string" ? resource
             : (resource instanceof URL ? resource.href
             : (resource && resource.url ? resource.url : ""));
-
-    /* Rewrite relative paths → absolute Bonfires.ai */
     var rewritten = rewriteUrl(url);
-    if (rewritten !== url) {
-      resource = rewritten;
-      url = rewritten;
-    }
+    if (rewritten !== url) { resource = rewritten; url = rewritten; }
 
     /* Stub Clerk so React renders without a real session */
     if (url && url.indexOf("clerk.bonfires.ai") !== -1) {
@@ -867,24 +948,19 @@ export async function registerRoutes(
     return _xhrOpen.apply(this, args);
   };
 
-  /* ── WebSocket ── */
+  /* ── WebSocket — keep going directly to Bonfires.ai (no CORS for WS) ── */
   var _WS = window.WebSocket;
   window.WebSocket = function (url, protocols) {
     if (typeof url === "string" && url.charAt(0) === "/" && url.charAt(1) !== "/") {
-      url = BONFIRES_WS + url;
+      url = "wss://pepo.app.bonfires.ai" + url;
     }
-    try {
-      return protocols !== undefined ? new _WS(url, protocols) : new _WS(url);
-    } catch (e) {
-      return protocols !== undefined ? new _WS(url, protocols) : new _WS(url);
-    }
+    try { return protocols !== undefined ? new _WS(url, protocols) : new _WS(url); }
+    catch (e) { return new _WS(url); }
   };
   try {
     window.WebSocket.prototype = _WS.prototype;
-    window.WebSocket.CONNECTING = _WS.CONNECTING;
-    window.WebSocket.OPEN = _WS.OPEN;
-    window.WebSocket.CLOSING = _WS.CLOSING;
-    window.WebSocket.CLOSED = _WS.CLOSED;
+    window.WebSocket.CONNECTING = _WS.CONNECTING; window.WebSocket.OPEN = _WS.OPEN;
+    window.WebSocket.CLOSING = _WS.CLOSING; window.WebSocket.CLOSED = _WS.CLOSED;
   } catch (e) {}
 })();
 
@@ -1031,19 +1107,22 @@ export async function registerRoutes(
   body { padding-top: 0 !important; margin-top: 0 !important; }
 </style>
 <script>
-/* ── 0. Rewrite all relative fetch/XHR/WebSocket calls to Bonfires.ai ────── */
+/* ── 0. Route ALL Bonfires.ai fetch/XHR calls through our same-origin proxy ─ */
 (function () {
-  var BONFIRES = "https://pepo.app.bonfires.ai";
-  var BONFIRES_WS = "wss://pepo.app.bonfires.ai";
+  var PROXY = "/bonfires-proxy";
 
   function rewriteUrl(url) {
-    if (typeof url === "string" && url.charAt(0) === "/" && url.charAt(1) !== "/") {
-      return BONFIRES + url;
+    if (typeof url !== "string") return url;
+    if (url.indexOf("/bonfires-proxy") !== -1) return url;
+    if (url.indexOf("/_next/static/") !== -1) return url;
+    if (url.indexOf("pepo.app.bonfires.ai") !== -1) {
+      var path = url.replace(/^https?:\/\/pepo\.app\.bonfires\.ai/, "");
+      return PROXY + path;
     }
+    if (url.charAt(0) === "/" && url.charAt(1) !== "/") return PROXY + url;
     return url;
   }
 
-  /* ── fetch ── */
   var _fetch = window.fetch;
   window.fetch = function (resource, init) {
     var url = typeof resource === "string" ? resource
@@ -1059,7 +1138,6 @@ export async function registerRoutes(
     return _fetch.call(this, resource, init);
   };
 
-  /* ── XMLHttpRequest ── */
   var _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     var args = Array.prototype.slice.call(arguments);
@@ -1067,11 +1145,10 @@ export async function registerRoutes(
     return _xhrOpen.apply(this, args);
   };
 
-  /* ── WebSocket ── */
   var _WS = window.WebSocket;
   window.WebSocket = function (url, protocols) {
     if (typeof url === "string" && url.charAt(0) === "/" && url.charAt(1) !== "/") {
-      url = BONFIRES_WS + url;
+      url = "wss://pepo.app.bonfires.ai" + url;
     }
     try { return protocols !== undefined ? new _WS(url, protocols) : new _WS(url); } catch (e) { return new _WS(url); }
   };
