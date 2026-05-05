@@ -766,7 +766,7 @@ export async function registerRoutes(
             "Content-Type": "application/json",
             "x-api-key": PEPO_API_KEY,
           },
-          body: JSON.stringify({ bonfire_id: BONFIRE_ID, query }),
+          body: JSON.stringify({ bonfire_ids: [BONFIRE_ID], query }),
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) return;
