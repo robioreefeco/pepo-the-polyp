@@ -15,11 +15,11 @@ const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // The iframe is shifted up by this amount so both rows sit above the
 // overflow:hidden boundary and are never visible.
 const NAV_CROP_PX = 96;
-// The Bonfires.ai chat panel sits at ~right:280px inside the page
-// (not flush-right), so we need to overflow the iframe by chatWidth +
-// rightInset ≈ 285 + 280 = 565px to push its LEFT edge outside the
-// container and hide it completely. Explorer panel stays fully visible.
-const RIGHT_CROP_PX = 565;
+// Push the iframe far enough right that the chat panel's left edge
+// exits the container even on wide screens.  The chat panel is ~285px
+// wide and sits ~280px inset from the page's right edge, so we need
+// chatWidth + rightInset + safety ≈ 900px of overflow.
+const RIGHT_CROP_PX = 900;
 
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
@@ -423,20 +423,29 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
     setShowHint(false);
   }, []);
 
-  // After iframe loads, try to ask Bonfires.ai to collapse only the right chat panel.
-  // Do NOT send any explorer-related collapse messages — the Explorer panel must stay open.
+  // After iframe loads, repeatedly ask Bonfires.ai to collapse the chat panel.
+  // We fire immediately and retry at 800 ms / 2 s / 4 s because the page's JS
+  // may not have registered its message listener yet when the load event fires.
+  // Do NOT send explorer-collapse messages — the Explorer panel must stay open.
   const handleIframeLoad = useCallback(() => {
     setGraphLoading(false);
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
-    const msgs = [
-      { type: 'minimize-chat' },
-      { type: 'collapse-panel', panel: 'chat' },
-      { type: 'set-panel', panel: 'chat', open: false },
-    ];
-    msgs.forEach(m => {
-      try { win.postMessage(m, 'https://pepo.app.bonfires.ai'); } catch { /* cross-origin ok */ }
-    });
+    const collapse = () => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      [
+        { type: 'minimize-chat' },
+        { type: 'collapse-panel', panel: 'chat' },
+        { type: 'set-panel', panel: 'chat', open: false },
+        { type: 'hide-panel', panel: 'chat' },
+        { action: 'minimize', target: 'chat' },
+      ].forEach(m => {
+        try { win.postMessage(m, 'https://pepo.app.bonfires.ai'); } catch { /* cross-origin ok */ }
+      });
+    };
+    collapse();
+    setTimeout(collapse, 800);
+    setTimeout(collapse, 2000);
+    setTimeout(collapse, 4000);
   }, []);
 
   return (
