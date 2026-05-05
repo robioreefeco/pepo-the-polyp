@@ -398,18 +398,9 @@ function GraphLoadingShimmer({ visible }: { visible: boolean }) {
 }
 
 // ── Main dashboard ─────────────────────────────────────────────────────────────
-// Bonfires.ai side panel widths used to shift the iframe so only the
-// graph canvas is visible by default (both panels go off-screen).
-const EXPLORER_PX  = 260;  // Explorer panel (left)
-const CHAT_SIDE_PX = 380;  // Chat sidebar (right)
-
-// Width of the floating PepoThePolypBot overlay panel (our own UI).
-const CHAT_PANEL_PX = 420;
-
 export const ReefInsightDashboardSection = (): JSX.Element => {
   const [graphLoading, setGraphLoading] = useState(true);
   const [coralOpen, setCoralOpen] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { t } = useTranslation();
 
@@ -481,31 +472,11 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             </span>
           </div>
 
-          {/* Right: powered-by badge + chat toggle + open link */}
-          <div className="flex items-center gap-2">
+          {/* Right: powered-by badge + open-in-full link */}
+          <div className="flex items-center gap-3">
             <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f340] hidden sm:block">
               powered by Bonfires.ai
             </span>
-            {/* Chat panel toggle */}
-            <button
-              onClick={() => setChatOpen(o => !o)}
-              data-testid="button-chat-toggle"
-              title={chatOpen ? "Hide PepoThePolypBot" : "Show PepoThePolypBot"}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors hover:bg-[#83eef010]"
-              style={{
-                border: `1px solid ${chatOpen ? "rgba(131,238,240,0.30)" : "rgba(131,238,240,0.10)"}`,
-                color: chatOpen ? "#83eef0" : "#83eef044",
-              }}
-            >
-              {/* Chat bubble icon */}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className="[font-family:'Inter',Helvetica] text-[10px] font-medium hidden sm:block">
-                {chatOpen ? "Bot" : "Bot"}
-              </span>
-            </button>
             <a
               href={BONFIRES_GRAPH_URL}
               target="_blank"
@@ -525,20 +496,22 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
         </div>
 
         {/* ── iframe wrapper ─────────────────────────────────────── */}
+        {/* overflow-hidden clips the Bonfires.ai nav bar (shifted above  */}
+        {/* the top boundary) while all three panels fit at 100% width.   */}
         <div className="relative flex-1 min-h-0 overflow-hidden">
-          {/* Edge glows */}
+          {/* Subtle teal edge glows */}
           <div className="absolute top-0 left-0 bottom-0 w-[3px] z-[6] pointer-events-none"
-            style={{ background: "linear-gradient(180deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.35) 50%,rgba(131,238,240,0.0) 100%)" }} />
+            style={{ background: "linear-gradient(180deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.30) 50%,rgba(131,238,240,0.0) 100%)" }} />
           <div className="absolute top-0 left-0 right-0 h-[2px] z-[6] pointer-events-none"
-            style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.4) 50%,rgba(131,238,240,0.0) 100%)" }} />
+            style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.35) 50%,rgba(131,238,240,0.0) 100%)" }} />
 
           <GraphLoadingShimmer visible={graphLoading} />
 
-          {/* The iframe is shifted left by EXPLORER_PX so the Bonfires.ai
-              Explorer sidebar goes off-screen left. Width is expanded by
-              EXPLORER_PX + CHAT_SIDE_PX so the Chat sidebar also goes
-              off-screen right. Result: only the graph canvas is visible,
-              matching the intended full-canvas layout. */}
+          {/* Single iframe — full container width.
+              Only the Bonfires.ai top nav bar (96 px) is hidden by
+              shifting the iframe up and compensating with extra height.
+              Explorer (left) · graph canvas (center) · PepoThePolypBot (right)
+              all render at their natural widths inside the container. */}
           <iframe
             ref={iframeRef}
             src={BONFIRES_GRAPH_URL}
@@ -546,9 +519,9 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             className="absolute border-0"
             style={{
               top: `-${NAV_CROP_PX}px`,
-              left: `-${EXPLORER_PX}px`,
+              left: 0,
               height: `calc(100% + ${NAV_CROP_PX}px)`,
-              width: `calc(100% + ${EXPLORER_PX + CHAT_SIDE_PX}px)`,
+              width: "100%",
               background: "#00080c",
             }}
             allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
@@ -556,101 +529,6 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             data-testid="iframe-knowledge-graph"
             onLoad={handleIframeLoad}
           />
-
-          {/* ── PepoThePolypBot floating panel ─────────────────────────
-              Sits over the right portion of the graph canvas.
-              Has its own branded header + "—" minimize button.
-              Body: Bonfires.ai iframe (nav cropped, same as main).
-              Minimised → panel slides away, full graph is visible. */}
-          {chatOpen && (
-            <div
-              className="absolute top-0 right-0 bottom-0 z-[10] flex flex-col overflow-hidden"
-              style={{
-                width: CHAT_PANEL_PX,
-                background: "#00080c",
-                borderLeft: "1px solid rgba(131,238,240,0.14)",
-                boxShadow: "-6px 0 40px rgba(0,0,0,0.65), -1px 0 0 rgba(131,238,240,0.06)",
-              }}
-            >
-              {/* Panel header */}
-              <div
-                className="shrink-0 flex items-center justify-between px-3 py-2"
-                style={{
-                  background: "linear-gradient(90deg,rgba(0,20,28,0.98) 0%,rgba(0,8,12,0.98) 100%)",
-                  borderBottom: "1px solid rgba(131,238,240,0.12)",
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  {/* Chat bubble icon */}
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                      stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span
-                    className="[font-family:'Inter',Helvetica] text-[11px] font-semibold"
-                    style={{ color: "#d4e9f3" }}
-                  >
-                    PepoThePolypBot
-                  </span>
-                </div>
-
-                {/* Minimize "—" button */}
-                <button
-                  onClick={() => setChatOpen(false)}
-                  data-testid="button-chat-minimize"
-                  title="Minimize PepoThePolypBot"
-                  className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:bg-[#83eef015] group"
-                  style={{ border: "1px solid rgba(131,238,240,0.15)" }}
-                >
-                  <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
-                    <rect width="10" height="2" rx="1" fill="#83eef066" className="group-hover:fill-[#83eef0]"/>
-                  </svg>
-                </button>
-              </div>
-
-              {/* Panel body — Bonfires.ai iframe (nav cropped) */}
-              <div className="flex-1 min-h-0 relative overflow-hidden">
-                <iframe
-                  src={BONFIRES_GRAPH_URL}
-                  title="PepoThePolypBot"
-                  className="absolute border-0"
-                  style={{
-                    top: `-${NAV_CROP_PX}px`,
-                    left: 0,
-                    height: `calc(100% + ${NAV_CROP_PX}px)`,
-                    width: "100%",
-                    background: "#00080c",
-                  }}
-                  allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
-                  loading="lazy"
-                  data-testid="iframe-pepo-bot"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* "Chat with the graph" floating button — visible when the bot
-              panel is closed. Styled to match the Bonfires.ai native button. */}
-          {!chatOpen && !graphLoading && (
-            <button
-              onClick={() => setChatOpen(true)}
-              data-testid="button-chat-with-graph"
-              className="absolute bottom-5 right-5 z-[10] flex items-center gap-2 px-4 py-3 rounded-full transition-all hover:scale-105 active:scale-95"
-              style={{
-                background: "linear-gradient(135deg, #ff6b3d 0%, #ff4500 100%)",
-                boxShadow: "0 4px 20px rgba(255,69,0,0.45), 0 2px 8px rgba(0,0,0,0.4)",
-                color: "#fff",
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="rgba(255,255,255,0.15)"/>
-              </svg>
-              <span className="[font-family:'Inter',Helvetica] text-[13px] font-semibold">
-                Chat with the graph
-              </span>
-            </button>
-          )}
 
           {/* First-visit hint */}
           {showHint && !graphLoading && (
