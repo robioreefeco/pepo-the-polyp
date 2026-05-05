@@ -275,10 +275,10 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col flex-1 self-stretch min-h-0 overflow-hidden px-3 md:px-6 pt-3 md:pt-4 pb-20 md:pb-4 gap-3">
+    <div className="flex flex-col flex-1 self-stretch min-h-0 overflow-hidden px-2 md:px-4 pt-2 md:pt-3 pb-20 md:pb-3 gap-2">
 
       {/* ── Two-column row: graph (left) + daily action (right) ─────────── */}
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-3">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-2">
 
         {/* ════════════════════════════════════════════════════════════════
             KNOWLEDGE GRAPH
@@ -286,7 +286,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
         <div
           className="relative flex-1 min-h-0 rounded-[16px] md:rounded-[24px] overflow-hidden"
           style={{
-            minHeight: 480,
+            minHeight: 320,
             border: "1px solid rgba(131,238,240,0.20)",
             boxShadow:
               "0 0 0 1px rgba(131,238,240,0.05)," +
@@ -426,7 +426,7 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
         {/* ════════════════════════════════════════════════════════════════
             DAILY REEF ACTION — right panel
         ════════════════════════════════════════════════════════════════ */}
-        <div className="w-full md:w-[300px] shrink-0 flex flex-col min-h-0">
+        <div className="w-full md:w-[260px] shrink-0 flex flex-col min-h-0">
           <CleanCoralPanel />
         </div>
 

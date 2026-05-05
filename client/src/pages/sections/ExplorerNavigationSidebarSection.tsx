@@ -26,13 +26,13 @@ function MetaMaskIcon({ size = 13 }: { size?: number }) {
 
 // ─── Shared style tokens ───────────────────────────────────────────────────────
 const PILL_BASE =
-  "flex items-center gap-3 px-4 py-3 w-full rounded-[48px] border border-solid transition-colors no-underline text-left";
+  "flex items-center gap-2.5 px-3 py-2 w-full rounded-[48px] border border-solid transition-colors no-underline text-left";
 const PILL_ACTIVE =
   "bg-[#83eef01a] border-[#83eef033]";
 const PILL_INACTIVE =
   "border-[#ffffff0d] hover:bg-[#83eef00d] hover:border-[#83eef01a]";
 const TEXT_BASE =
-  "[font-family:'Plus_Jakarta_Sans',Helvetica] text-base tracking-[0] leading-6 whitespace-pre-line";
+  "[font-family:'Plus_Jakarta_Sans',Helvetica] text-sm tracking-[0] leading-5 whitespace-pre-line";
 const EMBOSS = { boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -284,23 +284,23 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
   const isGraph = location === "/" || location === "/graph";
 
   return (
-    <nav className="flex flex-col w-64 min-h-screen items-start justify-between p-6 bg-[#00080c99] border-r border-[#ffffff0d] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)_brightness(100%)] relative z-10">
+    <nav className="flex flex-col w-56 h-full items-start justify-between p-4 overflow-y-auto bg-[#00080c99] border-r border-[#ffffff0d] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)_brightness(100%)] relative z-10">
 
       {/* Profile header */}
-      <div className="pb-8 flex flex-col items-start w-full">
-        <div className="flex items-center gap-3 w-full">
-          <div className="flex flex-col w-12 h-12 items-start justify-center bg-[#06232c] rounded-[48px] overflow-hidden border border-solid border-[#83eef04c] flex-shrink-0">
+      <div className="pb-4 flex flex-col items-start w-full">
+        <div className="flex items-center gap-2.5 w-full">
+          <div className="flex flex-col w-9 h-9 items-start justify-center bg-[#06232c] rounded-[48px] overflow-hidden border border-solid border-[#83eef04c] flex-shrink-0">
             <img src={pepoPng} alt="Pepo the Polyp" className="w-full h-full object-cover object-center" />
           </div>
           <div className="inline-flex flex-col items-start">
-            <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#83eef0] text-xl tracking-[0] leading-7 whitespace-nowrap">Pepo</span>
-            <span className="[font-family:'Inter',Helvetica] font-normal text-[#d4e9f380] text-xs tracking-[0] leading-4 whitespace-nowrap">The Polyp</span>
+            <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#83eef0] text-base tracking-[0] leading-5 whitespace-nowrap">Pepo</span>
+            <span className="[font-family:'Inter',Helvetica] font-normal text-[#d4e9f380] text-[10px] tracking-[0] leading-3 whitespace-nowrap">The Polyp</span>
           </div>
         </div>
       </div>
 
       {/* Navigation items */}
-      <div className="flex flex-col items-start gap-2 flex-1 w-full">
+      <div className="flex flex-col items-start gap-1 flex-1 w-full">
 
         {/* Knowledge Graph */}
         <Link

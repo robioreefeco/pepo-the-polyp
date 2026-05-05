@@ -296,23 +296,23 @@ export const ApplicationHeaderSection = (): JSX.Element => {
 
   return (
     <>
-      <header className="flex w-full items-center justify-between px-4 md:px-8 py-3 md:py-4 border-b border-[#ffffff0d] backdrop-blur-[20px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(20px)_brightness(100%)] bg-[linear-gradient(180deg,rgba(0,22,30,1)_0%,rgba(0,16,23,0.4)_100%),linear-gradient(0deg,rgba(0,8,12,0.8)_0%,rgba(0,8,12,0.8)_100%)] relative z-20">
+      <header className="flex w-full items-center justify-between px-4 md:px-6 py-2 md:py-2.5 border-b border-[#ffffff0d] backdrop-blur-[20px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(20px)_brightness(100%)] bg-[linear-gradient(180deg,rgba(0,22,30,1)_0%,rgba(0,16,23,0.4)_100%),linear-gradient(0deg,rgba(0,8,12,0.8)_0%,rgba(0,8,12,0.8)_100%)] relative z-20">
         {/* Logo */}
         <img
           src="/figmaAssets/mesoreef-dao-logo-new.png"
           alt="MesoReef DAO"
-          className="h-11 md:h-14 w-auto flex-shrink-0 object-contain"
+          className="h-8 md:h-9 w-auto flex-shrink-0 object-contain"
         />
 
         {/* Desktop navigation links */}
-        <nav className="hidden md:inline-flex items-center gap-8">
+        <nav className="hidden md:inline-flex items-center gap-6">
           {navLinks.map((link) =>
             link.internal ? (
               <Link
                 key={link.label}
                 href={link.href}
                 data-testid={`nav-header-${link.label.toLowerCase()}`}
-                className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 whitespace-nowrap hover:text-[#d4e9f3] transition-colors no-underline"
+                className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-sm tracking-[-0.20px] leading-5 whitespace-nowrap hover:text-[#d4e9f3] transition-colors no-underline"
               >
                 {link.label}
               </Link>
@@ -320,7 +320,7 @@ export const ApplicationHeaderSection = (): JSX.Element => {
               <a
                 key={link.label}
                 data-testid={`nav-header-${link.label.toLowerCase()}`}
-                className="relative flex items-center gap-1.5 [font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-base tracking-[-0.40px] leading-6 whitespace-nowrap hover:text-[#d4e9f3] transition-colors no-underline"
+                className="relative flex items-center gap-1.5 [font-family:'Plus_Jakarta_Sans',Helvetica] font-normal text-[#d4e9f3b2] text-sm tracking-[-0.20px] leading-5 whitespace-nowrap hover:text-[#d4e9f3] transition-colors no-underline"
                 href={link.href}
                 rel="noopener noreferrer"
                 target="_blank"
