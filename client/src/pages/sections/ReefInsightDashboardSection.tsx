@@ -14,9 +14,15 @@ const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // Bonfires.ai top nav bar height (logo row + tab row ≈ 96 px).
 // The iframe is shifted up by this amount so the nav sits above the
 // overflow:hidden boundary — our own branded header replaces it.
-// All other panels (Explorer left, Chat right) are fully visible and
-// their native "—" minimize buttons work as intended.
 const NAV_CROP_PX = 96;
+
+// Scale factor applied to the Bonfires.ai iframe via CSS transform.
+// < 1 makes Bonfires.ai render at a larger internal viewport (better
+// panel proportions) and then scales the result down visually so all
+// three panels — Explorer · graph canvas · PepoThePolypBot — fit
+// cleanly inside our container.  Pointer events are remapped correctly
+// by the browser so the interface remains fully interactive.
+const SCALE = 0.75;
 
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
@@ -507,21 +513,25 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
 
           <GraphLoadingShimmer visible={graphLoading} />
 
-          {/* Single iframe — full container width.
-              Only the Bonfires.ai top nav bar (96 px) is hidden by
-              shifting the iframe up and compensating with extra height.
-              Explorer (left) · graph canvas (center) · PepoThePolypBot (right)
-              all render at their natural widths inside the container. */}
+          {/* iframe scaled to SCALE via CSS transform.
+              Pre-scale dimensions are 1/SCALE × the container so that
+              after the transform the result fills the container exactly.
+              The nav bar is still cropped by the same top-shift trick,
+              but adjusted for the pre-scale coordinate space.
+              All three panels render at their natural widths inside the
+              larger internal viewport, then shrink proportionally. */}
           <iframe
             ref={iframeRef}
             src={BONFIRES_GRAPH_URL}
             title="Regen Reef Knowledge Graph"
             className="absolute border-0"
             style={{
-              top: `-${NAV_CROP_PX}px`,
+              transform: `scale(${SCALE})`,
+              transformOrigin: "top left",
+              top: `${-(NAV_CROP_PX / SCALE)}px`,
               left: 0,
-              height: `calc(100% + ${NAV_CROP_PX}px)`,
-              width: "100%",
+              width: `${(1 / SCALE) * 100}%`,
+              height: `calc(${(1 / SCALE) * 100}% + ${NAV_CROP_PX / SCALE}px)`,
               background: "#00080c",
             }}
             allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
