@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import pepoPng from "@assets/MesoReefDAO_Pepo_The_Polyp_1776218616437.png";
 import coralBg from "@assets/coral_textures_1776303814463.jpg";
 import { usePrivy } from "@privy-io/react-auth";
@@ -8,6 +8,14 @@ import { useTranslation } from "react-i18next";
 
 const TELEGRAM_BOT_URL = "https://t.me/PepothePolyp_bot";
 const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
+const HINT_KEY = "pepo_graph_hint_v1";
+const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const EXAMPLE_PROMPTS = [
+  "Any interesting things happened recently?",
+  "Who are the most active participants lately?",
+  "What can you do?",
+];
 
 
 function TgIcon({ size = 16 }: { size?: number }) {
@@ -242,6 +250,113 @@ function CleanCoralPanel({ onClose }: { onClose?: () => void }) {
   );
 }
 
+// ── Graph hint overlay — shown on first visit, dismisses after interaction ────
+function GraphHintOverlay({ onDismiss }: { onDismiss: () => void }) {
+  const [fading, setFading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismiss = useCallback(() => {
+    setFading(true);
+    setTimeout(onDismiss, 350);
+  }, [onDismiss]);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(dismiss, 12000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [dismiss]);
+
+  return (
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-300"
+      style={{
+        opacity: fading ? 0 : 1,
+        background: "rgba(0,8,12,0.82)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      {/* Card */}
+      <div
+        className="relative mx-4 flex flex-col items-center gap-4 rounded-3xl px-7 py-7 max-w-sm w-full text-center"
+        style={{
+          background: "linear-gradient(160deg,#001a22 0%,#00080c 100%)",
+          border: "1px solid rgba(131,238,240,0.22)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(131,238,240,0.06)",
+        }}
+      >
+        {/* Dismiss X */}
+        <button
+          onClick={dismiss}
+          data-testid="button-graph-hint-dismiss"
+          className="absolute top-3.5 right-3.5 w-7 h-7 flex items-center justify-center rounded-full text-[#d4e9f340] hover:text-[#83eef0] hover:bg-[#83eef010] transition-colors"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+          </svg>
+        </button>
+
+        {/* Avatar + pulse ring */}
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-20 h-20 rounded-full animate-ping" style={{ background: "rgba(131,238,240,0.06)", animationDuration: "2.4s" }} />
+          <div className="w-16 h-16 rounded-full overflow-hidden border-2" style={{ borderColor: "rgba(131,238,240,0.35)" }}>
+            <img src={pepoPng} alt="Pepo" className="w-full h-full object-cover" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="flex flex-col gap-1">
+          <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#83eef0] text-base leading-tight">
+            Reef Knowledge Graph
+          </span>
+          <span className="[font-family:'Inter',Helvetica] text-[#d4e9f380] text-xs leading-relaxed">
+            Ask PepoThePolypBot about the MesoReef ecosystem — nodes and connections build as you explore.
+          </span>
+        </div>
+
+        {/* Example prompt pills */}
+        <div className="flex flex-col gap-2 w-full">
+          <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f340] uppercase tracking-wider">
+            try asking
+          </span>
+          {EXAMPLE_PROMPTS.map((prompt) => (
+            <button
+              key={prompt}
+              onClick={dismiss}
+              data-testid={`button-graph-prompt-${prompt.slice(0, 10).replace(/\s+/g, "-").toLowerCase()}`}
+              className="w-full px-4 py-2.5 rounded-2xl text-left text-xs [font-family:'Inter',Helvetica] text-[#d4e9f3cc] transition-all duration-150 hover:text-[#83eef0] active:scale-95"
+              style={{
+                background: "rgba(131,238,240,0.04)",
+                border: "1px solid rgba(131,238,240,0.12)",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(131,238,240,0.09)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "rgba(131,238,240,0.04)")}
+            >
+              "{prompt}"
+            </button>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={dismiss}
+          data-testid="button-graph-hint-explore"
+          className="w-full py-3 rounded-2xl [font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-sm text-[#003c3e] transition-all duration-200 hover:opacity-90 active:scale-95"
+          style={{
+            background: "linear-gradient(160deg,rgba(131,238,240,1) 0%,rgba(63,176,179,1) 100%)",
+            boxShadow: "0 4px 20px rgba(131,238,240,0.28)",
+          }}
+        >
+          Start Exploring →
+        </button>
+
+        {/* Auto-dismiss hint */}
+        <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#d4e9f330]">
+          Dismisses automatically in a few seconds
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Graph loading shimmer ─────────────────────────────────────────────────────
 function GraphLoadingShimmer({ visible }: { visible: boolean }) {
   if (!visible) return null;
@@ -269,6 +384,22 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
   const [graphLoading, setGraphLoading] = useState(true);
   const [coralOpen, setCoralOpen] = useState(true);
   const { t } = useTranslation();
+
+  // Show hint overlay unless dismissed within the last 7 days
+  const [showHint, setShowHint] = useState<boolean>(() => {
+    try {
+      const ts = localStorage.getItem(HINT_KEY);
+      if (!ts) return true;
+      return Date.now() - Number(ts) > HINT_TTL_MS;
+    } catch {
+      return true;
+    }
+  });
+
+  const dismissHint = useCallback(() => {
+    try { localStorage.setItem(HINT_KEY, String(Date.now())); } catch { /* ignore */ }
+    setShowHint(false);
+  }, []);
 
   return (
     <div className="flex flex-row flex-1 self-stretch min-h-0 overflow-hidden px-2 md:px-4 pt-2 md:pt-3 pb-20 md:pb-3 gap-2">
@@ -305,6 +436,10 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
           data-testid="iframe-knowledge-graph"
           onLoad={() => setGraphLoading(false)}
         />
+        {/* First-visit hint — fades out automatically or on interaction */}
+        {showHint && !graphLoading && (
+          <GraphHintOverlay onDismiss={dismissHint} />
+        )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
