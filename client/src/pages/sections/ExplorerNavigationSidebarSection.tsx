@@ -310,6 +310,30 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           <span className={`${TEXT_BASE} font-bold text-[#83eef0]`}>Knowledge{"\n"}Graph</span>
         </a>
 
+        {/* My Profile */}
+        <Link
+          href="/profile"
+          data-testid="link-my-profile"
+          className={`${PILL_BASE} ${isProfile ? PILL_ACTIVE : PILL_INACTIVE}`}
+          style={isProfile ? EMBOSS : {}}
+        >
+          <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+            <UserIcon active={isProfile} />
+          </div>
+          <span className={`${TEXT_BASE} ${isProfile ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
+            My Profile
+          </span>
+          {!profileComplete && (
+            <span
+              data-testid="badge-profile-incomplete-sidebar"
+              className="ml-auto text-[9px] [font-family:'Inter',Helvetica] px-1.5 py-0.5 rounded-full font-semibold"
+              style={{ background: "rgba(131,238,240,0.12)", border: "1px solid rgba(131,238,240,0.3)", color: "#83eef0" }}
+            >
+              {completedCount}/{totalCount}
+            </span>
+          )}
+        </Link>
+
         {/* Community */}
         <Link
           href="/community"
@@ -375,30 +399,6 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
           <span className="ml-auto text-[8px] [font-family:'Inter',Helvetica] px-1.5 py-0.5 rounded-full bg-[#a6ce3918] border border-[#a6ce3933] text-[#a6ce39cc]">
             ORCID
           </span>
-        </Link>
-
-        {/* My Profile */}
-        <Link
-          href="/profile"
-          data-testid="link-my-profile"
-          className={`${PILL_BASE} ${isProfile ? PILL_ACTIVE : PILL_INACTIVE}`}
-          style={isProfile ? EMBOSS : {}}
-        >
-          <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-            <UserIcon active={isProfile} />
-          </div>
-          <span className={`${TEXT_BASE} ${isProfile ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
-            My Profile
-          </span>
-          {!profileComplete && (
-            <span
-              data-testid="badge-profile-incomplete-sidebar"
-              className="ml-auto text-[9px] [font-family:'Inter',Helvetica] px-1.5 py-0.5 rounded-full font-semibold"
-              style={{ background: "rgba(131,238,240,0.12)", border: "1px solid rgba(131,238,240,0.3)", color: "#83eef0" }}
-            >
-              {completedCount}/{totalCount}
-            </span>
-          )}
         </Link>
 
         {/* Telegram Bot */}
