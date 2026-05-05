@@ -844,59 +844,87 @@ export async function registerRoutes(
   };
 })();
 
-/* ── 2. Hide header + EXPLORER panel once React hydrates ─────────────────── */
+/* ── 2. Hide header, then minimize the PepoThePolypBot chat panel ─────────── */
 (function () {
-  var MAX = 60;
+  var MAX = 80;
   var tries = 0;
-  var explorerHidden = false;
   var headerHidden = false;
+  var botMinimized = false;
+
+  function findBotPanel() {
+    /* Walk all text nodes, look for the exact label "PepoThePolypBot" */
+    var walker = document.createTreeWalker(
+      document.body || document.documentElement,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    var node;
+    while ((node = walker.nextNode())) {
+      var val = (node.nodeValue || "").trim();
+      if (val === "PepoThePolypBot") {
+        return node.parentElement;
+      }
+    }
+    return null;
+  }
 
   function hideAll() {
     tries++;
 
+    /* Hide the sticky Bonfires navbar */
     if (!headerHidden) {
       var hdr = document.querySelector("header");
       if (hdr) { hdr.style.setProperty("display", "none", "important"); headerHidden = true; }
     }
 
-    if (!explorerHidden) {
-      var walker = document.createTreeWalker(
-        document.body || document.documentElement,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      var node;
-      while ((node = walker.nextNode())) {
-        if ((node.nodeValue || "").trim().toUpperCase() === "EXPLORER") {
-          var el = node.parentElement;
-          for (var i = 0; i < 15; i++) {
-            if (!el || el === document.body || el === document.documentElement) break;
-            if (el.offsetWidth > 60 && el.offsetHeight > 100) {
-              el.style.setProperty("display", "none", "important");
-              explorerHidden = true;
-              break;
+    /* Minimize the PepoThePolypBot chat panel */
+    if (!botMinimized) {
+      var label = findBotPanel();
+      if (label) {
+        /* Walk up to find a sizeable container, then click its first button (the − button) */
+        var el = label;
+        for (var i = 0; i < 12; i++) {
+          if (!el || el === document.body) break;
+          if (el.offsetWidth > 100) {
+            /* Try clicking a button whose text is − / minimize */
+            var btns = el.querySelectorAll("button");
+            var clicked = false;
+            for (var b = 0; b < btns.length; b++) {
+              var txt = (btns[b].textContent || "").trim();
+              if (txt === "−" || txt === "-" || txt === "–" || txt.length === 1) {
+                btns[b].click();
+                clicked = true;
+                break;
+              }
             }
-            el = el.parentElement;
+            if (!clicked && btns.length > 0) {
+              /* Fallback: click the last button in the header row */
+              btns[btns.length - 1].click();
+            }
+            botMinimized = true;
+            break;
           }
-          if (explorerHidden) break;
+          el = el.parentElement;
         }
       }
     }
 
-    if ((!explorerHidden || !headerHidden) && tries < MAX) {
-      setTimeout(hideAll, 200);
+    if ((!headerHidden || !botMinimized) && tries < MAX) {
+      setTimeout(hideAll, 150);
     }
   }
 
   if (document.body) { hideAll(); }
   else { document.addEventListener("DOMContentLoaded", hideAll); }
-  setTimeout(hideAll, 300);
-  setTimeout(hideAll, 800);
-  setTimeout(hideAll, 1500);
-  setTimeout(hideAll, 3000);
-  setTimeout(hideAll, 6000);
+  setTimeout(hideAll, 200);
+  setTimeout(hideAll, 600);
+  setTimeout(hideAll, 1200);
+  setTimeout(hideAll, 2500);
+  setTimeout(hideAll, 5000);
 
-  var mo = new MutationObserver(function () { hideAll(); });
+  var mo = new MutationObserver(function () {
+    if (!headerHidden || !botMinimized) hideAll();
+  });
   function attachObserver() {
     if (document.body) { mo.observe(document.body, { childList: true, subtree: true }); }
     else { document.addEventListener("DOMContentLoaded", function () { mo.observe(document.body, { childList: true, subtree: true }); }); }

@@ -241,17 +241,17 @@ function KnowledgeGraphPanel() {
       <div className="relative flex-1 w-full overflow-hidden" style={{ minHeight: "400px" }}>
         {/* Mobile: native canvas graph — touch-friendly pan/pinch/tap */}
         <KnowledgeGraphCanvas className="absolute inset-0 w-full h-full md:hidden" />
-        {/* Desktop: full Bonfires interface — only Bonfires navbar cropped */}
+        {/* Desktop: Bonfires interface via proxy — navbar hidden, bot panel auto-minimized */}
         <iframe
-          src="https://pepo.app.bonfires.ai/graph"
+          src="/api/graph-embed"
           title="Reef Knowledge Graph"
           className="hidden md:block"
           style={{
             position: "absolute",
-            top: "-56px",
+            top: "0",
             left: "0",
             width: "100%",
-            height: "calc(100% + 56px)",
+            height: "100%",
             border: "none",
           }}
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
