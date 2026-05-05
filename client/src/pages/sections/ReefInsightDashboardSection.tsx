@@ -15,11 +15,15 @@ const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // The iframe is shifted up by this amount so both rows sit above the
 // overflow:hidden boundary and are never visible.
 const NAV_CROP_PX = 96;
-// Push the iframe far enough right that the chat panel's left edge
-// exits the container even on wide screens.  The chat panel is ~285px
-// wide and sits ~280px inset from the page's right edge, so we need
-// chatWidth + rightInset + safety ≈ 900px of overflow.
-const RIGHT_CROP_PX = 900;
+// Small right overflow — keeps the iframe slightly wider than the
+// container so the right edge of the Bonfires.ai page doesn't show.
+// The chat panel is hidden by the CHAT_COVER_PX overlay below.
+const RIGHT_CROP_PX = 60;
+// Width of the opaque overlay placed over the right side of the graph
+// to cover the PepoThePolypBot chat panel.  At 100% zoom the chat
+// panel occupies ~370px; 420px gives a comfortable margin plus a
+// 120px soft gradient lead-in so the graph fades naturally into dark.
+const CHAT_COVER_PX = 420;
 
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
@@ -553,18 +557,17 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             onLoad={handleIframeLoad}
           />
 
-          {/* Cover the Bonfires.ai "Chat with the graph" floating button.
-              It lives in the bottom-right of the graph canvas at roughly
-              bottom:20px, right:20px inside the iframe.  A gradient slab
-              that matches our background blends it away invisibly. */}
+          {/* Full-height overlay covering the PepoThePolypBot chat panel.
+              The chat panel uses responsive positioning inside the Bonfires.ai
+              iframe, so it always appears in the right ~370px of the visible
+              area regardless of iframe width.  A 120px soft gradient lead-in
+              on the left makes the graph fade naturally into our background. */}
           <div
-            className="absolute bottom-0 right-0 z-[7] pointer-events-none"
+            className="absolute top-0 right-0 bottom-0 z-[7] pointer-events-none"
             style={{
-              width: 240,
-              height: 80,
+              width: CHAT_COVER_PX,
               background:
-                "linear-gradient(to left, #00080c 55%, transparent 100%)," +
-                "linear-gradient(to top,  #00080c 45%, transparent 100%)",
+                `linear-gradient(to right, transparent 0%, #00080c 29%)`,
             }}
           />
 
