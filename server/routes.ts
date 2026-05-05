@@ -746,25 +746,41 @@ export async function registerRoutes(
     }
   });
 
-  // Proxy: fetch knowledge graph data
+  // Proxy: fetch knowledge graph data (legacy — kept for compatibility)
   app.get("/api/graph", async (_req: Request, res: Response) => {
-    try {
-      const response = await fetch(`${BONFIRES_BASE}/graph`, {
-        headers: {
-          "Authorization": `Bearer ${PEPO_API_KEY}`,
-          "Content-Type": "application/json",
-          "x-api-key": PEPO_API_KEY,
-        },
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        return res.status(response.status).json({ error: "Graph unavailable" });
-      }
-      const data = await response.json();
-      return res.json(data);
-    } catch {
-      return res.status(500).json({ error: "Graph unavailable" });
-    }
+    return res.json({ message: "Use /api/graph/data for graph nodes and edges" });
+  });
+
+  // Aggregate graph data from multiple Bonfires.ai queries → nodes + edges
+  app.get("/api/graph/data", async (_req: Request, res: Response) => {
+    const queries = ["coral reef", "MesoReefDAO", "marine conservation", "DeSci governance"];
+    const allNodes = new Map<string, any>();
+    const allEdges = new Map<string, any>();
+
+    await Promise.allSettled(queries.map(async (query) => {
+      try {
+        const response = await fetch(`${BONFIRES_BASE}/api/graph/query`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${PEPO_API_KEY}`,
+            "Content-Type": "application/json",
+            "x-api-key": PEPO_API_KEY,
+          },
+          body: JSON.stringify({ bonfire_id: BONFIRE_ID, query }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) return;
+        const data = await response.json() as any;
+        (data.entities as any[] || []).forEach((n: any) => allNodes.set(n.uuid, n));
+        (data.episodes as any[] || []).forEach((n: any) => allNodes.set(n.uuid, n));
+        (data.edges   as any[] || []).forEach((e: any) => allEdges.set(e.uuid, e));
+      } catch { /* ignore individual query failures */ }
+    }));
+
+    return res.json({
+      nodes: Array.from(allNodes.values()),
+      edges: Array.from(allEdges.values()),
+    });
   });
 
   // Proxy: search knowledge graph

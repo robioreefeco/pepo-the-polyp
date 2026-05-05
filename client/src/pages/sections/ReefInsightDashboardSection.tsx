@@ -6,10 +6,10 @@ import coralBg from "@assets/coral_textures_1776303814463.jpg";
 import { usePrivy } from "@privy-io/react-auth";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 import { useQueryClient } from "@tanstack/react-query";
+import { KnowledgeGraphCanvas } from "@/components/KnowledgeGraphCanvas";
 
 const TELEGRAM_BOT_URL = "https://t.me/PepothePolyp_bot";
 const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
-const BONFIRES_EMBED_URL = `${BONFIRES_GRAPH_URL}?embed=1&explorer=false`;
 
 const footerLinks = [
   { label: "PRIVACY", href: "https://mesoreefdao.gitbook.io/privacy-policy" },
@@ -34,6 +34,7 @@ function KnowledgeGraphPanel() {
       className="relative flex-1 self-stretch w-full flex flex-col rounded-[24px] md:rounded-[32px] overflow-hidden border border-solid border-[#83eef01a] bg-[#00080c]"
       style={{ minHeight: "320px", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(0,0,0,0.35)" }}
     >
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#83eef01a] bg-[#001017bf] shrink-0">
         <div className="flex items-center gap-2.5">
           <img className="w-6 h-6 flex-shrink-0" alt="Bonfires" src="/figmaAssets/container.svg" />
@@ -54,26 +55,12 @@ function KnowledgeGraphPanel() {
           data-testid="link-full-graph"
         >
           <ExternalLink size={10} className="text-[#83eef0]" />
-          <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium whitespace-nowrap">Full Graph</span>
+          <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-medium whitespace-nowrap">Full Graph ↗</span>
         </a>
       </div>
-      {/* Clip Bonfires.ai header (~64px) + EXPLORER panel (~286px) = 350px total offset */}
-      <div className="flex-1 relative overflow-hidden">
-        <iframe
-          src={BONFIRES_EMBED_URL}
-          title="Reef Knowledge Graph"
-          style={{
-            position: "absolute",
-            top: "-350px",
-            left: 0,
-            width: "100%",
-            height: "calc(100% + 350px)",
-            border: "none",
-          }}
-          allow="fullscreen"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
-      </div>
+
+      {/* Custom force-directed graph canvas */}
+      <KnowledgeGraphCanvas className="flex-1 w-full" />
     </div>
   );
 }
