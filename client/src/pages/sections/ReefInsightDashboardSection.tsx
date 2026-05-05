@@ -11,11 +11,13 @@ const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
 const HINT_KEY = "pepo_graph_hint_v1";
 const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Width of each Bonfires.ai side panel (Explorer left, Chat right).
-// The iframe is rendered wider by 2× this amount and shifted left,
-// so both panels fall outside the overflow:hidden container — leaving
-// only the graph canvas visible.
-const PANEL_CROP_PX = 270;
+// Bonfires.ai top navigation bar height — cropped upward so only the
+// Explorer panel + graph canvas are visible (nav sits above the container).
+const NAV_CROP_PX = 52;
+// Width of the Bonfires.ai right chat panel — iframe is rendered wider
+// by this amount so the chat falls outside the overflow:hidden boundary.
+// The Explorer panel on the left remains fully visible.
+const RIGHT_CROP_PX = 275;
 
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
@@ -325,9 +327,7 @@ function GraphHintOverlay({ onDismiss }: { onDismiss: () => void }) {
         >
           <span className="text-sm mt-0.5 shrink-0">💡</span>
           <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f399] leading-relaxed text-left">
-            Click <span className="font-semibold text-[#d4e9f3cc]">—</span> on the{" "}
-            <span className="font-semibold text-[#83eef0]">Explorer</span> (top-left) and{" "}
-            <span className="font-semibold text-[#83eef0]">Bot</span> (top-right) panels inside the graph to collapse them and maximise the view.
+            Use the <span className="font-semibold text-[#83eef0]">Explorer</span> on the left to search nodes and browse recent activity. Click any node on the graph to explore its connections.
           </span>
         </div>
 
@@ -521,20 +521,22 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
 
           <GraphLoadingShimmer visible={graphLoading} />
 
-          {/* iframe is intentionally wider than its wrapper:
-              width = 100% + 2×PANEL_CROP_PX pushes both Bonfires.ai side panels
-              outside the overflow:hidden boundary.
-              translateX(-PANEL_CROP_PX) centres the graph canvas in the view. */}
+          {/* iframe crop strategy:
+              - top: -NAV_CROP_PX  → pushes the Bonfires.ai nav bar above the
+                overflow:hidden boundary so it is never visible.
+              - height: calc(100% + NAV_CROP_PX)  → compensates for the upward shift.
+              - width: calc(100% + RIGHT_CROP_PX)  → overflows the right chat panel
+                outside the container; the left Explorer panel stays fully visible. */}
           <iframe
             ref={iframeRef}
             src={BONFIRES_GRAPH_URL}
             title="Regen Reef Knowledge Graph"
-            className="absolute top-0 border-0"
+            className="absolute border-0"
             style={{
+              top: `-${NAV_CROP_PX}px`,
               left: 0,
-              height: "100%",
-              width: `calc(100% + ${PANEL_CROP_PX * 2}px)`,
-              transform: `translateX(-${PANEL_CROP_PX}px)`,
+              height: `calc(100% + ${NAV_CROP_PX}px)`,
+              width: `calc(100% + ${RIGHT_CROP_PX}px)`,
               background: "#00080c",
             }}
             allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
