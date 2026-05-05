@@ -398,9 +398,8 @@ function GraphLoadingShimmer({ visible }: { visible: boolean }) {
 }
 
 // ── Main dashboard ─────────────────────────────────────────────────────────────
-// Width of the Bonfires.ai PepoThePolypBot chat panel (approx).
-// Used for the overlay that visually hides the panel when minimised.
-const CHAT_PANEL_PX = 370;
+// Width of the floating PepoThePolypBot overlay panel.
+const CHAT_PANEL_PX = 420;
 
 export const ReefInsightDashboardSection = (): JSX.Element => {
   const [graphLoading, setGraphLoading] = useState(true);
@@ -553,17 +552,76 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             onLoad={handleIframeLoad}
           />
 
-          {/* Chat panel hide overlay — sits over the right portion of the
-              iframe when the bot is minimised. A soft gradient on the left
-              edge blends into the graph canvas so the cutoff isn't harsh. */}
-          {!chatOpen && (
+          {/* ── PepoThePolypBot floating panel ─────────────────────────
+              Sits over the right portion of the graph canvas.
+              Has its own branded header + "—" minimize button.
+              Body: Bonfires.ai iframe (nav cropped, same as main).
+              Minimised → panel slides away, full graph is visible. */}
+          {chatOpen && (
             <div
-              className="absolute top-0 right-0 bottom-0 z-[8] pointer-events-none"
+              className="absolute top-0 right-0 bottom-0 z-[10] flex flex-col overflow-hidden"
               style={{
                 width: CHAT_PANEL_PX,
-                background: "linear-gradient(to right, transparent 0%, #00080c 18%)",
+                background: "#00080c",
+                borderLeft: "1px solid rgba(131,238,240,0.14)",
+                boxShadow: "-6px 0 40px rgba(0,0,0,0.65), -1px 0 0 rgba(131,238,240,0.06)",
               }}
-            />
+            >
+              {/* Panel header */}
+              <div
+                className="shrink-0 flex items-center justify-between px-3 py-2"
+                style={{
+                  background: "linear-gradient(90deg,rgba(0,20,28,0.98) 0%,rgba(0,8,12,0.98) 100%)",
+                  borderBottom: "1px solid rgba(131,238,240,0.12)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  {/* Chat bubble icon */}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                      stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span
+                    className="[font-family:'Inter',Helvetica] text-[11px] font-semibold"
+                    style={{ color: "#d4e9f3" }}
+                  >
+                    PepoThePolypBot
+                  </span>
+                </div>
+
+                {/* Minimize "—" button */}
+                <button
+                  onClick={() => setChatOpen(false)}
+                  data-testid="button-chat-minimize"
+                  title="Minimize PepoThePolypBot"
+                  className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:bg-[#83eef015] group"
+                  style={{ border: "1px solid rgba(131,238,240,0.15)" }}
+                >
+                  <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+                    <rect width="10" height="2" rx="1" fill="#83eef066" className="group-hover:fill-[#83eef0]"/>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Panel body — Bonfires.ai iframe (nav cropped) */}
+              <div className="flex-1 min-h-0 relative overflow-hidden">
+                <iframe
+                  src={BONFIRES_GRAPH_URL}
+                  title="PepoThePolypBot"
+                  className="absolute border-0"
+                  style={{
+                    top: `-${NAV_CROP_PX}px`,
+                    left: 0,
+                    height: `calc(100% + ${NAV_CROP_PX}px)`,
+                    width: "100%",
+                    background: "#00080c",
+                  }}
+                  allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
+                  loading="lazy"
+                  data-testid="iframe-pepo-bot"
+                />
+              </div>
+            </div>
           )}
 
           {/* First-visit hint */}
