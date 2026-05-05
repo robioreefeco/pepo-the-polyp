@@ -1769,47 +1769,83 @@ function ExpandedMapModal({
 
           {/* ── Copernicus Marine Toolbox panel ── */}
           {showToolbox && (activeCmsLayer || activeLiveLayer) && (() => {
-            const isCms   = showToolbox === 'cms'  && activeCmsLayer;
-            const isLive  = showToolbox === 'live' && activeLiveLayer;
-            const dsId    = isCms ? CMS_DATASET : activeLiveLayer?.toolboxId ?? "";
-            const varId   = isCms ? activeCmsLayer!.var : (activeLiveLayer?.wmtsVar ?? activeLiveLayer?.var) ?? "";
-            const t0      = isCms ? `${cmsYYYYMM}-01` : activeLiveLayer?.time().slice(0, 10) ?? "";
+            const isCms  = showToolbox === 'cms'  && activeCmsLayer;
+            const isLive = showToolbox === 'live' && activeLiveLayer;
+            const dsId   = isCms ? CMS_DATASET : activeLiveLayer?.toolboxId ?? "";
+
+            // Correct NetCDF variable names (some differ from WMTS/display names)
+            const CLI_VAR_MAP: Record<string, string[]> = {
+              sea_water_velocity: ["uo", "vo"],  // eastward + northward components
+            };
+            const rawVarId = isCms
+              ? activeCmsLayer!.var
+              : (activeLiveLayer?.wmtsVar ?? activeLiveLayer?.var) ?? "";
+            const varIds   = CLI_VAR_MAP[rawVarId] ?? [rawVarId];
+            const varId    = varIds[0];
+
+            // Fix: use currently-scrubbed liveDate (not the layer default time())
+            const t0 = isCms ? `${cmsYYYYMM}-01` : liveDate.slice(0, 10);
+
+            // Fix: use the user's selected depth level (liveDepthIdx) not the static default
             const hasElev = isLive && activeLiveLayer?.elevation != null;
-            const elevMin = Math.abs(activeLiveLayer?.elevation ?? 0).toFixed(3);
-            const elevMax = (Math.abs(activeLiveLayer?.elevation ?? 0) + 5).toFixed(3);
+            const selDepth = hasElev ? Math.abs(DEPTH_LEVELS[liveDepthIdx]) : 0;
+            const elevMin  = selDepth.toFixed(3);
+            const elevMax  = selDepth.toFixed(3);
+
             const clampLon = (v: number) => Math.max(-180, Math.min(180, v));
             const west  = mapBounds ? clampLon(mapBounds.getWest()).toFixed(4)  : "-180.0000";
             const east  = mapBounds ? clampLon(mapBounds.getEast()).toFixed(4)  : "180.0000";
             const south = mapBounds ? Math.max(-90, mapBounds.getSouth()).toFixed(4) : "-90.0000";
             const north = mapBounds ? Math.min(90,  mapBounds.getNorth()).toFixed(4) : "90.0000";
+
             const depthArgs = hasElev
               ? ` \\\n  --minimum-depth ${elevMin} \\\n  --maximum-depth ${elevMax}`
               : "";
             const depthPy = hasElev
               ? `    minimum_depth=${elevMin},\n    maximum_depth=${elevMax},\n`
               : "";
+            const varArgsStr = varIds.map(v => `  --variable ${v}`).join(` \\\n`);
+            const varArgsPy  = varIds.map(v => `"${v}"`).join(", ");
 
-            const snippetInstall  = `pip install copernicusmarine`;
-            const snippetSubset   =
+            // ── Snippets ─────────────────────────────────────────────────────────
+            const snippetLogin =
+              `copernicusmarine login`;
+
+            const snippetInstall =
+              `# pip (recommended)\npip install copernicusmarine\n\n` +
+              `# conda / mamba\nconda install -c conda-forge copernicusmarine\n\n` +
+              `# docker\ndocker pull copernicusmarine/copernicusmarine:latest`;
+
+            const snippetSubset =
               `copernicusmarine subset \\\n` +
               `  --dataset-id ${dsId} \\\n` +
-              `  --variable ${varId} \\\n` +
+              varArgsStr + ` \\\n` +
               `  --start-datetime "${t0}T00:00:00" \\\n` +
               `  --end-datetime "${t0}T23:59:59" \\\n` +
               `  --minimum-longitude ${west} \\\n` +
               `  --maximum-longitude ${east} \\\n` +
               `  --minimum-latitude ${south} \\\n` +
-              `  --maximum-latitude ${north}` + depthArgs;
+              `  --maximum-latitude ${north}` + depthArgs + ` \\\n` +
+              `  --output-filename "${varId}_${t0}.nc"`;
+
+            const snippetGet =
+              `copernicusmarine get \\\n` +
+              `  --dataset-id ${dsId} \\\n` +
+              `  --filter "*${t0}*" \\\n` +
+              `  --output-directory "./${varId}/"`;
+
             const snippetDescribe =
-              `copernicusmarine describe \\\n` +
+              `# Check installed version\ncopernicusmarine --version\n\n` +
+              `# Browse dataset catalogue\ncopernicusmarine describe \\\n` +
               `  --include-datasets \\\n` +
               `  --contains "${dsId}"`;
-            const snippetPython   =
+
+            const snippetPython =
               `import copernicusmarine\n\n` +
-              `# Stream as xarray Dataset (no local download needed)\n` +
+              `# Stream from cloud as xarray Dataset (no download)\n` +
               `ds = copernicusmarine.open_dataset(\n` +
               `    dataset_id="${dsId}",\n` +
-              `    variables=["${varId}"],\n` +
+              `    variables=[${varArgsPy}],\n` +
               `    start_datetime="${t0}",\n` +
               `    end_datetime="${t0}",\n` +
               `    minimum_longitude=${west},\n` +
@@ -1818,10 +1854,10 @@ function ExpandedMapModal({
               `    maximum_latitude=${north},\n` +
               depthPy +
               `)\n\n` +
-              `# Or download to a NetCDF file\n` +
+              `# Or download as NetCDF\n` +
               `copernicusmarine.subset(\n` +
               `    dataset_id="${dsId}",\n` +
-              `    variables=["${varId}"],\n` +
+              `    variables=[${varArgsPy}],\n` +
               `    start_datetime="${t0}",\n` +
               `    end_datetime="${t0}",\n` +
               `    minimum_longitude=${west},\n` +
@@ -1832,6 +1868,22 @@ function ExpandedMapModal({
               `    output_filename="${varId}_${t0}.nc",\n` +
               `)`;
 
+            const snippetDataframe =
+              `import copernicusmarine\n\n` +
+              `# Read as pandas DataFrame (tabular)\n` +
+              `df = copernicusmarine.read_dataframe(\n` +
+              `    dataset_id="${dsId}",\n` +
+              `    variables=[${varArgsPy}],\n` +
+              `    start_datetime="${t0}",\n` +
+              `    end_datetime="${t0}",\n` +
+              `    minimum_longitude=${west},\n` +
+              `    maximum_longitude=${east},\n` +
+              `    minimum_latitude=${south},\n` +
+              `    maximum_latitude=${north},\n` +
+              depthPy +
+              `)`;
+
+            // ── Styles ───────────────────────────────────────────────────────────
             const preStyle: React.CSSProperties = {
               margin: 0, padding: "8px 10px", borderRadius: 6, fontSize: 10, lineHeight: 1.55,
               background: "rgba(0,184,148,0.07)", border: "1px solid rgba(0,184,148,0.18)",
@@ -1854,17 +1906,21 @@ function ExpandedMapModal({
                 position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000,
                 background: "rgba(0,10,18,0.97)", borderTop: "1px solid rgba(0,184,148,0.3)",
                 backdropFilter: "blur(8px)", fontFamily: "Inter,sans-serif",
-                maxHeight: "56%", overflowY: "auto",
+                maxHeight: "62%", overflowY: "auto",
               }}>
-                {/* Header */}
+                {/* ── Header ── */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px 8px", borderBottom: "1px solid rgba(131,238,240,0.08)" }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#00b894", marginBottom: 2 }}>
                       ⬇ Copernicus Marine Toolbox
+                      <span style={{ fontSize: 9, fontWeight: 500, color: "#00b89466", marginLeft: 6 }}>v2.4.0</span>
                     </div>
                     <div style={{ fontSize: 9, color: "#d4e9f344", fontFamily: "monospace" }}>
-                      {dsId} · <span style={{ color: "#83eef077" }}>{varId}</span>
-                      {mapBounds ? <span style={{ color: "#d4e9f322" }}> · {south}°–{north}°N  {west}°–{east}°E</span> : null}
+                      {dsId}
+                      <span style={{ color: "#83eef077" }}> · {varIds.join(", ")}</span>
+                      {mapBounds && <span style={{ color: "#d4e9f322" }}> · {south}°–{north}°N {west}°–{east}°E</span>}
+                      {hasElev && <span style={{ color: "#d4e9f322" }}> · {depthLabel(DEPTH_LEVELS[liveDepthIdx])}</span>}
+                      <span style={{ color: "#d4e9f322" }}> · {t0}</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1884,35 +1940,57 @@ function ExpandedMapModal({
                   </div>
                 </div>
 
-                {/* Body */}
+                {/* ── Body ── */}
                 <div style={{ padding: "10px 16px 14px" }}>
                   {toolboxTab === 'cli' ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: 10, alignItems: "start" }}>
-                      <div>
-                        <div style={labelStyle}><span>Install</span>{copyBtn(snippetInstall)}</div>
-                        <pre style={preStyle}>{snippetInstall}</pre>
+                    <>
+                      {/* Row 1: Login + Install | Subset */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, alignItems: "start", marginBottom: 10 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div>
+                            <div style={labelStyle}><span>1 · Authenticate</span>{copyBtn(snippetLogin)}</div>
+                            <pre style={preStyle}>{snippetLogin}</pre>
+                          </div>
+                          <div>
+                            <div style={labelStyle}><span>2 · Install (pip / conda / docker)</span>{copyBtn(snippetInstall)}</div>
+                            <pre style={preStyle}>{snippetInstall}</pre>
+                          </div>
+                        </div>
+                        <div>
+                          <div style={labelStyle}><span>3 · Subset · viewport · date · depth</span>{copyBtn(snippetSubset)}</div>
+                          <pre style={preStyle}>{snippetSubset}</pre>
+                        </div>
                       </div>
-                      <div>
-                        <div style={labelStyle}><span>Subset · current viewport</span>{copyBtn(snippetSubset)}</div>
-                        <pre style={preStyle}>{snippetSubset}</pre>
+                      {/* Row 2: Get | Describe */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
+                        <div>
+                          <div style={labelStyle}><span>4 · Get · download original files</span>{copyBtn(snippetGet)}</div>
+                          <pre style={preStyle}>{snippetGet}</pre>
+                        </div>
+                        <div>
+                          <div style={labelStyle}><span>5 · Describe dataset</span>{copyBtn(snippetDescribe)}</div>
+                          <pre style={preStyle}>{snippetDescribe}</pre>
+                        </div>
                       </div>
-                      <div>
-                        <div style={labelStyle}><span>Describe dataset</span>{copyBtn(snippetDescribe)}</div>
-                        <pre style={preStyle}>{snippetDescribe}</pre>
-                      </div>
-                    </div>
+                    </>
                   ) : (
-                    <div>
-                      <div style={labelStyle}><span>open_dataset · subset</span>{copyBtn(snippetPython)}</div>
-                      <pre style={preStyle}>{snippetPython}</pre>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
+                      <div>
+                        <div style={labelStyle}><span>open_dataset · stream from cloud</span>{copyBtn(snippetPython)}</div>
+                        <pre style={preStyle}>{snippetPython}</pre>
+                      </div>
+                      <div>
+                        <div style={labelStyle}><span>read_dataframe · tabular (pandas)</span>{copyBtn(snippetDataframe)}</div>
+                        <pre style={preStyle}>{snippetDataframe}</pre>
+                      </div>
                     </div>
                   )}
 
                   <div style={{ marginTop: 9, fontSize: 8, color: "#d4e9f325", display: "flex", gap: 14, flexWrap: "wrap" }}>
                     <span>© Mercator Ocean International · Copernicus Marine Service (CMEMS)</span>
                     <a href="https://github.com/mercator-ocean/copernicus-marine-toolbox" target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>GitHub</a>
-                    <a href="https://toolbox-docs.marine.copernicus.eu" target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Docs</a>
-                    <a href={`https://data.marine.copernicus.eu/viewer/expert?view=dataset&dataset=${dsId}`} target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Open in Copernicus Viewer</a>
+                    <a href="https://toolbox-docs.marine.copernicus.eu/en/" target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Docs</a>
+                    <a href={`https://data.marine.copernicus.eu/viewer/expert?view=dataset&dataset=${dsId}`} target="_blank" rel="noopener noreferrer" style={{ color: "#83eef055", textDecoration: "underline" }}>Open in Copernicus Viewer ↗</a>
                   </div>
                 </div>
               </div>
