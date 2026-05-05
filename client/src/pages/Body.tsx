@@ -6,7 +6,7 @@ import { JourneySection } from "@/components/JourneySection";
 
 export const Body = (): JSX.Element => {
   return (
-    <div className="flex flex-col items-start relative bg-[#00080c] min-h-screen">
+    <div className="flex flex-col relative bg-[#00080c] h-screen overflow-hidden">
       <img
         className="absolute w-full h-full top-0 left-0 object-cover pointer-events-none"
         alt="Background"
@@ -16,14 +16,14 @@ export const Body = (): JSX.Element => {
 
       <ApplicationHeaderSection />
 
-      <div className="flex flex-row items-start relative self-stretch w-full flex-1 overflow-hidden">
+      <div className="flex flex-row relative self-stretch w-full flex-1 min-h-0 overflow-hidden">
         {/* Sidebar: hidden on mobile */}
-        <div className="hidden md:block">
+        <div className="hidden md:flex md:flex-col shrink-0">
           <ExplorerNavigationSidebarSection />
         </div>
 
         {/* Main content column */}
-        <div className="flex flex-col flex-1 self-stretch overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Profile journey progress — only shown when profile is incomplete */}
           <JourneySection />
           <ReefInsightDashboardSection />
