@@ -98,7 +98,7 @@ export function JourneySection({ className }: { className?: string }) {
   const [collapsed, setCollapsed] = useState(true);
   const [showLegend, setShowLegend] = useState(false);
   const { authenticated: privyAuthenticated, user } = usePrivy();
-  const { orcidAuthenticated, orcidProfileId } = useOrcidAuth();
+  const { orcidAuthenticated, profileId: orcidProfileId } = useOrcidAuth();
   const isAuthed = privyAuthenticated || orcidAuthenticated;
 
   const activeProfileId = orcidAuthenticated && !privyAuthenticated

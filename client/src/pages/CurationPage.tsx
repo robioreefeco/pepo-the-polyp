@@ -836,7 +836,7 @@ function MySubmissionsPanel({ submissions, isLoading }: { submissions: ReefImage
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export function CurationPage() {
   const { authenticated: privyAuthenticated, user, getAccessToken } = usePrivy();
-  const { orcidAuthenticated, orcidId: orcidSessionId, orcidProfileId } = useOrcidAuth();
+  const { orcidAuthenticated, orcidId: orcidSessionId, profileId: orcidProfileId } = useOrcidAuth();
 
   const isAuthenticated = privyAuthenticated || orcidAuthenticated;
 

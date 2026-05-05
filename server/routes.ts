@@ -1327,7 +1327,7 @@ export async function registerRoutes(
 
   // POST /api/curation/:id — approve or reject a pending reef image
   app.post("/api/curation/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { decision, curatorNote } = req.body; // 'approved' | 'rejected', optional note
     if (decision !== "approved" && decision !== "rejected") {
       return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });

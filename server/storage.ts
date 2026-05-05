@@ -194,7 +194,7 @@ export class DbStorage implements IStorage {
     const now = Math.floor(Date.now() / 1000);
     const [row] = await db
       .update(profiles)
-      .set({ orcidId: null, orcidName: null, updatedAt: now })
+      .set({ orcidId: undefined, orcidName: undefined, updatedAt: now })
       .where(eq(profiles.id, profileId))
       .returning();
     return row;

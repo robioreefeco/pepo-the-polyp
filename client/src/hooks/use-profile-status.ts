@@ -4,7 +4,7 @@ import { useOrcidAuth } from "@/hooks/use-orcid-auth";
 
 export function useProfileStatus() {
   const { authenticated, user } = usePrivy();
-  const { orcidAuthenticated, orcidProfileId } = useOrcidAuth();
+  const { orcidAuthenticated, profileId: orcidProfileId } = useOrcidAuth();
   const isAuthed = authenticated || orcidAuthenticated;
 
   const activeProfileId = orcidAuthenticated && !authenticated

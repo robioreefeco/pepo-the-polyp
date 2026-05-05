@@ -828,6 +828,8 @@ function ExpandedMapModal({
   }, []);
 
   // ── Time-lapse animation ────────────────────────────────────────────────────
+  // Note: liveMinDateStr is computed below (after activeLiveLayer), captured via ref
+  const liveMinDateStrRef = useRef("2019-01-01");
   useEffect(() => {
     if (!isPlaying || !activeLiveVar) return;
     const interval = setInterval(() => {
@@ -837,7 +839,7 @@ function ExpandedMapModal({
         const maxD = new Date(); maxD.setDate(maxD.getDate() - 1);
         if (d.getTime() >= maxD.getTime()) {
           if (isLooping) {
-            const minD = new Date(liveMinDateStr);
+            const minD = new Date(liveMinDateStrRef.current);
             return minD.toISOString().slice(0, 10) + "T00:00:00Z";
           }
           setIsPlaying(false);
@@ -847,7 +849,7 @@ function ExpandedMapModal({
       });
     }, 1100);
     return () => clearInterval(interval);
-  }, [isPlaying, playStepDays, activeLiveVar, isLooping, liveMinDateStr]);
+  }, [isPlaying, playStepDays, activeLiveVar, isLooping]);
 
   // Stop playing when layer changes
   useEffect(() => { setIsPlaying(false); }, [activeLiveVar]);
@@ -925,6 +927,7 @@ function ExpandedMapModal({
 
   // Timeline date-range helpers (recomputed when active layer changes)
   const liveMinDateStr = activeLiveLayer ? liveTimelineMin(activeLiveLayer.group) : "2019-01-01";
+  liveMinDateStrRef.current = liveMinDateStr;
   const liveMaxDate = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })();
   const tMin = new Date(liveMinDateStr).getTime();
   const tMax = liveMaxDate.getTime();

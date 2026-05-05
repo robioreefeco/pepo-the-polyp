@@ -28,7 +28,7 @@ export function getPinata(): PinataSDK {
 export async function uploadToIPFS(buffer: Buffer, filename?: string): Promise<string> {
   const pinata = getPinata();
   const name = filename || `upload-${Date.now()}`;
-  const file = new File([buffer], name, { type: "application/octet-stream" });
+  const file = new File([buffer as unknown as ArrayBuffer], name, { type: "application/octet-stream" });
   const result = await pinata.upload.public.file(file);
   console.log("[IPFS] pinned:", result.cid);
   return result.cid;
