@@ -932,6 +932,40 @@ export async function registerRoutes(
     }
   });
 
+  // Recent episodes — sorted newest-first for the Explorer panel
+  app.get("/api/graph/recent", async (_req: Request, res: Response) => {
+    const queries = ["coral reef", "MesoReefDAO", "DeSci", "marine conservation"];
+    const allEpisodes = new Map<string, any>();
+
+    await Promise.allSettled(queries.map(async (query) => {
+      try {
+        const response = await fetch(`${BONFIRES_BASE}/api/graph/query`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${PEPO_API_KEY}`,
+            "Content-Type": "application/json",
+            "x-api-key": PEPO_API_KEY,
+          },
+          body: JSON.stringify({ bonfire_id: BONFIRE_ID, query }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) return;
+        const data = await response.json() as any;
+        (data.episodes as any[] || []).forEach((ep: any) => allEpisodes.set(ep.uuid, ep));
+      } catch { /* ignore individual failures */ }
+    }));
+
+    const episodes = Array.from(allEpisodes.values())
+      .sort((a, b) => {
+        const ta = new Date(a.valid_at || a.created_at || 0).getTime();
+        const tb = new Date(b.valid_at || b.created_at || 0).getTime();
+        return tb - ta;
+      })
+      .slice(0, 10);
+
+    return res.json({ episodes });
+  });
+
   // Proxy: search knowledge graph
   app.post("/api/graph/search", async (req: Request, res: Response) => {
     const query = sanitizeString(req.body?.query, 500);

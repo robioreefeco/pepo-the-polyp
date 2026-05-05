@@ -1,11 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { useState, useEffect, useCallback } from "react";
-import { ExternalLink, Network } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ExternalLink, Network, ChevronDown, ChevronUp, Search, Clock, Loader2 } from "lucide-react";
 import pepoPng from "@assets/MesoReefDAO_Pepo_The_Polyp_1776218616437.png";
 import coralBg from "@assets/coral_textures_1776303814463.jpg";
 import { usePrivy } from "@privy-io/react-auth";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 const TELEGRAM_BOT_URL = "https://t.me/PepothePolyp_bot";
 const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
@@ -27,6 +27,182 @@ function TgIcon({ size = 16 }: { size?: number }) {
 }
 
 // ── Bonfires Knowledge Graph panel ──────────────────────────────────────────
+interface BonfiresEpisode {
+  uuid: string;
+  name: string;
+  node_type?: string;
+  valid_at: string | null;
+  created_at: string;
+  summary?: string;
+  content?: { content?: string };
+}
+
+interface BonfiresSearchResult {
+  uuid: string;
+  name: string;
+  node_type: string;
+  summary?: string;
+  content?: { content?: string };
+}
+
+function BonfiresExplorer() {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ entities: BonfiresSearchResult[]; episodes: BonfiresEpisode[] } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data: recentData, isLoading: recentLoading } = useQuery<{ episodes: BonfiresEpisode[] }>({
+    queryKey: ["/api/graph/recent"],
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchError(false);
+    setSearchResults(null);
+    try {
+      const res = await fetch("/api/graph/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      if (!res.ok) throw new Error("search failed");
+      const data = await res.json();
+      setSearchResults(data);
+    } catch {
+      setSearchError(true);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleToggle = () => {
+    setOpen(o => {
+      if (!o) setTimeout(() => inputRef.current?.focus(), 150);
+      return !o;
+    });
+  };
+
+  const allResults = searchResults ? [...(searchResults.entities || []), ...(searchResults.episodes || [])] : [];
+
+  const fmtDate = (iso: string | null | undefined) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+      ", " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div className="border-t border-[#83eef01a] shrink-0">
+      <button
+        onClick={handleToggle}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[#83eef008] transition-colors"
+        data-testid="button-toggle-explorer"
+      >
+        <div className="flex items-center gap-2">
+          <Search size={11} className="text-[#83eef0]" />
+          <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[11px] font-semibold tracking-wide">
+            Search & Activity
+          </span>
+        </div>
+        {open
+          ? <ChevronUp size={12} className="text-[#83eef066]" />
+          : <ChevronDown size={12} className="text-[#83eef066]" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-5 flex flex-col gap-4">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search the graph…"
+              className="flex-1 bg-[#ffffff0d] border border-[#83eef01a] rounded-lg px-3 py-1.5 text-[#d4e9f3] text-xs placeholder:text-[#d4e9f344] focus:outline-none focus:border-[#83eef066] transition-colors"
+              data-testid="input-graph-search"
+            />
+            <button
+              type="submit"
+              disabled={searching || !searchQuery.trim()}
+              className="px-3 py-1.5 bg-[#83eef01a] hover:bg-[#83eef026] disabled:opacity-40 rounded-lg border border-[#83eef033] transition-colors"
+              data-testid="button-graph-search-submit"
+            >
+              {searching
+                ? <Loader2 size={12} className="text-[#83eef0] animate-spin" />
+                : <Search size={12} className="text-[#83eef0]" />}
+            </button>
+          </form>
+
+          {searchError && (
+            <p className="text-[#ff6b6b] text-[10px] text-center">Search unavailable — try again shortly.</p>
+          )}
+
+          {searchResults !== null && (
+            <div className="flex flex-col gap-2">
+              <span className="text-[#83eef066] text-[9px] uppercase tracking-widest font-semibold">
+                {allResults.length} result{allResults.length !== 1 ? "s" : ""}
+              </span>
+              {allResults.length === 0 && (
+                <p className="text-[#d4e9f344] text-[11px] text-center py-2">No results found.</p>
+              )}
+              {allResults.slice(0, 6).map(item => (
+                <div key={item.uuid} className="bg-[#ffffff08] rounded-xl px-3 py-2.5 border border-[#83eef01a]">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[#83eef066] text-[8px] uppercase tracking-widest font-semibold">
+                      {item.node_type === "episode" ? "Episode" : "Entity"}
+                    </span>
+                  </div>
+                  <div className="text-[#d4e9f3] text-[11px] font-medium leading-snug line-clamp-2">{item.name}</div>
+                  {(item.summary || item.content?.content) && (
+                    <div className="text-[#d4e9f355] text-[10px] mt-1 line-clamp-2 leading-relaxed">
+                      {item.summary || item.content?.content}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <Clock size={10} className="text-[#83eef066]" />
+              <span className="text-[#83eef066] text-[9px] uppercase tracking-widest font-semibold">Recent Activity</span>
+            </div>
+            {recentLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 size={16} className="text-[#83eef066] animate-spin" />
+              </div>
+            ) : (recentData?.episodes || []).length === 0 ? (
+              <p className="text-[#d4e9f344] text-[10px] text-center py-2">No recent activity found.</p>
+            ) : (
+              (recentData?.episodes || []).slice(0, 6).map(ep => (
+                <div key={ep.uuid} className="bg-[#ffffff08] rounded-xl px-3 py-2.5 border border-[#83eef01a]">
+                  <div className="text-[#d4e9f3] text-[11px] font-medium leading-snug line-clamp-2">{ep.name}</div>
+                  {fmtDate(ep.valid_at || ep.created_at) && (
+                    <div className="text-[#83eef066] text-[9px] mt-0.5">{fmtDate(ep.valid_at || ep.created_at)}</div>
+                  )}
+                  {ep.content?.content && (
+                    <div className="text-[#d4e9f355] text-[10px] mt-1 line-clamp-3 leading-relaxed">
+                      {ep.content.content}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KnowledgeGraphPanel() {
   return (
     <div
@@ -58,13 +234,6 @@ function KnowledgeGraphPanel() {
         </a>
       </div>
 
-      {/*
-        Bonfires.ai graph — direct cross-origin iframe.
-        CSS clipping hides:
-          • top 44 px  → Bonfires.ai navigation bar
-          • left 560 px → EXPLORER floating panel (occupies x≈265-555 in a 1456 px viewport)
-        The graph canvas fills the remaining visible area; users can still pan/zoom.
-      */}
       <div className="relative flex-1 w-full overflow-hidden" style={{ minHeight: "280px" }}>
         <iframe
           src="https://pepo.app.bonfires.ai/graph"
@@ -82,6 +251,8 @@ function KnowledgeGraphPanel() {
           data-testid="iframe-knowledge-graph"
         />
       </div>
+
+      <BonfiresExplorer />
     </div>
   );
 }
