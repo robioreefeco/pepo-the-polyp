@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ExternalLink, Network, Search, Clock, Loader2, Send, X } from "lucide-react";
-import { KnowledgeGraphCanvas } from "@/components/KnowledgeGraphCanvas";
 import pepoPng from "@assets/MesoReefDAO_Pepo_The_Polyp_1776218616437.png";
 import coralBg from "@assets/coral_textures_1776303814463.jpg";
 import { usePrivy } from "@privy-io/react-auth";
@@ -292,13 +291,10 @@ function KnowledgeGraphPanel() {
       </div>
 
       <div className="relative flex-1 w-full overflow-hidden" style={{ minHeight: "400px" }}>
-        {/* Mobile: native canvas graph — touch-friendly pan/pinch/tap */}
-        <KnowledgeGraphCanvas className="absolute inset-0 w-full h-full md:hidden" />
-        {/* Desktop: Bonfires interface via proxy — navbar hidden, bot panel auto-minimized */}
+        {/* Bonfires.ai graph — all screen sizes */}
         <iframe
           src="/api/graph-embed"
           title="Reef Knowledge Graph"
-          className="hidden md:block"
           style={{
             position: "absolute",
             top: "0",
@@ -311,11 +307,6 @@ function KnowledgeGraphPanel() {
           loading="lazy"
           data-testid="iframe-knowledge-graph"
         />
-      </div>
-
-      {/* Search & activity — mobile only (desktop uses Bonfires' own explorer panel) */}
-      <div className="md:hidden">
-        <BonfiresExplorer />
       </div>
     </div>
   );
