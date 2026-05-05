@@ -277,99 +277,159 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
   return (
     <div className="flex flex-col flex-1 self-stretch min-h-0 overflow-hidden px-3 md:px-6 pt-3 md:pt-4 pb-20 md:pb-4 gap-3">
 
-      {/* ── Knowledge Graph — full-width, tall ──────────────────────────── */}
-      <div
-        className="relative w-full rounded-[16px] md:rounded-[24px] overflow-hidden shrink-0"
-        style={{
-          height: "calc(100vh - 158px)",
-          minHeight: 480,
-          border: "1px solid rgba(131,238,240,0.18)",
-          boxShadow: "0 0 0 1px rgba(131,238,240,0.06), 0 0 48px rgba(131,238,240,0.06), inset 0 0 80px rgba(0,8,12,0.5)",
-        }}
-      >
-        {/* Ambient teal glow ring */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0 rounded-[24px]"
-          style={{ boxShadow: "inset 0 0 60px rgba(131,238,240,0.04)" }}
-        />
+      {/* ── Two-column row: graph (left) + daily action (right) ─────────── */}
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-3">
 
-        {/* ── Header bar ──────────────────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════════
+            KNOWLEDGE GRAPH
+        ════════════════════════════════════════════════════════════════ */}
         <div
-          className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-5"
+          className="relative flex-1 min-h-0 rounded-[16px] md:rounded-[24px] overflow-hidden"
           style={{
-            height: 52,
-            background: "linear-gradient(90deg,rgba(0,8,12,0.98) 0%,rgba(0,18,22,0.97) 100%)",
-            borderBottom: "1px solid rgba(131,238,240,0.10)",
-            backdropFilter: "blur(12px)",
+            minHeight: 480,
+            border: "1px solid rgba(131,238,240,0.20)",
+            boxShadow:
+              "0 0 0 1px rgba(131,238,240,0.05)," +
+              "0 0 60px rgba(131,238,240,0.08)," +
+              "0 24px 64px rgba(0,0,0,0.6)," +
+              "inset 0 0 120px rgba(0,8,12,0.6)",
           }}
         >
-          {/* Graph icon */}
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0"
-            style={{ background: "rgba(131,238,240,0.08)", border: "1px solid rgba(131,238,240,0.18)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <circle cx="5"  cy="12" r="2.8" fill="#83eef0" />
-              <circle cx="19" cy="6"  r="2.2" fill="#83eef066" />
-              <circle cx="19" cy="18" r="2.2" fill="#83eef066" />
-              <line x1="7.5" y1="10.8" x2="17" y2="7"   stroke="#83eef060" strokeWidth="1.3"/>
-              <line x1="7.5" y1="13.2" x2="17" y2="17"  stroke="#83eef060" strokeWidth="1.3"/>
-            </svg>
+          {/* ── Decorative corner reef SVGs ─────────────────────────── */}
+          {/* bottom-left */}
+          <svg
+            width="90" height="90" viewBox="0 0 90 90" fill="none"
+            className="absolute bottom-0 left-0 z-[5] pointer-events-none select-none opacity-25"
+          >
+            <path d="M0 90 Q10 60 30 50 Q20 35 35 20 Q50 30 45 50 Q60 45 70 60 Q55 65 50 80 Q35 75 20 90Z" fill="#83eef0" fillOpacity="0.12"/>
+            <circle cx="18" cy="72" r="4" fill="#83eef0" fillOpacity="0.25"/>
+            <circle cx="38" cy="55" r="2.5" fill="#83eef0" fillOpacity="0.18"/>
+            <circle cx="55" cy="68" r="3" fill="#3fb0b3" fillOpacity="0.2"/>
+          </svg>
+          {/* bottom-right */}
+          <svg
+            width="80" height="80" viewBox="0 0 80 80" fill="none"
+            className="absolute bottom-0 right-0 z-[5] pointer-events-none select-none opacity-20"
+          >
+            <path d="M80 80 Q70 52 50 44 Q62 30 48 18 Q35 28 38 46 Q22 42 14 56 Q28 62 32 76 Q50 70 64 80Z" fill="#83eef0" fillOpacity="0.10"/>
+            <circle cx="62" cy="66" r="3.5" fill="#83eef0" fillOpacity="0.22"/>
+            <circle cx="44" cy="52" r="2" fill="#3fb0b3" fillOpacity="0.2"/>
+          </svg>
+
+          {/* ── Edge glow gradients ─────────────────────────────────── */}
+          {/* left edge */}
+          <div className="absolute top-0 left-0 bottom-0 w-[3px] z-[6] pointer-events-none"
+            style={{ background: "linear-gradient(180deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.35) 50%,rgba(131,238,240,0.0) 100%)" }} />
+          {/* top edge */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] z-[6] pointer-events-none"
+            style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.4) 50%,rgba(131,238,240,0.0) 100%)" }} />
+
+          {/* ── Header bar ─────────────────────────────────────────── */}
+          <div
+            className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-5"
+            style={{
+              height: 52,
+              background:
+                "linear-gradient(90deg,rgba(0,10,14,0.99) 0%,rgba(0,20,26,0.97) 60%,rgba(0,14,18,0.99) 100%)",
+              borderBottom: "1px solid rgba(131,238,240,0.12)",
+              backdropFilter: "blur(16px)",
+            }}
+          >
+            {/* Icon pill */}
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded-xl shrink-0"
+              style={{
+                background: "linear-gradient(135deg,rgba(131,238,240,0.14) 0%,rgba(63,176,179,0.08) 100%)",
+                border: "1px solid rgba(131,238,240,0.22)",
+                boxShadow: "0 0 12px rgba(131,238,240,0.12)",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="5"  cy="12" r="2.8" fill="#83eef0"/>
+                <circle cx="19" cy="6"  r="2.2" fill="#83eef0" fillOpacity="0.55"/>
+                <circle cx="19" cy="18" r="2.2" fill="#83eef0" fillOpacity="0.55"/>
+                <line x1="7.5" y1="10.8" x2="17" y2="7"  stroke="#83eef0" strokeOpacity="0.5" strokeWidth="1.4"/>
+                <line x1="7.5" y1="13.2" x2="17" y2="17" stroke="#83eef0" strokeOpacity="0.5" strokeWidth="1.4"/>
+              </svg>
+            </div>
+
+            {/* Title + subtitle */}
+            <div className="flex flex-col gap-0.5">
+              <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#e8f8f9] text-[13px] leading-none tracking-tight">
+                {t("dashboard.knowledgeGraph")}
+              </span>
+              <span className="[font-family:'Inter',Helvetica] text-[#83eef066] text-[9px] leading-none">
+                MesoReefDAO · Research Network
+              </span>
+            </div>
+
+            {/* Live pulse */}
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#83eef0] opacity-50" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#83eef0]" />
+              </span>
+              <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[9px] font-semibold tracking-wider uppercase">Live</span>
+            </div>
+
+            <div className="flex-1" />
+
+            {/* 165+ nodes badge */}
+            <div
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{
+                background: "rgba(131,238,240,0.06)",
+                border: "1px solid rgba(131,238,240,0.16)",
+              }}
+            >
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3.5" fill="#83eef0"/>
+                <circle cx="4"  cy="6"  r="2.2" fill="#83eef0" fillOpacity="0.5"/>
+                <circle cx="20" cy="6"  r="2.2" fill="#83eef0" fillOpacity="0.5"/>
+                <circle cx="4"  cy="18" r="2.2" fill="#83eef0" fillOpacity="0.5"/>
+                <circle cx="20" cy="18" r="2.2" fill="#83eef0" fillOpacity="0.5"/>
+                <line x1="6" y1="7"  x2="10" y2="11" stroke="#83eef0" strokeOpacity="0.35" strokeWidth="1.2"/>
+                <line x1="18" y1="7"  x2="14" y2="11" stroke="#83eef0" strokeOpacity="0.35" strokeWidth="1.2"/>
+                <line x1="6" y1="17" x2="10" y2="13" stroke="#83eef0" strokeOpacity="0.35" strokeWidth="1.2"/>
+                <line x1="18" y1="17" x2="14" y2="13" stroke="#83eef0" strokeOpacity="0.35" strokeWidth="1.2"/>
+              </svg>
+              <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-semibold">165+ nodes</span>
+            </div>
+
+            {/* Bonfires.ai pill */}
+            <div
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <span className="[font-family:'Inter',Helvetica] text-[#d4e9f330] text-[9px]">powered by</span>
+              <span className="[font-family:'Inter',Helvetica] text-[#d4e9f355] text-[9px] font-semibold">Bonfires.ai</span>
+            </div>
           </div>
 
-          {/* Title */}
-          <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-[13px] leading-none tracking-tight">
-            {t("dashboard.knowledgeGraph")}
-          </span>
-
-          {/* Live indicator */}
-          <div className="flex items-center gap-1.5 ml-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#83eef0] animate-pulse" />
-            <span className="[font-family:'Inter',Helvetica] text-[#83eef099] text-[10px] font-medium">Live</span>
-          </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Node count badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-            style={{ background: "rgba(131,238,240,0.06)", border: "1px solid rgba(131,238,240,0.14)" }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" fill="#83eef0" />
-              <circle cx="4"  cy="6"  r="2" fill="#83eef066" />
-              <circle cx="20" cy="6"  r="2" fill="#83eef066" />
-              <circle cx="4"  cy="18" r="2" fill="#83eef066" />
-              <circle cx="20" cy="18" r="2" fill="#83eef066" />
-              <line x1="6" y1="7"  x2="10" y2="11" stroke="#83eef040" strokeWidth="1.2"/>
-              <line x1="18" y1="7"  x2="14" y2="11" stroke="#83eef040" strokeWidth="1.2"/>
-              <line x1="6" y1="17" x2="10" y2="13" stroke="#83eef040" strokeWidth="1.2"/>
-              <line x1="18" y1="17" x2="14" y2="13" stroke="#83eef040" strokeWidth="1.2"/>
-            </svg>
-            <span className="[font-family:'Inter',Helvetica] text-[#83eef0] text-[10px] font-semibold">165+ nodes</span>
-          </div>
-
-          {/* Bonfires attribution */}
-          <span className="[font-family:'Inter',Helvetica] text-[10px] px-2 py-0.5 rounded-full text-[#d4e9f340]"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            Bonfires.ai
-          </span>
+          {/* Iframe */}
+          <GraphLoadingShimmer visible={graphLoading} />
+          <iframe
+            src={BONFIRES_GRAPH_URL}
+            title="Reef Knowledge Graph"
+            className="absolute left-0 right-0 bottom-0 w-full border-0"
+            style={{ top: 52, background: "#00080c" }}
+            allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
+            loading="lazy"
+            data-testid="iframe-knowledge-graph"
+            onLoad={() => setGraphLoading(false)}
+          />
         </div>
 
-        {/* Iframe — offset below our header bar */}
-        <GraphLoadingShimmer visible={graphLoading} />
-        <iframe
-          src={BONFIRES_GRAPH_URL}
-          title="Reef Knowledge Graph"
-          className="absolute left-0 right-0 bottom-0 w-full border-0"
-          style={{ top: 52, background: "#00080c" }}
-          allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
-          loading="lazy"
-          data-testid="iframe-knowledge-graph"
-          onLoad={() => setGraphLoading(false)}
-        />
-      </div>
+        {/* ════════════════════════════════════════════════════════════════
+            DAILY REEF ACTION — right panel
+        ════════════════════════════════════════════════════════════════ */}
+        <div className="w-full md:w-[300px] shrink-0 flex flex-col min-h-0">
+          <CleanCoralPanel />
+        </div>
 
-      {/* ── Daily Reef Action — compact horizontal strip below the graph ── */}
-      <div className="shrink-0">
-        <CleanCoralPanel />
       </div>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
