@@ -8,15 +8,11 @@ import { queryClient } from "@/lib/queryClient";
  * Syncs the user's profile to the backend and awards first-login bonus.
  */
 export function useProfileSync() {
-  if (!PRIVY_ENABLED) return;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { ready, authenticated, user, getAccessToken } = usePrivy();
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const synced = useRef(false);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (!PRIVY_ENABLED) return;
     if (!ready || !authenticated || !user || synced.current) return;
     synced.current = true;
 
@@ -25,7 +21,6 @@ export function useProfileSync() {
         const token = await getAccessToken();
         if (!token) return;
 
-        // Derive display name from linked accounts
         const linked = user!.linkedAccounts ?? [];
         const twitterAcct = linked.find((a: any) => a.type === "twitter_oauth") as any;
         const emailAcct = linked.find((a: any) => a.type === "email") as any;
@@ -47,7 +42,6 @@ export function useProfileSync() {
           body: JSON.stringify({ displayName }),
         });
 
-        // Refresh leaderboard so new user appears
         queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
         queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
       } catch (err) {
