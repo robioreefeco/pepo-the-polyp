@@ -15,10 +15,11 @@ const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // The iframe is shifted up by this amount so both rows sit above the
 // overflow:hidden boundary and are never visible.
 const NAV_CROP_PX = 96;
-// Width of the Bonfires.ai right chat/bot panel. The iframe is rendered
-// wider by this amount so the chat overflows outside the container while
-// the left Explorer panel remains fully visible.
-const RIGHT_CROP_PX = 280;
+// The Bonfires.ai chat panel sits at ~right:280px inside the page
+// (not flush-right), so we need to overflow the iframe by chatWidth +
+// rightInset ≈ 285 + 280 = 565px to push its LEFT edge outside the
+// container and hide it completely. Explorer panel stays fully visible.
+const RIGHT_CROP_PX = 565;
 
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
