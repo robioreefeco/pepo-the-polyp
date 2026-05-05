@@ -544,6 +544,21 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             onLoad={handleIframeLoad}
           />
 
+          {/* Cover the Bonfires.ai "Chat with the graph" floating button.
+              It lives in the bottom-right of the graph canvas at roughly
+              bottom:20px, right:20px inside the iframe.  A gradient slab
+              that matches our background blends it away invisibly. */}
+          <div
+            className="absolute bottom-0 right-0 z-[7] pointer-events-none"
+            style={{
+              width: 240,
+              height: 80,
+              background:
+                "linear-gradient(to left, #00080c 55%, transparent 100%)," +
+                "linear-gradient(to top,  #00080c 45%, transparent 100%)",
+            }}
+          />
+
           {/* First-visit hint */}
           {showHint && !graphLoading && (
             <GraphHintOverlay onDismiss={dismissHint} />
