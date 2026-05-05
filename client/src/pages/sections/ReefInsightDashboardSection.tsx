@@ -11,6 +11,12 @@ const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
 const HINT_KEY = "pepo_graph_hint_v1";
 const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Width of each Bonfires.ai side panel (Explorer left, Chat right).
+// The iframe is rendered wider by 2× this amount and shifted left,
+// so both panels fall outside the overflow:hidden container — leaving
+// only the graph canvas visible.
+const PANEL_CROP_PX = 270;
+
 const EXAMPLE_PROMPTS = [
   "Any interesting things happened recently?",
   "Who are the most active participants lately?",
@@ -523,12 +529,23 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
           style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.4) 50%,rgba(131,238,240,0.0) 100%)" }} />
 
         <GraphLoadingShimmer visible={graphLoading} />
+        {/* iframe is intentionally wider than the container:
+            width = 100% + 2×PANEL_CROP_PX so both Bonfires.ai side panels
+            (Explorer left, Chat right) are pushed outside the overflow:hidden
+            boundary. translateX(-PANEL_CROP_PX) shifts the frame left so the
+            graph canvas is centred in view. */}
         <iframe
           ref={iframeRef}
           src={BONFIRES_GRAPH_URL}
           title="Reef Knowledge Graph"
-          className="absolute inset-0 w-full h-full border-0"
-          style={{ background: "#00080c" }}
+          className="absolute top-0 border-0"
+          style={{
+            left: 0,
+            height: "100%",
+            width: `calc(100% + ${PANEL_CROP_PX * 2}px)`,
+            transform: `translateX(-${PANEL_CROP_PX}px)`,
+            background: "#00080c",
+          }}
           allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
           loading="lazy"
           data-testid="iframe-knowledge-graph"
