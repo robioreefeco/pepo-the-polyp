@@ -11,11 +11,17 @@ const BONFIRES_GRAPH_URL = "https://pepo.app.bonfires.ai/graph";
 const HINT_KEY = "pepo_graph_hint_v1";
 const HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Bonfires.ai nav bar (single logo + tabs row) + dark strip below = ~80 px.
-// Shifting the iframe up by this amount hides the Bonfires.ai nav so that
-// the EXPLORER panel appears right at the top of our container, matching
-// the reference layout where EXPLORER is flush with the top.
-const NAV_CROP_PX = 80;
+// Internal y-coordinate where the Bonfires.ai EXPLORER panel header begins
+// (nav bar ≈48 px + dark gap ≈80 px below nav = 128 px from page top).
+// Setting this as the top-crop means the EXPLORER header sits right at the
+// top of our container — matches the reference screenshot.
+const NAV_CROP_PX = 128;
+
+// Internal x-coordinate of the EXPLORER panel's right edge (measured from
+// live screenshot at 1456 px: panel starts ≈267, width ≈286 → right ≈553).
+// When the EXPLORER is toggled off we shift the iframe left by this amount
+// so the EXPLORER slides out of the overflow-hidden boundary.
+const LEFT_CROP_PX = 560;
 
 // Dynamic scale targets: the ResizeObserver below keeps the iframe's
 // internal viewport at TARGET_INTERNAL_PX regardless of container size,
@@ -410,6 +416,7 @@ function GraphLoadingShimmer({ visible }: { visible: boolean }) {
 export const ReefInsightDashboardSection = (): JSX.Element => {
   const [graphLoading, setGraphLoading] = useState(true);
   const [coralOpen, setCoralOpen] = useState(true);
+  const [explorerVisible, setExplorerVisible] = useState(true);
   // Dynamic scale: computed from container width so all three panels always fit
   const [scale, setScale] = useState(0.75);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -499,8 +506,30 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             </span>
           </div>
 
-          {/* Right: powered-by badge + open-in-full link */}
+          {/* Right: EXPLORER toggle + powered-by badge + open-in-full link */}
           <div className="flex items-center gap-3">
+            {/* EXPLORER panel visibility toggle */}
+            <button
+              onClick={() => setExplorerVisible(v => !v)}
+              data-testid="button-toggle-explorer"
+              title={explorerVisible ? "Minimize EXPLORER panel" : "Show EXPLORER panel"}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-colors hover:bg-[#83eef010] text-[#83eef066] hover:text-[#83eef0]"
+              style={{ border: "1px solid rgba(131,238,240,0.14)" }}
+            >
+              {/* Sidebar/panel icon */}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2"/>
+                {explorerVisible
+                  ? <polyline points="6,9 3,12 6,15" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  : <polyline points="12,9 15,12 12,15" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                }
+              </svg>
+              <span className="[font-family:'Inter',Helvetica] text-[10px] font-medium hidden sm:block">
+                {explorerVisible ? "Hide Explorer" : "Show Explorer"}
+              </span>
+            </button>
+
             <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f340] hidden sm:block">
               powered by Bonfires.ai
             </span>
@@ -539,7 +568,16 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
 
           {/* iframe: internal viewport = TARGET_INTERNAL_PX px wide (1250 px).
               `scale` is recomputed on every container resize so the visual
-              result always fills the wrapper exactly, panels always visible. */}
+              result always fills the wrapper exactly, panels always visible.
+              Formula (transformOrigin = top left):
+                A point at internal (ix, iy) maps to visual:
+                  visual_x = css_left + ix × scale
+                  visual_y = css_top  + iy × scale
+              So to show internal y=NAV_CROP_PX at visual y=0:
+                css_top = -(NAV_CROP_PX × scale)          ← NOT /scale
+              To show internal x=LEFT_CROP_PX at visual x=0 (explorer hidden):
+                css_left = -(LEFT_CROP_PX × scale)
+              Heights/widths compensate by adding the crop in px. */}
           <iframe
             ref={iframeRef}
             src={BONFIRES_GRAPH_URL}
@@ -548,10 +586,12 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
             style={{
               transform: `scale(${scale})`,
               transformOrigin: "top left",
-              top: `${-(NAV_CROP_PX / scale)}px`,
-              left: 0,
-              width: `${(1 / scale) * 100}%`,
-              height: `calc(${(1 / scale) * 100}% + ${NAV_CROP_PX / scale}px)`,
+              top: `${-(NAV_CROP_PX * scale)}px`,
+              left: explorerVisible ? 0 : `${-(LEFT_CROP_PX * scale)}px`,
+              width: explorerVisible
+                ? `${(1 / scale) * 100}%`
+                : `calc(${(1 / scale) * 100}% + ${LEFT_CROP_PX}px)`,
+              height: `calc(${(1 / scale) * 100}% + ${NAV_CROP_PX}px)`,
               background: "#00080c",
             }}
             allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
