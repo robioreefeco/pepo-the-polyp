@@ -25,12 +25,12 @@ const LEFT_CROP_PX = 560;
 
 // Dynamic scale targets: the ResizeObserver below keeps the iframe's
 // internal viewport at TARGET_INTERNAL_PX regardless of container size,
-// capped between MIN_SCALE and MAX_SCALE (0.70 = "70% of fit to the screen"
+// capped between MIN_SCALE and MAX_SCALE (0.65 = "65% of fit to the screen"
 // as requested — all three panels visible at a comfortably smaller size).
 // At TARGET_INTERNAL_PX = 1250, Bonfires.ai shows a clean flush 3-panel
 // layout: EXPLORER (left) · graph canvas (center) · PepoThePolypBot (right).
 const TARGET_INTERNAL_PX = 1250;
-const MAX_SCALE = 0.70;
+const MAX_SCALE = 0.65;
 const MIN_SCALE = 0.48;
 
 const EXAMPLE_PROMPTS = [
