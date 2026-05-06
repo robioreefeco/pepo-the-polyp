@@ -407,8 +407,6 @@ function GraphLoadingShimmer({ visible }: { visible: boolean }) {
 export const ReefInsightDashboardSection = (): JSX.Element => {
   const [graphLoading, setGraphLoading] = useState(true);
   const [coralOpen, setCoralOpen] = useState(true);
-  const [explorerOpen, setExplorerOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { t } = useTranslation();
 
@@ -431,16 +429,6 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
   const handleIframeLoad = useCallback(() => {
     setGraphLoading(false);
   }, []);
-
-  const handleExplorerSearch = useCallback(() => {
-    if (!searchQuery.trim()) return;
-    try {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "search", query: searchQuery.trim() },
-        "https://pepo.app.bonfires.ai"
-      );
-    } catch { /* cross-origin — ignore */ }
-  }, [searchQuery]);
 
   return (
     <div className="flex flex-row flex-1 self-stretch min-h-0 overflow-hidden px-2 md:px-4 pt-2 md:pt-3 pb-20 md:pb-3 gap-2">
@@ -513,172 +501,48 @@ export const ReefInsightDashboardSection = (): JSX.Element => {
           </div>
         </div>
 
-        {/* ── Explorer + iframe row ───────────────────────────────── */}
-        <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+        {/* ── iframe wrapper ─────────────────────────────────────── */}
+        {/* overflow-hidden clips the Bonfires.ai nav bar (shifted above   */}
+        {/* the top boundary).  SCALE=0.75 makes the iframe render at      */}
+        {/* 133% internal width so all three Bonfires.ai panels —          */}
+        {/* EXPLORER (left) · graph canvas (center) · PepoThePolypBot      */}
+        {/* (right) — are visible and proportionally sized.                */}
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          {/* Subtle teal edge glows */}
+          <div className="absolute top-0 left-0 bottom-0 w-[3px] z-[6] pointer-events-none"
+            style={{ background: "linear-gradient(180deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.30) 50%,rgba(131,238,240,0.0) 100%)" }} />
+          <div className="absolute top-0 left-0 right-0 h-[2px] z-[6] pointer-events-none"
+            style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.35) 50%,rgba(131,238,240,0.0) 100%)" }} />
 
-          {/* ── Native EXPLORER panel ──────────────────────────────── */}
-          <div
-            className="shrink-0 flex flex-col min-h-0 transition-all duration-300"
+          <GraphLoadingShimmer visible={graphLoading} />
+
+          {/* Single iframe — full container width, scaled to SCALE.
+              Pre-scale dimensions are (1/SCALE)× the container so the
+              scaled result fills it exactly. Nav bar cropped by top-shift. */}
+          <iframe
+            ref={iframeRef}
+            src={BONFIRES_GRAPH_URL}
+            title="Regen Reef Knowledge Graph"
+            className="absolute border-0"
             style={{
-              width: explorerOpen ? 220 : 32,
-              background: "#07080a",
-              borderRight: "1px solid rgba(131,238,240,0.12)",
+              transform: `scale(${SCALE})`,
+              transformOrigin: "top left",
+              top: `${-(NAV_CROP_PX / SCALE)}px`,
+              left: 0,
+              width: `${(1 / SCALE) * 100}%`,
+              height: `calc(${(1 / SCALE) * 100}% + ${NAV_CROP_PX / SCALE}px)`,
+              background: "#00080c",
             }}
-          >
-            {explorerOpen ? (
-              /* ── Open state ── */
-              <div className="flex flex-col h-full overflow-hidden">
-                {/* Header */}
-                <div
-                  className="shrink-0 flex items-center justify-between px-3 py-2.5"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
-                >
-                  <span className="[font-family:'Inter',Helvetica] font-bold text-white text-[13px] tracking-widest">
-                    EXPLORER
-                  </span>
-                  <button
-                    onClick={() => setExplorerOpen(false)}
-                    data-testid="button-explorer-minimize"
-                    title="Minimize Explorer"
-                    className="w-6 h-6 flex items-center justify-center rounded text-white/35 hover:text-white/70 hover:bg-white/8 transition-colors text-base leading-none"
-                  >
-                    —
-                  </button>
-                </div>
+            allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
+            loading="lazy"
+            data-testid="iframe-knowledge-graph"
+            onLoad={handleIframeLoad}
+          />
 
-                {/* Search section */}
-                <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
-                  <span className="[font-family:'Inter',Helvetica] font-bold text-white text-[13px]">
-                    Search the graph
-                  </span>
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      placeholder="Enter search query"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") handleExplorerSearch(); }}
-                      data-testid="input-explorer-search"
-                      className="w-full px-3 py-2 rounded-2xl text-[12px] [font-family:'Inter',Helvetica] text-white/75 placeholder-white/25 outline-none transition-all duration-150"
-                      style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                      }}
-                      onFocus={e => { e.currentTarget.style.borderColor = "rgba(131,238,240,0.35)"; e.currentTarget.style.background = "rgba(131,238,240,0.04)"; }}
-                      onBlur={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-                    />
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} className="mx-3" />
-
-                {/* Quick explore prompts */}
-                <div className="px-3 pt-2.5 pb-2 flex flex-col gap-1.5 overflow-y-auto flex-1">
-                  <span className="[font-family:'Inter',Helvetica] text-[9px] text-white/30 uppercase tracking-widest mb-1">
-                    Quick explore
-                  </span>
-                  {[
-                    "Coral bleaching",
-                    "MesoAmerican Reef",
-                    "Reef restoration",
-                    "Marine biodiversity",
-                    "Ocean acidification",
-                  ].map((term) => (
-                    <button
-                      key={term}
-                      data-testid={`button-explorer-term-${term.toLowerCase().replace(/\s+/g, "-")}`}
-                      onClick={() => {
-                        setSearchQuery(term);
-                        try {
-                          iframeRef.current?.contentWindow?.postMessage(
-                            { type: "search", query: term },
-                            "https://pepo.app.bonfires.ai"
-                          );
-                        } catch { /* cross-origin — ignore */ }
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-xl text-left text-[11px] [font-family:'Inter',Helvetica] text-white/50 hover:text-[#83eef0] transition-all duration-150"
-                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(131,238,240,0.06)"; e.currentTarget.style.borderColor = "rgba(131,238,240,0.18)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
-                    >
-                      {term}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Footer: link to full Bonfires.ai explorer */}
-                <div className="shrink-0 px-3 py-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <a
-                    href={BONFIRES_GRAPH_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-testid="link-explorer-fullscreen"
-                    className="flex items-center gap-1.5 text-[10px] [font-family:'Inter',Helvetica] text-white/25 hover:text-[#83eef0] transition-colors"
-                  >
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                      <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6M15 3h6v6M10 14L21 3"
-                        stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Open full explorer
-                  </a>
-                </div>
-              </div>
-            ) : (
-              /* ── Collapsed tab ── */
-              <button
-                onClick={() => setExplorerOpen(true)}
-                data-testid="button-explorer-expand"
-                title="Open Explorer"
-                className="flex-1 flex items-center justify-center hover:bg-white/5 transition-colors w-full"
-              >
-                <span
-                  className="[font-family:'Inter',Helvetica] text-[9px] font-bold text-white/30 tracking-widest uppercase"
-                  style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-                >
-                  EXPLORER
-                </span>
-              </button>
-            )}
-          </div>
-
-          {/* ── iframe + glow wrapper ──────────────────────────────── */}
-          <div className="relative flex-1 min-h-0 overflow-hidden">
-            {/* Subtle teal edge glows */}
-            <div className="absolute top-0 left-0 bottom-0 w-[3px] z-[6] pointer-events-none"
-              style={{ background: "linear-gradient(180deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.30) 50%,rgba(131,238,240,0.0) 100%)" }} />
-            <div className="absolute top-0 left-0 right-0 h-[2px] z-[6] pointer-events-none"
-              style={{ background: "linear-gradient(90deg,rgba(131,238,240,0.0) 0%,rgba(131,238,240,0.35) 50%,rgba(131,238,240,0.0) 100%)" }} />
-
-            <GraphLoadingShimmer visible={graphLoading} />
-
-            {/* iframe — scaled so Bonfires.ai renders at a wider internal
-                viewport; only the nav bar (96 px) is cropped via top-shift. */}
-            <iframe
-              ref={iframeRef}
-              src={BONFIRES_GRAPH_URL}
-              title="Regen Reef Knowledge Graph"
-              className="absolute border-0"
-              style={{
-                transform: `scale(${SCALE})`,
-                transformOrigin: "top left",
-                top: `${-(NAV_CROP_PX / SCALE)}px`,
-                left: 0,
-                width: `${(1 / SCALE) * 100}%`,
-                height: `calc(${(1 / SCALE) * 100}% + ${NAV_CROP_PX / SCALE}px)`,
-                background: "#00080c",
-              }}
-              allow="clipboard-write; clipboard-read; pointer-lock; fullscreen"
-              loading="lazy"
-              data-testid="iframe-knowledge-graph"
-              onLoad={handleIframeLoad}
-            />
-
-            {/* First-visit hint */}
-            {showHint && !graphLoading && (
-              <GraphHintOverlay onDismiss={dismissHint} />
-            )}
-          </div>
+          {/* First-visit hint */}
+          {showHint && !graphLoading && (
+            <GraphHintOverlay onDismiss={dismissHint} />
+          )}
         </div>
       </div>
 
