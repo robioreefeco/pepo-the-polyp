@@ -1220,8 +1220,7 @@ function ExpandedMapModal({
                         <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(131,238,240,0.15)", border: "2px solid #83eef0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🪸</div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 700, color: "#00131c", fontSize: 12, lineHeight: 1.3 }}>{m.displayName}</div>
-                        {m.orcidId && <div style={{ fontSize: 9, color: "#00b894", fontWeight: 600, marginTop: 1 }}>ORCID ✓</div>}
+                        {m.orcidId && <div style={{ fontSize: 9, color: "#00b894", fontWeight: 600 }}>ORCID ✓</div>}
                       </div>
                     </div>
                     <div style={{ color: "#83eef0", fontWeight: 700, fontSize: 10, marginBottom: 2 }}>🪸 Regen Reef Member</div>
