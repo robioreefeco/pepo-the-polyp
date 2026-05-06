@@ -2215,25 +2215,36 @@ function ExpandedMapModal({
                 )}
               </div>
 
-              {/* Layer radio chips */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 8 }}>
-                {CMS_LAYERS.map(layer => (
-                  <button
-                    key={layer.var}
-                    data-testid={`expanded-toggle-cms-${layer.var.toLowerCase()}`}
-                    onClick={() => setActiveCmsVar(v => (v === layer.var ? null : layer.var as CmsVar))}
-                    title={`${layer.label} · ${layer.unit}`}
-                    style={{
-                      fontSize: 8, fontFamily: "Inter,sans-serif", fontWeight: 600,
-                      padding: "3px 7px", borderRadius: 20, cursor: "pointer",
-                      background: activeCmsVar === layer.var ? layer.color + "22" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${activeCmsVar === layer.var ? layer.color + "99" : "rgba(255,255,255,0.1)"}`,
-                      color: activeCmsVar === layer.var ? layer.color : "#d4e9f355",
-                      transition: "all 0.15s",
-                    }}
-                  >{layer.label}</button>
-                ))}
-              </div>
+              {/* Layer select — grouped by ocean-colour category */}
+              <select
+                data-testid="expanded-cms-layer-select"
+                value={activeCmsVar ?? ""}
+                onChange={e => setActiveCmsVar((e.target.value as CmsVar) || null)}
+                style={{
+                  width: "100%", fontSize: 10, fontFamily: "Inter,sans-serif", fontWeight: 600,
+                  background: "rgba(0,184,148,0.08)", border: "1px solid rgba(0,184,148,0.25)",
+                  borderRadius: 7, padding: "6px 10px",
+                  color: activeCmsVar ? "#00b894" : "#d4e9f355",
+                  cursor: "pointer", outline: "none", marginBottom: 8,
+                }}
+              >
+                <option value="">— Off —</option>
+                <optgroup label="Phytoplankton">
+                  {CMS_LAYERS.filter(l => !(l as any).dataset).map(l => (
+                    <option key={l.var} value={l.var}>{l.label} · {l.unit}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Light & Optics">
+                  {CMS_LAYERS.filter(l => (l as any).dataset === CMS_DS_OPTICS).map(l => (
+                    <option key={l.var} value={l.var}>{l.label} · {l.unit}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Transparency">
+                  {CMS_LAYERS.filter(l => (l as any).dataset === CMS_DS_TRANSP).map(l => (
+                    <option key={l.var} value={l.var}>{l.label} · {l.unit}</option>
+                  ))}
+                </optgroup>
+              </select>
 
               {/* Dataset info card — shown when CMS layer active */}
               {activeCmsVar && activeCmsLayer && (
