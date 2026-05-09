@@ -2,7 +2,7 @@
 
 **AI guide to the MesoAmerican Reef knowledge network, built for MesoReef DAO.** 🧬
 
-Pepo is a full-stack DeSci and marine conservation web app that fuses six parallel knowledge sources into a conversational interface. Researchers, conservationists, and community members can ask questions about coral reef ecology, bleaching events, DeSci governance, and the MesoAmerican Reef ecosystem — then vote on proposals that shape the DAO's direction.
+Pepo is a full-stack DeSci and marine conservation web app that fuses six parallel knowledge sources into a conversational interface. Researchers, conservationists, and community members can ask questions about coral reef ecology, bleaching events, DeSci governance, and the MesoAmerican Reef ecosystem - then vote on proposals that shape the DAO's direction.
 
 🌊 **Production:** [thepolyp.xyz](https://thepolyp.xyz)  
 🐠 **Telegram:** [@PepothePolyp_bot](https://t.me/PepothePolyp_bot)  
@@ -15,21 +15,21 @@ Pepo is a full-stack DeSci and marine conservation web app that fuses six parall
 | Feature | Description |
 |---------|-------------|
 | **🤖 AI Chat** | Conversational interface fusing 6 knowledge sources in parallel |
-| **🧬 ORCID Login** | Primary standalone auth for researchers — no wallet required |
+| **🧬 ORCID Login** | Primary standalone auth for researchers - no wallet required |
 | **🔐 Privy Auth** | Wallet + email + Google + Twitter + LinkedIn login |
-| **🗳️ Governance** | On-chain DAO voting via Vocdoni — Standard, Approval, and Quadratic voting |
+| **🗳️ Governance** | On-chain DAO voting via Vocdoni - Standard, Approval, and Quadratic voting |
 | **🗺️ Reef Network Map** | Leaflet map with Allen Coral Atlas WMS, GCRMN regions, NOAA DHW layer, and member pins |
 | **⏱️ ReefMap Timelapse** | Full-width CMS timelapse bar with slider, nav buttons, and year/quarter ticks |
-| **🌐 Reef Knowledge Graph** | Live Bonfires.ai graph visualization — interactive on all screen sizes (mobile + desktop) |
+| **🌐 Reef Knowledge Graph** | Live Bonfires.ai graph visualization - interactive on all screen sizes (mobile + desktop) |
 | **🏆 Community Leaderboard** | Reputation points, profile cards, and member directory |
 | **👤 User Profiles** | Bio, tags, location, ORCID iD badge, IPFS avatar/images |
-| **🧭 Onboarding Wizard** | 5-step guided tour for new users — Framer Motion overlay, localStorage flag |
-| **📊 Journey / Profile Status** | Collapsible completeness bar — links to ORCID, avatar, bio, display name + points |
-| **🎥 Video Monitor** | DeepReefMap AI pipeline — benthic classification from underwater video transects |
-| **📷 Reef Curation** | Community submission queue for reef images and video surveys — ORCID-gated review |
+| **🧭 Onboarding Wizard** | 5-step guided tour for new users - Framer Motion overlay, localStorage flag |
+| **📊 Journey / Profile Status** | Collapsible completeness bar - links to ORCID, avatar, bio, display name + points |
+| **🎥 Video Monitor** | DeepReefMap AI pipeline - benthic classification from underwater video transects |
+| **📷 Reef Curation** | Community submission queue for reef images and video surveys - ORCID-gated review |
 | **🗂️ Reef Workspace** | Fileverse dDocs + dSheets for decentralized collaborative documents |
-| **📦 IPFS Storage** | Pinata-backed IPFS pinning — avatar, reef images, and video survey archiving |
-| **🌍 Multilingual** | i18next with RTL support — English, Spanish, French, Arabic, and more |
+| **📦 IPFS Storage** | Pinata-backed IPFS pinning - avatar, reef images, and video survey archiving |
+| **🌍 Multilingual** | i18next with RTL support - English, Spanish, French, Arabic, and more |
 | **🍪 Cookie Consent** | GDPR-compliant cookie banner with accept/decline |
 
 ---
@@ -43,11 +43,11 @@ Pepo is a full-stack DeSci and marine conservation web app that fuses six parall
 | Backend | Express 5, TypeScript (port 5000) |
 | Database | PostgreSQL via Drizzle ORM |
 | Auth | ORCID OAuth 2.0 (primary) · Privy.io (wallet/social) |
-| Voting | Vocdoni SDK (`@vocdoni/sdk`) — on-chain proposals |
+| Voting | Vocdoni SDK (`@vocdoni/sdk`) - on-chain proposals |
 | Map | Leaflet · Allen Coral Atlas WMS · GCRMN GeoJSON |
-| IPFS | Pinata SDK — cloud pinning + dedicated gateway |
+| IPFS | Pinata SDK - cloud pinning + dedicated gateway |
 | Knowledge | Bonfires.ai · OpenAlex · Europe PMC · Wikipedia |
-| i18n | i18next + react-i18next — RTL-aware language switching |
+| i18n | i18next + react-i18next - RTL-aware language switching |
 
 ---
 
@@ -55,12 +55,12 @@ Pepo is a full-stack DeSci and marine conservation web app that fuses six parall
 
 Every chat response fuses up to six sources in parallel:
 
-1. **🪸 Pepo Knowledge Graph** — 165+ community research episodes via Bonfires.ai
-2. **🤖 Telegram Bot Taxonomy** — 10 curated categories from `@PepothePolyp_bot`; keyword-matched per query; refreshed every 60 min
-3. **📄 Scientific Journals** — peer-reviewed papers via OpenAlex + Europe PMC; coral-reef filtered; cached 15 min
-4. **📖 Wikipedia** — scientific reference summaries; keyword-extracted + cached 10 min
-5. **🌊 MesoReefDAO Documentation** — DAO mission, programs, tech stack
-6. **✨ Memento Mori** — DeSci gaming and robioreefeco collective knowledge ([github.com/robioreefeco/memento-mori](https://github.com/robioreefeco/memento-mori))
+1. **🪸 Pepo Knowledge Graph** - 165+ community research episodes via Bonfires.ai
+2. **🤖 Telegram Bot Taxonomy** - 10 curated categories from `@PepothePolyp_bot`; keyword-matched per query; refreshed every 60 min
+3. **📄 Scientific Journals** - peer-reviewed papers via OpenAlex + Europe PMC; coral-reef filtered; cached 15 min
+4. **📖 Wikipedia** - scientific reference summaries; keyword-extracted + cached 10 min
+5. **🌊 MesoReefDAO Documentation** - DAO mission, programs, tech stack
+6. **✨ Memento Mori** - DeSci gaming and robioreefeco collective knowledge ([github.com/robioreefeco/memento-mori](https://github.com/robioreefeco/memento-mori))
 
 ---
 
@@ -74,7 +74,7 @@ The `/governance` page provides adaptive on-chain DAO voting powered by the [Voc
 |----------|-------------|
 | **Standard** | Each voter picks exactly one option |
 | **Approval** | Voters approve any number of options they support |
-| **Quadratic** | Voters distribute 25 credits; cost = credits² — prevents vote concentration |
+| **Quadratic** | Voters distribute 25 credits; cost = credits² - prevents vote concentration |
 
 ### Census Modes
 
@@ -119,9 +119,9 @@ The "New Proposal" form includes an **Import from GitHub** button that fetches o
 | `SESSION_SECRET` | Express session secret |
 | `VITE_VOCDONI_ORG_ADDRESS` | Vocdoni org address for governance |
 | `VITE_VOCDONI_ENV` | Vocdoni network (`stg` or `prod`) |
-| `GITHUB_TOKEN` | Optional — increases GitHub API rate limit for proposal import |
+| `GITHUB_TOKEN` | Optional - increases GitHub API rate limit for proposal import |
 
-> `VITE_PRIVY_APP_ID` is optional — the app runs without Privy, using ORCID-only auth.
+> `VITE_PRIVY_APP_ID` is optional - the app runs without Privy, using ORCID-only auth.
 
 ### Install and Run
 
@@ -137,7 +137,7 @@ npm run dev       # start dev server on port 5000
 
 ### ORCID (Primary)
 
-ORCID is the primary standalone login — no wallet required.
+ORCID is the primary standalone login - no wallet required.
 
 1. User clicks "Sign in" → GET `/api/auth/orcid`
 2. Server builds ORCID authorization URL with `redirect_uri` derived dynamically from the request host
@@ -190,7 +190,7 @@ Registered redirect URIs:
 | Route | Method | Description |
 |-------|--------|-------------|
 | `/api/auth/orcid` | GET | Initiate ORCID OAuth flow |
-| `/api/auth/orcid/callback` | GET | ORCID callback — exchanges code for token |
+| `/api/auth/orcid/callback` | GET | ORCID callback - exchanges code for token |
 | `/api/auth/orcid/session` | GET | Check current ORCID session |
 | `/api/auth/orcid/logout` | POST | Sign out of ORCID session |
 
@@ -255,46 +255,46 @@ Points are stored persistently in PostgreSQL and displayed on the Community lead
 ```
 client/src/
   pages/
-    Body.tsx                               — Main layout: JourneySection + dashboard
-    CommunityLeaderboard.tsx               — Leaderboard + profile cards → /members/:id
-    Governance.tsx                         — /governance: Vocdoni voting + HowVotingWorks guide
-    PublicProfile.tsx                      — /members/:id public member profile
-    UserProfileDashboard.tsx               — /profile: edit bio, tags, links, ORCID
-    WorkspacePage.tsx                      — /workspace: Fileverse dDocs + dSheets
-    MobileMapPage.tsx                      — /map: full-screen mobile reef map
-    ReefMapPage.tsx                        — /reef-map: desktop reef map page
-    VideosMonitoringPage.tsx               — /video-monitor: DeepReefMap AI pipeline + community video surveys
-    CurationPage.tsx                       — /curation: image & video review queue (📷 Images | 🎥 Videos tabs)
+    Body.tsx                               - Main layout: JourneySection + dashboard
+    CommunityLeaderboard.tsx               - Leaderboard + profile cards → /members/:id
+    Governance.tsx                         - /governance: Vocdoni voting + HowVotingWorks guide
+    PublicProfile.tsx                      - /members/:id public member profile
+    UserProfileDashboard.tsx               - /profile: edit bio, tags, links, ORCID
+    WorkspacePage.tsx                      - /workspace: Fileverse dDocs + dSheets
+    MobileMapPage.tsx                      - /map: full-screen mobile reef map
+    ReefMapPage.tsx                        - /reef-map: desktop reef map page
+    VideosMonitoringPage.tsx               - /video-monitor: DeepReefMap AI pipeline + community video surveys
+    CurationPage.tsx                       - /curation: image & video review queue (📷 Images | 🎥 Videos tabs)
     sections/
-      ApplicationHeaderSection.tsx         — Top nav with auth button + completeness dot
-      ExplorerNavigationSidebarSection.tsx  — Sidebar nav with profile completeness badge
-      ReefInsightDashboardSection.tsx      — Bonfires.ai Knowledge Graph + Clean Coral panel
+      ApplicationHeaderSection.tsx         - Top nav with auth button + completeness dot
+      ExplorerNavigationSidebarSection.tsx  - Sidebar nav with profile completeness badge
+      ReefInsightDashboardSection.tsx      - Bonfires.ai Knowledge Graph + Clean Coral panel
   components/
-    SplashScreen.tsx                       — Animated intro screen (session-gated)
-    OnboardingWizard.tsx                   — 5-step guided tour overlay (localStorage-gated)
-    JourneySection.tsx                     — Collapsible profile completeness bar + points
-    ReefMap.tsx                            — Leaflet map: coral layers, timelapse bar, member pins
-    PrivyLoginButton.tsx                   — Privy login modal trigger
-    OrcidLoginButton.tsx                   — ORCID OAuth redirect button
-    IPFSImageUpload.tsx                    — Drag-and-drop IPFS upload widget (Pinata)
-    TelegramChatWidget.tsx                 — Floating Telegram bot shortcut
-    CookieBanner.tsx                       — GDPR cookie consent banner
-    LanguageSwitcher.tsx                   — RTL-aware i18n language picker
+    SplashScreen.tsx                       - Animated intro screen (session-gated)
+    OnboardingWizard.tsx                   - 5-step guided tour overlay (localStorage-gated)
+    JourneySection.tsx                     - Collapsible profile completeness bar + points
+    ReefMap.tsx                            - Leaflet map: coral layers, timelapse bar, member pins
+    PrivyLoginButton.tsx                   - Privy login modal trigger
+    OrcidLoginButton.tsx                   - ORCID OAuth redirect button
+    IPFSImageUpload.tsx                    - Drag-and-drop IPFS upload widget (Pinata)
+    TelegramChatWidget.tsx                 - Floating Telegram bot shortcut
+    CookieBanner.tsx                       - GDPR cookie consent banner
+    LanguageSwitcher.tsx                   - RTL-aware i18n language picker
   hooks/
-    use-orcid-auth.ts                      — ORCID session state
-    use-profile-sync.ts                    — Auto-sync Privy user to DB on login
-    use-profile-status.ts                  — Shared profile completeness hook (4 checks)
-    use-geolocation.ts                     — Geolocation capture + server sync
+    use-orcid-auth.ts                      - ORCID session state
+    use-profile-sync.ts                    - Auto-sync Privy user to DB on login
+    use-profile-status.ts                  - Shared profile completeness hook (4 checks)
+    use-geolocation.ts                     - Geolocation capture + server sync
 
 server/
-  routes.ts                                — All API routes
-  storage.ts                               — DB CRUD via Drizzle
-  ipfs.ts                                  — Pinata IPFS client (upload, gateway URLs)
-  db.ts                                    — PostgreSQL connection
-  index.ts                                 — Express entry point
+  routes.ts                                - All API routes
+  storage.ts                               - DB CRUD via Drizzle
+  ipfs.ts                                  - Pinata IPFS client (upload, gateway URLs)
+  db.ts                                    - PostgreSQL connection
+  index.ts                                 - Express entry point
 
 shared/
-  schema.ts                                — Drizzle schema + Zod types
+  schema.ts                                - Drizzle schema + Zod types
 ```
 
 ---
