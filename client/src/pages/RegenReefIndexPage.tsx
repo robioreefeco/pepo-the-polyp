@@ -2,8 +2,7 @@ import { Link } from "wouter";
 import { ExplorerNavigationSidebarSection } from "./sections/ExplorerNavigationSidebarSection";
 import { ApplicationHeaderSection } from "./sections/ApplicationHeaderSection";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { ExternalLink, BarChart2, Users, Vote, Map, Video, Camera, Fish, Thermometer, Layers, Activity, Heart } from "lucide-react";
-import rriFrameworkImg from "@assets/Screenshot_2026-05-09_at_1.50.14_a.m._1778309420027.png";
+import { BarChart2, Users, Vote, Map, Video, Camera, Thermometer, Layers, Activity, Heart } from "lucide-react";
 
 // ─── Framework data from the Regen Reef Socio-Ecological Index ─────────────────
 const DIMENSIONS = [
@@ -275,22 +274,6 @@ export function RegenReefIndexPage() {
                 ))}
               </div>
 
-              {/* Framework image reference */}
-              <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(131,238,240,0.1)" }}>
-                <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: "rgba(131,238,240,0.04)", borderBottom: "1px solid rgba(131,238,240,0.08)" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="#83eef060" strokeWidth="2"/>
-                    <path d="M3 9h18M9 21V9" stroke="#83eef060" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  <span className="[font-family:'Inter',Helvetica] text-[10px] uppercase tracking-widest text-[#83eef060] font-semibold">Framework Reference</span>
-                </div>
-                <img
-                  src={rriFrameworkImg}
-                  alt="The Regen Reef Socio-Ecological Index (Expanded)"
-                  className="w-full object-contain"
-                  style={{ background: "#111" }}
-                />
-              </div>
             </section>
 
             {/* Platform Verticals */}
