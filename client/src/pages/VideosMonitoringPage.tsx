@@ -4,7 +4,12 @@ import { Link } from "wouter";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ApplicationHeaderSection } from "./sections/ApplicationHeaderSection";
 import { ExplorerNavigationSidebarSection } from "./sections/ExplorerNavigationSidebarSection";
-import { ExternalLink, Github, GitCommit, Star, GitFork, Play, Layers, Map, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { ExternalLink, Github, GitCommit, Star, GitFork, Play, Layers, Map, BarChart3, ChevronDown, ChevronUp, Video } from "lucide-react";
+import type { ReefVideo } from "@shared/schema";
+
+function formatDate(ts: number) {
+  return new Date(ts * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface DeepReefMapInfo {
@@ -208,6 +213,11 @@ export function VideosMonitoringPage() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: approvedVideos = [] } = useQuery<ReefVideo[]>({
+    queryKey: ["/api/reef-videos"],
+    staleTime: 60_000,
+  });
+
   const repo = data?.repo;
   const commits = data?.commits ?? [];
   const release = data?.releases?.[0];
@@ -239,7 +249,7 @@ export function VideosMonitoringPage() {
                   </svg>
                 </div>
                 <h1 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-xl md:text-2xl leading-tight">
-                  Videos Monitoring
+                  Video Monitor
                 </h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full [font-family:'Inter',Helvetica] font-semibold"
                   style={{ background: "rgba(131,238,240,0.1)", border: "1px solid rgba(131,238,240,0.25)", color: "#83eef0" }}>
@@ -570,6 +580,98 @@ export function VideosMonitoringPage() {
                 ))}
               </Card>
             </div>
+          </div>
+
+          {/* ── Submitted Surveys ────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(108,92,231,0.12)", border: "1px solid rgba(108,92,231,0.25)" }}>
+                  <Video size={14} color="#a29bfe" />
+                </div>
+                <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm">
+                  Community Video Surveys
+                </span>
+                {approvedVideos.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] [font-family:'Inter',Helvetica] font-semibold"
+                    style={{ background: "rgba(108,92,231,0.15)", border: "1px solid rgba(162,155,254,0.3)", color: "#a29bfe" }}>
+                    {approvedVideos.length} published
+                  </span>
+                )}
+              </div>
+              <Link href="/curation" data-testid="link-submit-video-survey"
+                className="text-[11px] [font-family:'Inter',Helvetica] font-semibold no-underline transition-opacity hover:opacity-80 flex items-center gap-1"
+                style={{ color: "#a29bfe" }}>
+                Submit yours →
+              </Link>
+            </div>
+
+            {approvedVideos.length === 0 ? (
+              <div className="rounded-xl border border-[#a29bfe15] bg-[#ffffff04] px-5 py-8 flex flex-col items-center gap-3 text-center">
+                <span className="text-3xl">🎥</span>
+                <p className="[font-family:'Inter',Helvetica] text-[#d4e9f355] text-sm">
+                  No approved video surveys yet.{" "}
+                  <Link href="/curation" className="text-[#a29bfe] no-underline hover:text-[#c3baff] transition-colors">
+                    Be the first to contribute!
+                  </Link>
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {approvedVideos.map(vid => (
+                  <div key={vid.id} data-testid={`card-survey-${vid.id}`}
+                    className="rounded-xl border border-[#a29bfe18] bg-[#ffffff06] backdrop-blur-sm overflow-hidden flex flex-col">
+                    {/* Video placeholder */}
+                    <div className="aspect-video bg-[#0a0520] flex flex-col items-center justify-center gap-1.5">
+                      <span className="text-3xl">🎥</span>
+                      <a href={`https://teal-advisory-zebra-284.mypinata.cloud/ipfs/${vid.cid}`}
+                        target="_blank" rel="noopener noreferrer"
+                        data-testid={`link-survey-ipfs-${vid.id}`}
+                        className="text-[9px] px-2 py-0.5 rounded-full no-underline transition-opacity hover:opacity-80 [font-family:'Inter',Helvetica] font-mono"
+                        style={{ background: "rgba(162,155,254,0.12)", border: "1px solid rgba(162,155,254,0.25)", color: "#a29bfe" }}>
+                        View on IPFS ↗
+                      </a>
+                      {vid.durationSecs ? (
+                        <span className="text-[10px] [font-family:'Inter',Helvetica]" style={{ color: "rgba(212,233,243,0.4)" }}>
+                          {Math.floor(vid.durationSecs / 60)}m {vid.durationSecs % 60}s
+                        </span>
+                      ) : null}
+                    </div>
+                    {/* Info */}
+                    <div className="px-3 py-3 flex flex-col gap-1 flex-1">
+                      <p className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-xs leading-snug m-0 truncate">
+                        {vid.title || <span className="italic" style={{ color: "rgba(212,233,243,0.35)" }}>Untitled Survey</span>}
+                      </p>
+                      {vid.description && (
+                        <p className="[font-family:'Inter',Helvetica] text-[10px] leading-relaxed m-0 line-clamp-2"
+                          style={{ color: "rgba(212,233,243,0.5)" }}>
+                          {vid.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-auto pt-2 flex-wrap">
+                        <span className="text-[9px] [font-family:'Inter',Helvetica]" style={{ color: "rgba(131,238,240,0.5)" }}>
+                          📍 {Number(vid.latitude).toFixed(3)}, {Number(vid.longitude).toFixed(3)}
+                        </span>
+                        {vid.depthM ? (
+                          <span className="text-[9px] [font-family:'Inter',Helvetica]" style={{ color: "rgba(212,233,243,0.35)" }}>
+                            ↓ {vid.depthM}m
+                          </span>
+                        ) : null}
+                        <span className="text-[9px] [font-family:'Inter',Helvetica] ml-auto" style={{ color: "rgba(212,233,243,0.3)" }}>
+                          {formatDate(vid.createdAt)}
+                        </span>
+                      </div>
+                      {vid.author && (
+                        <span className="text-[9px] [font-family:'Inter',Helvetica]" style={{ color: "rgba(212,233,243,0.35)" }}>
+                          by {vid.author}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── Attribution ──────────────────────────────────────────────────── */}

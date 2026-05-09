@@ -186,7 +186,7 @@ export function MobileBottomNav() {
         href="/videos"
         testId="nav-mobile-videos"
         active={at("/videos")}
-        label="Videos"
+        label="Video"
         icon={
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <rect x="2" y="5" width="15" height="12" rx="2" stroke={c("/videos")} strokeWidth="1.8"/>

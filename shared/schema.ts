@@ -126,6 +126,35 @@ export const insertGcrmnSiteSchema = createInsertSchema(gcrmnSites).omit({ id: t
 export type InsertGcrmnSite = z.infer<typeof insertGcrmnSiteSchema>;
 export type GcrmnSite = typeof gcrmnSites.$inferSelect;
 
+// ─── Reef Videos (IPFS-pinned video surveys with geo-coordinates) ─────────────
+export const reefVideos = pgTable("reef_videos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cid: text("cid").notNull(),
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  title: text("title").notNull().default(""),
+  author: text("author").notNull().default(""),
+  description: text("description").notNull().default(""),
+  durationSecs: integer("duration_secs").default(0),
+  depthM: real("depth_m").default(0),
+  status: text("status").notNull().default("pending"),
+  curatedBy: varchar("curated_by"),
+  curatedAt: integer("curated_at"),
+  curatorNote: text("curator_note").notNull().default(""),
+  profileId: varchar("profile_id"),
+  createdAt: integer("created_at").notNull().default(sql`extract(epoch from now())::int`),
+});
+
+export const insertReefVideoSchema = createInsertSchema(reefVideos).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+  curatedBy: true,
+  curatedAt: true,
+});
+export type InsertReefVideo = z.infer<typeof insertReefVideoSchema>;
+export type ReefVideo = typeof reefVideos.$inferSelect;
+
 // ─── Leaderboard (aggregated view) ────────────────────────────────────────────
 export interface LeaderboardEntry {
   id: string;

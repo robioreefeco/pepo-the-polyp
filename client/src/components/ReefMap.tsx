@@ -370,6 +370,19 @@ interface ReefImageMarker {
   createdAt: number;
 }
 
+interface ReefVideoMarker {
+  id: string;
+  cid: string;
+  latitude: number;
+  longitude: number;
+  title: string;
+  author: string;
+  durationSecs: number | null;
+  depthM: number | null;
+  profileId: string | null;
+  createdAt: number;
+}
+
 // ─── Shared style helpers ─────────────────────────────────────────────────────
 function gcrmnStyle(feature?: Feature) {
   const name = (feature?.properties as any)?.region ?? "";
@@ -852,14 +865,39 @@ const LAYER_VALUE_RANGES: Record<string, [number, number, string]> = {
 };
 
 // ─── Expanded map modal ───────────────────────────────────────────────────────
+function makeVideoPin() {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:22px;height:22px;background:#6c5ce7;border:2px solid #a29bfe;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,0.5)">🎥</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
+function ReefVideoPopup({ vid }: { vid: ReefVideoMarker }) {
+  const dur = vid.durationSecs ? `${Math.floor(vid.durationSecs / 60)}m ${vid.durationSecs % 60}s` : null;
+  return (
+    <div style={{ fontFamily: "Inter, sans-serif", minWidth: 160, maxWidth: 200 }}>
+      <div style={{ width: "100%", height: 60, background: "#1a0a2e", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6, fontSize: 24 }}>🎥</div>
+      <div style={{ fontWeight: 700, color: "#d4e9f3", fontSize: 12, marginBottom: 3 }}>{vid.title || "Video Survey"}</div>
+      {vid.author && <div style={{ color: "#83eef0aa", fontSize: 10, marginBottom: 2 }}>{vid.author}</div>}
+      {dur && <div style={{ color: "#a29bfebb", fontSize: 9, marginBottom: 2 }}>Duration: {dur}</div>}
+      {vid.depthM ? <div style={{ color: "#a29bfebb", fontSize: 9, marginBottom: 2 }}>Depth: {vid.depthM}m</div> : null}
+      <div style={{ color: "#6c5ce7", fontSize: 9, marginTop: 4, fontFamily: "monospace" }}>{vid.cid.slice(0, 12)}…</div>
+    </div>
+  );
+}
+
 function ExpandedMapModal({
   markers,
   reefImgs,
+  reefVideos,
   onClose,
   inline = false,
 }: {
   markers: MapMarker[];
   reefImgs: ReefImageMarker[];
+  reefVideos: ReefVideoMarker[];
   onClose: () => void;
   inline?: boolean;
 }) {
@@ -867,6 +905,7 @@ function ExpandedMapModal({
   const [showCoralMapping,   setShowCoralMapping]   = useState(true);
   const [showMarineRegions,  setShowMarineRegions]  = useState(true);
   const [showImgs,           setShowImgs]           = useState(true);
+  const [showVideos,         setShowVideos]         = useState(true);
   const [showDaoMembers,     setShowDaoMembers]     = useState(true);
   const [showGcrmnSites,     setShowGcrmnSites]     = useState(true);
   const [showWcsReefCloud,   setShowWcsReefCloud]   = useState(false);
@@ -1052,7 +1091,7 @@ function ExpandedMapModal({
     setLiveDepthIdx(Math.round(nearest / 5500 * (DEPTH_LEVELS.length - 1)));
   };
 
-  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (activeCmsVar ? 1 : 0) + (activeLiveVar ? 1 : 0) + 1;
+  const activeLayers = (showGcrmn ? 1 : 0) + (showCoralMapping ? 1 : 0) + (showMarineRegions ? 1 : 0) + (showImgs ? 1 : 0) + (showVideos ? 1 : 0) + (showGcrmnSites ? 1 : 0) + (showWcsReefCloud ? 1 : 0) + (showWcsCcSites ? 1 : 0) + (showReefCheck ? 1 : 0) + (showReefLife ? 1 : 0) + (showGcrmnMonSites ? 1 : 0) + (activeCmsVar ? 1 : 0) + (activeLiveVar ? 1 : 0) + 1;
 
   // Country breakdown for GCRMN legend — derived from live GeoJSON
   const gcrmnCountryStats = useMemo(() => {
@@ -1232,6 +1271,13 @@ function ExpandedMapModal({
               <Marker key={img.id} position={[img.latitude, img.longitude]} icon={makeImagePin()}>
                 <Popup maxWidth={210}>
                   <ReefImagePopup img={img} />
+                </Popup>
+              </Marker>
+            ))}
+            {showVideos && reefVideos.map((vid) => (
+              <Marker key={vid.id} position={[vid.latitude, vid.longitude]} icon={makeVideoPin()}>
+                <Popup maxWidth={210}>
+                  <ReefVideoPopup vid={vid} />
                 </Popup>
               </Marker>
             ))}
@@ -2504,6 +2550,7 @@ function ExpandedMapModal({
             <div style={{ fontSize: 7.5, color: "#d4e9f328", marginBottom: 5, lineHeight: 1.5 }}>Members who've shared their location and community-submitted reef imagery.</div>
             <LayerToggle label="Regen Reef Members"  sublabel={`${markers.length} members on the Regen Reef Network`}                                   active={showDaoMembers}    color="#83eef0" onClick={() => setShowDaoMembers(v => !v)} testId="expanded-toggle-dao-members" />
             <LayerToggle label="Reef Photos"         sublabel={`${reefImgs.length} peer-reviewed photos from community reef surveys`}                   active={showImgs}          color="#ff9f43" onClick={() => setShowImgs(v => !v)}          testId="expanded-toggle-imgs" />
+            <LayerToggle label="Video Surveys"       sublabel={`${reefVideos.length} community-submitted underwater video surveys`}                     active={showVideos}        color="#a29bfe" onClick={() => setShowVideos(v => !v)}        testId="expanded-toggle-videos" />
           </SideSection>
 
 
@@ -2548,6 +2595,12 @@ function ExpandedMapModal({
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
                 <span style={{ width:13,height:13,borderRadius:3,background:"#ff9f43",border:"1.5px solid #ffb347",display:"inline-block",flexShrink:0 }}/>
                 <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Community reef photo</span>
+              </div>
+            )}
+            {showVideos && reefVideos.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <span style={{ width:13,height:13,borderRadius:3,background:"#6c5ce7",border:"1.5px solid #a29bfe",display:"inline-block",flexShrink:0,fontSize:9,textAlign:"center",lineHeight:"13px" }}>🎥</span>
+                <span style={{ fontSize: 10.5, color: "#d4e9f3bb" }}>Video survey</span>
               </div>
             )}
             {showGcrmnMonSites && (
@@ -2937,6 +2990,7 @@ export function ReefMap({
   const [showCoralMapping,  setShowCoralMapping]  = useState(true);
   const [showMarineRegions, setShowMarineRegions] = useState(true);
   const [showImgs,          setShowImgs]          = useState(true);
+  const [showVideos,        setShowVideos]        = useState(true);
   const [showDaoMembers,    setShowDaoMembers]    = useState(true);
   const [showGcrmnSites,    setShowGcrmnSites]    = useState(true);
   const [showLayerMenu,     setShowLayerMenu]     = useState(false);
@@ -2987,6 +3041,11 @@ export function ReefMap({
 
   const { data: reefImgs = [] } = useQuery<ReefImageMarker[]>({
     queryKey: ["/api/reef-images"],
+    refetchInterval: 60_000,
+  });
+
+  const { data: reefVideos = [] } = useQuery<ReefVideoMarker[]>({
+    queryKey: ["/api/reef-videos"],
     refetchInterval: 60_000,
   });
 
@@ -3175,6 +3234,13 @@ export function ReefMap({
               </Popup>
             </Marker>
           ))}
+          {showVideos && reefVideos.map((vid) => (
+            <Marker key={vid.id} position={[vid.latitude, vid.longitude]} icon={makeVideoPin()}>
+              <Popup maxWidth={210}>
+                <ReefVideoPopup vid={vid} />
+              </Popup>
+            </Marker>
+          ))}
           {markers.length > 0 && <FitBounds markers={markers} />}
         </MapContainer>
 
@@ -3229,7 +3295,7 @@ export function ReefMap({
                   border: "1px solid rgba(131,238,240,0.25)",
                   borderRadius: 10, padding: "1px 7px",
                 }}>
-                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnSites, showImgs, showDaoMembers, activeCmsVar, activeLiveVar].filter(Boolean).length} / 8
+                  {[showCoralMapping, showMarineRegions, showGcrmn, showGcrmnSites, showImgs, showVideos, showDaoMembers, activeCmsVar, activeLiveVar].filter(Boolean).length} / 9
                 </span>
               </div>
 
@@ -3407,6 +3473,7 @@ export function ReefMap({
                   { group: "Community", icon: "●", note: "MesoReefDAO members and community reef data.", layers: [
                     { testId: "toggle-dao-members-layer",     label: "DAO Members",         sublabel: `${markers.length} members on the Regen Reef Network`, color: "#83eef0", active: showDaoMembers, toggle: () => setShowDaoMembers(v => !v) },
                     { testId: "toggle-imgs-layer",            label: "Reef Photos",         sublabel: "Community-submitted reef imagery",           color: "#ff9f43", active: showImgs,          toggle: () => setShowImgs(v => !v)          },
+                    { testId: "toggle-videos-layer",          label: "Video Surveys",       sublabel: "Community underwater video surveys",         color: "#a29bfe", active: showVideos,        toggle: () => setShowVideos(v => !v)        },
                   ]},
                   { group: "Field Monitoring", icon: "◎", note: "In-situ reef survey stations worldwide.", layers: [
                     { testId: "compact-toggle-gcrmn-mon",     label: "GCRMN Benthic Sites", sublabel: "Fixed benthic stations — GCRMN global network",  color: "#26de81", active: showGcrmnMonC,     toggle: () => setShowGcrmnMonC(v => !v)     },
@@ -3626,6 +3693,12 @@ export function ReefMap({
                 <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>Reef Photo</span>
               </div>
             )}
+            {showVideos && reefVideos.length > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:8,height:8,borderRadius:2,background:"#6c5ce7",border:"1.5px solid #a29bfe",flexShrink:0,display:"inline-block" }}/>
+                <span style={{ fontSize:8,color:"#d4e9f3aa",fontFamily:"Inter,sans-serif" }}>Video Survey</span>
+              </div>
+            )}
           </div>
           {/* Log in button */}
           {!authenticated && (
@@ -3668,6 +3741,16 @@ export function ReefMap({
               <Camera size={9} color="#ff9f43" /> {reefImgs.length} {reefImgs.length === 1 ? "photo" : "photos"}
             </div>
           )}
+          {showVideos && reefVideos.length > 0 && (
+            <div style={{
+              background: "rgba(0,19,28,0.8)", border: "1px solid rgba(162,155,254,0.3)",
+              borderRadius: 8, padding: "2px 7px", fontSize: 10, color: "#a29bfe",
+              fontFamily: "Inter,sans-serif", fontWeight: 600,
+              display: "flex", alignItems: "center", gap: 4,
+            }}>
+              🎥 {reefVideos.length} {reefVideos.length === 1 ? "video" : "videos"}
+            </div>
+          )}
         </div>
       </div>
 
@@ -3675,6 +3758,7 @@ export function ReefMap({
         <ExpandedMapModal
           markers={markers}
           reefImgs={reefImgs}
+          reefVideos={reefVideos}
           onClose={() => setExpanded(false)}
         />
       )}
@@ -3693,10 +3777,15 @@ export function ReefMapExpandedPage({ onClose }: { onClose: () => void }) {
     queryKey: ["/api/reef-images"],
     refetchInterval: 60_000,
   });
+  const { data: reefVideos = [] } = useQuery<ReefVideoMarker[]>({
+    queryKey: ["/api/reef-videos"],
+    refetchInterval: 60_000,
+  });
   return (
     <ExpandedMapModal
       markers={markers}
       reefImgs={reefImgs}
+      reefVideos={reefVideos}
       onClose={onClose}
       inline={true}
     />

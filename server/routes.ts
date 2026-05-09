@@ -1937,6 +1937,123 @@ hr, [class*="divider"], [class*="separator"] {
     }
   });
 
+  // ─── Reef Videos ──────────────────────────────────────────────────────────────
+  // GET /api/reef-videos/mine — user's own video submissions (auth required)
+  app.get("/api/reef-videos/mine", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) { const v = await verifyPrivyToken(token); if (v.valid) profileId = v.userId!; }
+    if (!profileId && (req as any).session?.orcid?.profileId) profileId = (req as any).session.orcid.profileId;
+    if (!profileId) return res.status(401).json({ error: "Authentication required" });
+    try {
+      return res.json(await storage.getReefVideosByProfile(profileId));
+    } catch (err) {
+      console.error("[reefVideos/mine]", err);
+      return res.status(500).json({ error: "Failed to fetch your video submissions" });
+    }
+  });
+
+  // GET /api/reef-videos — public; approved geo-tagged video surveys for the map
+  app.get("/api/reef-videos", async (_req: Request, res: Response) => {
+    try {
+      return res.json(await storage.getReefVideos("approved"));
+    } catch (err) {
+      console.error("[reefVideos GET]", err);
+      return res.status(500).json({ error: "Failed to fetch reef videos" });
+    }
+  });
+
+  // POST /api/reef-videos — submit a video survey (IPFS CID + coords; auth optional)
+  app.post("/api/reef-videos", generalLimiter, async (req: Request, res: Response) => {
+    const { cid, latitude, longitude, title = "", author = "", description = "", durationSecs = 0, depthM = 0 } = req.body;
+    if (!cid || typeof cid !== "string" || cid.trim().length === 0)
+      return res.status(400).json({ error: "cid is required" });
+    const lat = Number(latitude), lon = Number(longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) return res.status(400).json({ error: "Invalid latitude" });
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) return res.status(400).json({ error: "Invalid longitude" });
+
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) { const v = await verifyPrivyToken(token); if (v.valid) profileId = v.userId!; }
+    else if ((req as any).session?.orcid?.profileId) profileId = (req as any).session.orcid.profileId;
+
+    try {
+      const vid = await storage.createReefVideo({
+        cid: cid.trim(),
+        latitude: lat, longitude: lon,
+        title: String(title).slice(0, 120),
+        author: String(author).slice(0, 120),
+        description: String(description).slice(0, 500),
+        durationSecs: Math.max(0, Math.floor(Number(durationSecs) || 0)),
+        depthM: Math.max(0, Number(depthM) || 0),
+        profileId: profileId ?? undefined,
+      });
+      if (profileId) {
+        await storage.addContribution({
+          profileId,
+          type: "video_submission",
+          description: `Submitted video survey: ${vid.title || vid.cid.slice(0, 12)}`,
+          points: 25,
+        });
+      }
+      return res.status(201).json(vid);
+    } catch (err) {
+      console.error("[reefVideos POST]", err);
+      return res.status(500).json({ error: "Failed to save reef video" });
+    }
+  });
+
+  // GET /api/curation/video-queue — pending videos for ORCID-verified curators
+  app.get("/api/curation/video-queue", async (req: Request, res: Response) => {
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) { const v = await verifyPrivyToken(token); if (v.valid) profileId = v.userId!; }
+    else if ((req as any).session?.orcid?.profileId) profileId = (req as any).session.orcid.profileId;
+    if (!profileId) return res.status(401).json({ error: "Authentication required" });
+    const profile = await storage.getProfile(profileId);
+    if (!profile?.orcidId) return res.status(403).json({ error: "An ORCID iD is required to access the video curation queue" });
+    try {
+      return res.json(await storage.getVideoCurationQueue());
+    } catch (err) {
+      console.error("[curation video-queue]", err);
+      return res.status(500).json({ error: "Failed to fetch video queue" });
+    }
+  });
+
+  // POST /api/curation/video/:id — approve or reject a pending reef video
+  app.post("/api/curation/video/:id", async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const { decision, curatorNote } = req.body;
+    if (decision !== "approved" && decision !== "rejected")
+      return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });
+
+    let profileId: string | null = null;
+    const token = (req.headers["x-privy-token"] as string) || "";
+    if (token) { const v = await verifyPrivyToken(token); if (v.valid) profileId = v.userId!; }
+    else if ((req as any).session?.orcid?.profileId) profileId = (req as any).session.orcid.profileId;
+    if (!profileId) return res.status(401).json({ error: "Authentication required" });
+    const profile = await storage.getProfile(profileId);
+    if (!profile?.orcidId) return res.status(403).json({ error: "An ORCID iD is required to curate videos" });
+
+    try {
+      const updated = await storage.curateReefVideo(id, decision, profileId, typeof curatorNote === "string" ? curatorNote.slice(0, 500) : "");
+      if (!updated) return res.status(404).json({ error: "Video not found" });
+      await storage.addContribution({ profileId, type: "curation", description: `Curated reef video: ${decision}`, points: 5 });
+      if (decision === "approved" && updated.profileId && updated.profileId !== profileId) {
+        await storage.addContribution({
+          profileId: updated.profileId,
+          type: "video_approved",
+          description: `Reef video approved: ${updated.title || updated.cid.slice(0, 12)}`,
+          points: 50,
+        });
+      }
+      return res.json(updated);
+    } catch (err) {
+      console.error("[curation video vote]", err);
+      return res.status(500).json({ error: "Failed to update video status" });
+    }
+  });
+
   // GET /api/gcrmn/regions — GCRMN region polygons as GeoJSON (shapefile from GitHub)
   app.get("/api/gcrmn/regions", async (_req: Request, res: Response) => {
     try {

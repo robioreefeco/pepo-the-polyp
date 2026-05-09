@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { ipfsImageUrl, ipfsPublicUrl, isIpfsCid, uploadImageToIPFS } from "@/lib/ipfs";
 import { useOrcidAuth } from "@/hooks/use-orcid-auth";
-import type { ReefImage, Profile } from "@shared/schema";
+import type { ReefImage, ReefVideo, Profile } from "@shared/schema";
 
 function BackIcon() {
   return (
@@ -833,6 +833,357 @@ function MySubmissionsPanel({ submissions, isLoading }: { submissions: ReefImage
   );
 }
 
+// ─── Video Submit Panel ────────────────────────────────────────────────────────
+function VideoSubmitPanel({
+  authHeaders,
+  displayName,
+}: {
+  authHeaders: () => Promise<Record<string, string>>;
+  displayName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [cid, setCid] = useState("");
+  const [cidInput, setCidInput] = useState("");
+  const [cidError, setCidError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [author, setAuthor] = useState(displayName || "");
+  const [durationSecs, setDurationSecs] = useState("");
+  const [depthM, setDepthM] = useState("");
+  const [lat, setLat] = useState("");
+  const [lon, setLon] = useState("");
+  const [coordMode, setCoordMode] = useState<"idle" | "locating" | "manual" | "done">("idle");
+  const [coordError, setCoordError] = useState("");
+  const [submitState, setSubmitState] = useState<"idle" | "uploading" | "submitting" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState("");
+
+  function reset() {
+    setCid(""); setCidInput(""); setCidError("");
+    setTitle(""); setDescription(""); setAuthor(displayName || "");
+    setDurationSecs(""); setDepthM("");
+    setLat(""); setLon(""); setCoordMode("idle"); setCoordError("");
+    setSubmitState("idle"); setSubmitError("");
+  }
+
+  const handleFile = useCallback(async (file: File) => {
+    const allowed = file.type.startsWith("video/") || file.type.startsWith("image/");
+    if (!allowed) { setCidError("Please select a video or image file"); return; }
+    if (file.size > 50 * 1024 * 1024) { setCidError("File must be under 50 MB"); return; }
+    setCidError(""); setSubmitState("uploading");
+    try {
+      const result = await uploadImageToIPFS(file);
+      setCid(result.cid);
+      setSubmitState("idle");
+    } catch (e: any) {
+      setCidError(e?.message || "Upload failed");
+      setSubmitState("idle");
+    }
+  }, []);
+
+  function handleCidBlur() {
+    const v = cidInput.trim();
+    if (!v) { setCidError(""); return; }
+    if (!isIpfsCid(v)) { setCidError("Invalid IPFS CID (should start with bafy, Qm, or bafk)"); return; }
+    setCidError(""); setCid(v);
+  }
+
+  function requestLocation() {
+    setCoordMode("locating"); setCoordError("");
+    if (!navigator.geolocation) { setCoordMode("manual"); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setLat(pos.coords.latitude.toFixed(6)); setLon(pos.coords.longitude.toFixed(6)); setCoordMode("done"); },
+      () => setCoordMode("manual"), { timeout: 10000 }
+    );
+  }
+
+  const activeCid = cid || (isIpfsCid(cidInput.trim()) ? cidInput.trim() : "");
+
+  async function handleSubmit() {
+    if (!activeCid) { setSubmitError("Please provide a CID or upload a file first"); return; }
+    const latNum = parseFloat(lat), lonNum = parseFloat(lon);
+    if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) { setCoordError("Latitude must be between −90 and 90"); return; }
+    if (!Number.isFinite(lonNum) || lonNum < -180 || lonNum > 180) { setCoordError("Longitude must be between −180 and 180"); return; }
+    setSubmitState("submitting"); setSubmitError("");
+    try {
+      const h = await authHeaders();
+      const res = await fetch("/api/reef-videos", {
+        method: "POST", headers: h, credentials: "include",
+        body: JSON.stringify({
+          cid: activeCid, latitude: latNum, longitude: lonNum,
+          title: title.trim(), author: author.trim(), description: description.trim(),
+          durationSecs: parseInt(durationSecs) || 0, depthM: parseFloat(depthM) || 0,
+        }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || `Error ${res.status}`); }
+      queryClient.invalidateQueries({ queryKey: ["/api/reef-videos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/curation/video-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reef-videos/mine"] });
+      setSubmitState("success");
+    } catch (e: any) {
+      setSubmitError(e?.message || "Submission failed");
+      setSubmitState("idle");
+    }
+  }
+
+  const inputCls = "w-full rounded-xl px-3 py-2.5 bg-[#ffffff08] border border-[#ffffff12] text-[#d4e9f3] text-[11px] [font-family:'Inter',Helvetica] placeholder:text-[#d4e9f333] focus:outline-none focus:border-[#a29bfe33] transition-colors";
+  const canSubmit = !!activeCid && (coordMode === "done" || (lat && lon));
+
+  return (
+    <div className="rounded-2xl border border-[#a29bfe20] bg-[#ffffff06] backdrop-blur-sm overflow-hidden">
+      <button data-testid="button-toggle-video-submit-panel" onClick={() => { setOpen(o => !o); if (!open) reset(); }}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ffffff06] transition-colors group">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#a29bfe15] border border-[#a29bfe30] flex items-center justify-center text-base">🎥</div>
+          <div className="text-left">
+            <div className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm">Submit a Video Survey</div>
+            <div className="[font-family:'Inter',Helvetica] text-[#d4e9f355] text-[10px] mt-0.5">Upload a reef video or paste an IPFS CID — earns 25 pts</div>
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-[#d4e9f344] transition-transform duration-200 flex-shrink-0 ${open ? "rotate-180" : ""}`}>
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="border-t border-[#ffffff08] px-5 py-5 flex flex-col gap-4">
+          {submitState === "success" ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-[#1dd1a115] border border-[#1dd1a130] flex items-center justify-center text-2xl">🎥</div>
+              <div>
+                <p className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#1dd1a1] text-sm">Video survey submitted!</p>
+                <p className="[font-family:'Inter',Helvetica] text-[#d4e9f355] text-[11px] mt-1">An ORCID-verified curator will review it before it appears on the public map.</p>
+              </div>
+              <button data-testid="button-video-submit-another" onClick={reset}
+                className="px-4 py-2 rounded-xl bg-[#ffffff08] border border-[#ffffff12] text-[#d4e9f3aa] [font-family:'Inter',Helvetica] text-xs hover:bg-[#ffffff10] transition-colors">
+                Submit another
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* CID / upload */}
+              <div>
+                <label className="block [font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] uppercase tracking-widest mb-1.5">
+                  Video file or IPFS CID <span className="text-[#ff8888] normal-case">*</span>
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <button data-testid="button-video-upload-file" onClick={() => fileRef.current?.click()}
+                    disabled={submitState === "uploading"}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#a29bfe10] border border-[#a29bfe25] text-[#a29bfe] [font-family:'Inter',Helvetica] text-xs hover:bg-[#a29bfe18] transition-colors disabled:opacity-50">
+                    {submitState === "uploading" ? <div className="w-3 h-3 rounded-full border-2 border-[#a29bfe] border-t-transparent animate-spin" /> : <>📁 Upload video / image</>}
+                  </button>
+                  <input ref={fileRef} type="file" accept="video/*,image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+                </div>
+                <input data-testid="input-video-cid" type="text" placeholder="or paste IPFS CID (bafy… / Qm…)" value={cidInput}
+                  onChange={e => setCidInput(e.target.value)} onBlur={handleCidBlur}
+                  className={inputCls} />
+                {cidError && <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px] mt-1">{cidError}</p>}
+                {activeCid && <p className="[font-family:'Inter',Helvetica] text-[#a29bfe] text-[10px] mt-1 font-mono">✓ CID: {activeCid.slice(0, 20)}…</p>}
+              </div>
+
+              {/* Metadata */}
+              <div className="flex flex-col gap-2">
+                <input data-testid="input-video-title" type="text" placeholder="Survey title (optional)" maxLength={120} value={title} onChange={e => setTitle(e.target.value)} className={inputCls} />
+                <input data-testid="input-video-author" type="text" placeholder="Your name / organisation" maxLength={120} value={author} onChange={e => setAuthor(e.target.value)} className={inputCls} />
+                <textarea data-testid="input-video-description" placeholder="Description — reef conditions, dive site, methodology…" maxLength={500} rows={2} value={description} onChange={e => setDescription(e.target.value)}
+                  className={`${inputCls} resize-none`} />
+                <div className="flex gap-2">
+                  <input data-testid="input-video-duration" type="number" placeholder="Duration (secs)" min={0} value={durationSecs} onChange={e => setDurationSecs(e.target.value)} className={`${inputCls} flex-1`} />
+                  <input data-testid="input-video-depth" type="number" placeholder="Depth (m)" min={0} step={0.5} value={depthM} onChange={e => setDepthM(e.target.value)} className={`${inputCls} flex-1`} />
+                </div>
+              </div>
+
+              {/* Coordinates */}
+              <div>
+                <label className="block [font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] uppercase tracking-widest mb-1.5">
+                  Survey location <span className="text-[#ff8888] normal-case">*</span>
+                </label>
+                {coordMode === "idle" && (
+                  <button data-testid="button-video-use-location" onClick={requestLocation}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#a29bfe10] border border-[#a29bfe25] text-[#a29bfe] [font-family:'Inter',Helvetica] text-xs hover:bg-[#a29bfe18] transition-colors">
+                    📍 Use my location
+                  </button>
+                )}
+                {coordMode === "locating" && <p className="[font-family:'Inter',Helvetica] text-[#a29bfe] text-xs">Locating…</p>}
+                {(coordMode === "manual" || coordMode === "done") && (
+                  <div className="flex gap-2">
+                    <input data-testid="input-video-lat" type="number" placeholder="Latitude" step={0.0001} value={lat} onChange={e => setLat(e.target.value)} className={`${inputCls} flex-1`} />
+                    <input data-testid="input-video-lon" type="number" placeholder="Longitude" step={0.0001} value={lon} onChange={e => setLon(e.target.value)} className={`${inputCls} flex-1`} />
+                  </div>
+                )}
+                {coordError && <p className="[font-family:'Inter',Helvetica] text-red-400 text-[10px] mt-1">{coordError}</p>}
+                {coordMode === "idle" && (
+                  <button onClick={() => setCoordMode("manual")} className="mt-1 text-[#d4e9f344] [font-family:'Inter',Helvetica] text-[10px] hover:text-[#d4e9f388] transition-colors">
+                    Enter coordinates manually →
+                  </button>
+                )}
+              </div>
+
+              {submitError && <p className="[font-family:'Inter',Helvetica] text-red-400 text-xs">{submitError}</p>}
+
+              <button data-testid="button-submit-video" onClick={handleSubmit} disabled={!canSubmit || submitState === "submitting"}
+                className="w-full py-3 rounded-xl bg-[#a29bfe18] border border-[#a29bfe33] text-[#a29bfe] [font-family:'Inter',Helvetica] text-sm font-semibold hover:bg-[#a29bfe25] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {submitState === "submitting" ? <><div className="w-4 h-4 rounded-full border-2 border-[#a29bfe] border-t-transparent animate-spin" /> Submitting…</> : "Submit Video Survey"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Video card (curation queue) ─────────────────────────────────────────────
+function VideoCard({
+  video,
+  onDecide,
+  deciding,
+}: {
+  video: ReefVideo;
+  onDecide: (id: string, decision: "approved" | "rejected", note: string) => void;
+  deciding: string | null;
+}) {
+  const isPending = deciding === video.id;
+  const [note, setNote] = useState("");
+  const dur = video.durationSecs ? `${Math.floor(video.durationSecs / 60)}m ${video.durationSecs % 60}s` : null;
+
+  return (
+    <div data-testid={`card-video-curation-${video.id}`}
+      className="flex flex-col rounded-2xl overflow-hidden border border-[#ffffff0d] bg-[#ffffff06] backdrop-blur-sm">
+      {/* Header */}
+      <div className="w-full aspect-video bg-[#0a0520] flex flex-col items-center justify-center gap-2">
+        <span className="text-4xl">🎥</span>
+        <span className="[font-family:'Inter',Helvetica] text-[#a29bfeaa] text-xs font-mono">{video.cid.slice(0, 14)}…</span>
+        {dur && <span className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px]">Duration: {dur}</span>}
+        {video.depthM ? <span className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px]">Depth: {video.depthM}m</span> : null}
+        <a href={ipfsPublicUrl(video.cid)} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#a29bfe18] border border-[#a29bfe25] text-[#a29bfe] [font-family:'Inter',Helvetica] text-[9px] no-underline hover:bg-[#a29bfe25] transition-colors">
+          View on IPFS ↗
+        </a>
+      </div>
+      {/* Details */}
+      <div className="flex flex-col gap-2 px-4 pt-4 pb-2">
+        {video.title && <h3 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm leading-snug m-0">{video.title}</h3>}
+        {video.description && <p className="[font-family:'Inter',Helvetica] text-[#d4e9f3aa] text-[11px] leading-relaxed m-0">{video.description}</p>}
+        <div className="mt-1">
+          <span className="[font-family:'Inter',Helvetica] text-[9px] uppercase tracking-widest text-[#d4e9f344] mb-1 block">Submitted by</span>
+          <SubmitterPill profileId={video.profileId} authorFallback={video.author} />
+        </div>
+        <div className="flex flex-wrap gap-3 mt-1">
+          <span className="[font-family:'Inter',Helvetica] text-[#83eef066] text-[10px] flex items-center gap-1">
+            <PinIcon />{video.latitude.toFixed(3)}, {video.longitude.toFixed(3)}
+          </span>
+          <span className="[font-family:'Inter',Helvetica] text-[#83eef066] text-[10px]">{formatDate(video.createdAt)}</span>
+        </div>
+      </div>
+      {/* Curator note */}
+      <div className="px-4 pb-3">
+        <label className="block [font-family:'Inter',Helvetica] text-[#d4e9f366] text-[10px] uppercase tracking-widest mb-1.5">
+          Curator note <span className="normal-case text-[#d4e9f344]">(optional)</span>
+        </label>
+        <textarea data-testid={`textarea-video-note-${video.id}`} value={note} onChange={e => setNote(e.target.value)}
+          maxLength={500} rows={2} placeholder="Add context or reason for your decision…"
+          className="w-full rounded-xl px-3 py-2.5 bg-[#ffffff08] border border-[#ffffff12] text-[#d4e9f3] text-[11px] [font-family:'Inter',Helvetica] leading-relaxed placeholder:text-[#d4e9f333] resize-none focus:outline-none focus:border-[#a29bfe33] transition-colors" />
+      </div>
+      {/* Approve / Reject */}
+      <div className="flex border-t border-[#ffffff0d]">
+        <button data-testid={`button-approve-video-${video.id}`} onClick={() => onDecide(video.id, "approved", note)} disabled={isPending}
+          className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 bg-[#1dd1a108] hover:bg-[#1dd1a118] border-r border-[#ffffff0d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed group">
+          {isPending ? <div className="w-4 h-4 rounded-full border-2 border-[#1dd1a1] border-t-transparent animate-spin" /> : (
+            <div className="w-8 h-8 rounded-full bg-[#1dd1a115] border border-[#1dd1a130] flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#1dd1a1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <span className="[font-family:'Inter',Helvetica] text-xs font-semibold text-[#1dd1a1]">Approve</span>
+          <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#1dd1a166]">+5 pts · publish to map</span>
+        </button>
+        <button data-testid={`button-reject-video-${video.id}`} onClick={() => onDecide(video.id, "rejected", note)} disabled={isPending}
+          className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 bg-[#ff666608] hover:bg-[#ff666618] transition-colors disabled:opacity-50 disabled:cursor-not-allowed group">
+          {isPending ? <div className="w-4 h-4 rounded-full border-2 border-[#ff8888] border-t-transparent animate-spin" /> : (
+            <div className="w-8 h-8 rounded-full bg-[#ff666615] border border-[#ff666630] flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#ff8888" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <span className="[font-family:'Inter',Helvetica] text-xs font-semibold text-[#ff8888]">Reject</span>
+          <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#ff888866]">+5 pts · remove from queue</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Video My Submissions panel ────────────────────────────────────────────────
+function VideoMySubmissionsPanel({ submissions, isLoading }: { submissions: ReefVideo[]; isLoading: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (!isLoading && submissions.length === 0) return null;
+  const pending = submissions.filter(s => s.status === "pending").length;
+  const approved = submissions.filter(s => s.status === "approved").length;
+  const rejected = submissions.filter(s => s.status === "rejected").length;
+  return (
+    <div className="rounded-2xl border border-[#ffffff10] bg-[#ffffff06] backdrop-blur-sm overflow-hidden">
+      <button data-testid="button-toggle-my-video-submissions" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#ffffff06] transition-colors group">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#d4e9f308] border border-[#d4e9f318] flex items-center justify-center text-sm">🎥</div>
+          <div className="text-left">
+            <div className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-sm">My Video Submissions</div>
+            <div className="flex items-center gap-2 mt-0.5">
+              {isLoading ? <span className="[font-family:'Inter',Helvetica] text-[#d4e9f344] text-[10px]">Loading…</span> : (
+                <>
+                  {approved > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#1dd1a1]">{approved} approved</span>}
+                  {pending > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#ffb347]">{pending} pending</span>}
+                  {rejected > 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#ff8888]">{rejected} rejected</span>}
+                  {submissions.length === 0 && <span className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f344]">No submissions yet</span>}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-[#d4e9f344] transition-transform duration-200 flex-shrink-0 ${open ? "rotate-180" : ""}`}>
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="border-t border-[#ffffff08] px-5 py-4 flex flex-col gap-3">
+          {!isLoading && submissions.map(vid => (
+            <div key={vid.id} data-testid={`card-video-submission-${vid.id}`}
+              className="flex gap-3 p-3 rounded-xl bg-[#ffffff06] border border-[#ffffff0d]">
+              <div className="w-16 h-16 rounded-lg bg-[#0a0520] flex-shrink-0 border border-[#a29bfe18] flex items-center justify-center text-2xl">🎥</div>
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-semibold text-[#d4e9f3] text-xs leading-snug truncate">
+                    {vid.title || <span className="text-[#d4e9f344] italic">Untitled</span>}
+                  </span>
+                  <StatusBadge status={vid.status} />
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#83eef066] flex items-center gap-1">
+                    <PinIcon />{vid.latitude.toFixed(3)}, {vid.longitude.toFixed(3)}
+                  </span>
+                  <span className="[font-family:'Inter',Helvetica] text-[9px] text-[#d4e9f333]">{formatDate(vid.createdAt)}</span>
+                  <a href={ipfsPublicUrl(vid.cid)} target="_blank" rel="noopener noreferrer"
+                    className="[font-family:'Inter',Helvetica] text-[9px] font-mono text-[#a29bfe44] hover:text-[#a29bfe] transition-colors no-underline">
+                    {vid.cid.slice(0, 8)}…
+                  </a>
+                </div>
+                {vid.curatorNote && (
+                  <div className="mt-0.5 px-2.5 py-1.5 rounded-lg bg-[#ffffff06] border border-[#ffffff0d]">
+                    <span className="[font-family:'Inter',Helvetica] text-[9px] uppercase tracking-widest text-[#d4e9f344] block mb-0.5">Curator note</span>
+                    <p className="[font-family:'Inter',Helvetica] text-[10px] text-[#d4e9f3aa] leading-relaxed m-0">{vid.curatorNote}</p>
+                  </div>
+                )}
+                {vid.status === "pending" && (
+                  <p className="[font-family:'Inter',Helvetica] text-[9px] text-[#d4e9f333] italic">Awaiting review by an ORCID-verified curator…</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export function CurationPage() {
   const { authenticated: privyAuthenticated, user, getAccessToken } = usePrivy();
@@ -906,6 +1257,7 @@ export function CurationPage() {
   });
 
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"images" | "videos">("images");
 
   const { mutate: decide } = useMutation({
     mutationFn: async ({ id, decision, note }: { id: string; decision: "approved" | "rejected"; note: string }) => {
@@ -931,6 +1283,52 @@ export function CurationPage() {
     onError: () => setDecidingId(null),
   });
 
+  // Video curation queue
+  const { data: videoQueue, isLoading: videoQueueLoading, error: videoQueueError } = useQuery<ReefVideo[]>({
+    queryKey: ["/api/curation/video-queue"],
+    queryFn: async () => {
+      const h = await authHeaders();
+      const res = await fetch("/api/curation/video-queue", { headers: h, credentials: "include" });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || `Error ${res.status}`); }
+      return res.json();
+    },
+    enabled: isAuthenticated && hasOrcid && activeTab === "videos",
+    refetchInterval: 30000,
+  });
+
+  const { data: myVideoSubmissions = [], isLoading: videoSubmissionsLoading } = useQuery<ReefVideo[]>({
+    queryKey: ["/api/reef-videos/mine"],
+    queryFn: async () => {
+      const h = await authHeaders();
+      const res = await fetch("/api/reef-videos/mine", { headers: h, credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated && activeTab === "videos",
+    staleTime: 30_000,
+  });
+
+  const [decidingVideoId, setDecidingVideoId] = useState<string | null>(null);
+
+  const { mutate: decideVideo } = useMutation({
+    mutationFn: async ({ id, decision, note }: { id: string; decision: "approved" | "rejected"; note: string }) => {
+      setDecidingVideoId(id);
+      const h = await authHeaders();
+      const res = await fetch(`/api/curation/video/${id}`, {
+        method: "POST", headers: h, credentials: "include",
+        body: JSON.stringify({ decision, curatorNote: note }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || `Error ${res.status}`); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setDecidingVideoId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/curation/video-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reef-videos"] });
+    },
+    onError: () => setDecidingVideoId(null),
+  });
+
   return (
     <div className="flex flex-col items-start relative bg-[#00080c] min-h-screen w-full">
       <img className="absolute w-full h-full top-0 left-0 object-cover pointer-events-none opacity-30" alt="" src="/figmaAssets/coral-microbiome-bg.jpg" />
@@ -949,7 +1347,7 @@ export function CurationPage() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#83eef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <span className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-base">
-              Reef Image Curation
+              Reef Curation
             </span>
           </div>
           {/* Community link */}
@@ -970,20 +1368,41 @@ export function CurationPage() {
         {/* Content */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-8 py-8 flex flex-col gap-6">
 
+          {/* Tab switcher */}
+          <div className="flex gap-1 p-1 rounded-xl bg-[#ffffff08] self-start">
+            {(["images", "videos"] as const).map(tab => (
+              <button key={tab} data-testid={`tab-curation-${tab}`} onClick={() => setActiveTab(tab)}
+                className={`px-5 py-2 rounded-lg text-xs [font-family:'Inter',Helvetica] font-semibold transition-colors capitalize ${
+                  activeTab === tab
+                    ? "bg-[#ffffff14] text-[#d4e9f3]"
+                    : "text-[#d4e9f355] hover:text-[#d4e9f388]"
+                }`}>
+                {tab === "images" ? "📷 Images" : "🎥 Videos"}
+              </button>
+            ))}
+          </div>
+
           {/* Header */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="[font-family:'Plus_Jakarta_Sans',Helvetica] font-bold text-[#d4e9f3] text-2xl m-0">
-                Image Review Queue
+                {activeTab === "images" ? "Image Review Queue" : "Video Review Queue"}
               </h1>
-              {queue && queue.length > 0 && (
+              {activeTab === "images" && queue && queue.length > 0 && (
                 <span className="px-2.5 py-0.5 rounded-full bg-[#ffb34720] border border-[#ffb34740] text-[#ffb347] [font-family:'Inter',Helvetica] text-xs font-semibold">
                   {queue.length} pending
                 </span>
               )}
+              {activeTab === "videos" && videoQueue && videoQueue.length > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full bg-[#a29bfe20] border border-[#a29bfe40] text-[#a29bfe] [font-family:'Inter',Helvetica] text-xs font-semibold">
+                  {videoQueue.length} pending
+                </span>
+              )}
             </div>
             <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm m-0">
-              Review reef images submitted by community members. Click a submitter's name to view their profile. Approved images appear on the public map. You earn 5 points per decision.
+              {activeTab === "images"
+                ? "Review reef images submitted by community members. Approved images appear on the public map. You earn 5 points per decision."
+                : "Review underwater video surveys submitted by community members. Approved videos appear on the map as 🎥 pins. You earn 5 points per decision."}
             </p>
 
             {/* Curator identity badge — only shown when ORCID-verified */}
@@ -1032,18 +1451,30 @@ export function CurationPage() {
           </div>
 
           {/* Submit panel — any authenticated user can submit */}
-          {isAuthenticated && (
+          {isAuthenticated && activeTab === "images" && (
             <SubmitPanel
+              authHeaders={authHeaders}
+              displayName={resolvedOrcidName || undefined}
+            />
+          )}
+          {isAuthenticated && activeTab === "videos" && (
+            <VideoSubmitPanel
               authHeaders={authHeaders}
               displayName={resolvedOrcidName || undefined}
             />
           )}
 
           {/* My Submissions — shows status of the user's own submitted images */}
-          {isAuthenticated && (
+          {isAuthenticated && activeTab === "images" && (
             <MySubmissionsPanel
               submissions={mySubmissions}
               isLoading={submissionsLoading}
+            />
+          )}
+          {isAuthenticated && activeTab === "videos" && (
+            <VideoMySubmissionsPanel
+              submissions={myVideoSubmissions}
+              isLoading={videoSubmissionsLoading}
             />
           )}
 
@@ -1077,8 +1508,8 @@ export function CurationPage() {
             </div>
           )}
 
-          {/* Queue */}
-          {isAuthenticated && hasOrcid && (
+          {/* Image Queue */}
+          {isAuthenticated && hasOrcid && activeTab === "images" && (
             <>
               {isLoading && (
                 <div className="flex items-center justify-center py-16 gap-3">
@@ -1086,33 +1517,53 @@ export function CurationPage() {
                   <span className="[font-family:'Inter',Helvetica] text-[#83eef0aa] text-sm">Loading queue…</span>
                 </div>
               )}
-
               {error && (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                   <span className="[font-family:'Inter',Helvetica] text-red-400 text-sm">{(error as Error).message}</span>
                 </div>
               )}
-
               {!isLoading && !error && queue?.length === 0 && (
                 <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-[#1dd1a110] border border-[#1dd1a120] flex items-center justify-center">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#1dd1a1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </div>
-                  <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm">
-                    Queue is empty. All images have been reviewed.
-                  </p>
+                  <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm">Queue is empty. All images have been reviewed.</p>
                 </div>
               )}
-
               {!isLoading && !error && queue && queue.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {queue.map(img => (
-                    <ImageCard
-                      key={img.id}
-                      image={img}
-                      onDecide={(id, decision, note) => decide({ id, decision, note })}
-                      deciding={decidingId}
-                    />
+                    <ImageCard key={img.id} image={img} onDecide={(id, decision, note) => decide({ id, decision, note })} deciding={decidingId} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Video Queue */}
+          {isAuthenticated && hasOrcid && activeTab === "videos" && (
+            <>
+              {videoQueueLoading && (
+                <div className="flex items-center justify-center py-16 gap-3">
+                  <div className="w-5 h-5 rounded-full border-2 border-[#a29bfe] border-t-transparent animate-spin" />
+                  <span className="[font-family:'Inter',Helvetica] text-[#a29bfeaa] text-sm">Loading video queue…</span>
+                </div>
+              )}
+              {videoQueueError && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <span className="[font-family:'Inter',Helvetica] text-red-400 text-sm">{(videoQueueError as Error).message}</span>
+                </div>
+              )}
+              {!videoQueueLoading && !videoQueueError && videoQueue?.length === 0 && (
+                <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#a29bfe10] border border-[#a29bfe20] flex items-center justify-center text-2xl">🎥</div>
+                  <p className="[font-family:'Inter',Helvetica] text-[#d4e9f366] text-sm">No videos pending review.</p>
+                </div>
+              )}
+              {!videoQueueLoading && !videoQueueError && videoQueue && videoQueue.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {videoQueue.map(vid => (
+                    <VideoCard key={vid.id} video={vid} onDecide={(id, decision, note) => decideVideo({ id, decision, note })} deciding={decidingVideoId} />
                   ))}
                 </div>
               )}

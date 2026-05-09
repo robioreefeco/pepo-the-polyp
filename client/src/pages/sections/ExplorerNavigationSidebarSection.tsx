@@ -363,7 +363,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
         </Link>
 
 
-        {/* Videos Monitoring */}
+        {/* Video Monitor */}
         <Link
           href="/videos"
           data-testid="link-videos-monitoring"
@@ -379,7 +379,7 @@ export const ExplorerNavigationSidebarSection = (): JSX.Element => {
             </svg>
           </div>
           <span className={`${TEXT_BASE} ${isVideos ? "font-bold text-[#83eef0]" : "font-medium text-[#d4e9f380]"}`}>
-            Videos
+            Video Monitor
           </span>
           <span className="ml-auto text-[8px] [font-family:'Inter',Helvetica] px-1.5 py-0.5 rounded-full bg-[#83eef018] border border-[#83eef033] text-[#83eef0cc]">
             DeepReef

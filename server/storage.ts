@@ -1,12 +1,13 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, profiles, contributions, reefImages, ipfsBlocks, gcrmnSites,
+  users, profiles, contributions, reefImages, reefVideos, ipfsBlocks, gcrmnSites,
   type User, type InsertUser,
   type Profile, type InsertProfile,
   type Contribution, type InsertContribution,
   type LeaderboardEntry,
   type ReefImage, type InsertReefImage,
+  type ReefVideo, type InsertReefVideo,
   type IpfsBlock,
   type GcrmnSite, type InsertGcrmnSite,
 } from "@shared/schema";
@@ -53,6 +54,13 @@ export interface IStorage {
   getReefImagesByProfile(profileId: string): Promise<ReefImage[]>;
   getCurationQueue(): Promise<ReefImage[]>;
   curateReefImage(id: string, status: "approved" | "rejected", curatedBy: string, curatorNote?: string): Promise<ReefImage | undefined>;
+
+  // Reef Videos
+  createReefVideo(data: InsertReefVideo): Promise<ReefVideo>;
+  getReefVideos(status?: string): Promise<ReefVideo[]>;
+  getReefVideosByProfile(profileId: string): Promise<ReefVideo[]>;
+  getVideoCurationQueue(): Promise<ReefVideo[]>;
+  curateReefVideo(id: string, status: "approved" | "rejected", curatedBy: string, curatorNote?: string): Promise<ReefVideo | undefined>;
 
   // IPFS Blocks (DB-persisted content store)
   saveIpfsBlock(cid: string, data: string, mimeType: string): Promise<IpfsBlock>;
@@ -305,6 +313,42 @@ export class DbStorage implements IStorage {
       .update(reefImages)
       .set({ status, curatedBy, curatedAt: now, curatorNote: curatorNote ?? "" })
       .where(eq(reefImages.id, id))
+      .returning();
+    return row;
+  }
+
+  // ── Reef Videos ──────────────────────────────────────────────────────────
+  async createReefVideo(data: InsertReefVideo): Promise<ReefVideo> {
+    const id = randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .insert(reefVideos)
+      .values({ ...data, id, status: "pending", createdAt: now })
+      .returning();
+    return row;
+  }
+
+  async getReefVideos(status?: string): Promise<ReefVideo[]> {
+    if (status) {
+      return db.select().from(reefVideos).where(eq(reefVideos.status, status)).orderBy(desc(reefVideos.createdAt));
+    }
+    return db.select().from(reefVideos).orderBy(desc(reefVideos.createdAt));
+  }
+
+  async getReefVideosByProfile(profileId: string): Promise<ReefVideo[]> {
+    return db.select().from(reefVideos).where(eq(reefVideos.profileId, profileId)).orderBy(desc(reefVideos.createdAt));
+  }
+
+  async getVideoCurationQueue(): Promise<ReefVideo[]> {
+    return db.select().from(reefVideos).where(eq(reefVideos.status, "pending")).orderBy(desc(reefVideos.createdAt));
+  }
+
+  async curateReefVideo(id: string, status: "approved" | "rejected", curatedBy: string, curatorNote?: string): Promise<ReefVideo | undefined> {
+    const now = Math.floor(Date.now() / 1000);
+    const [row] = await db
+      .update(reefVideos)
+      .set({ status, curatedBy, curatedAt: now, curatorNote: curatorNote ?? "" })
+      .where(eq(reefVideos.id, id))
       .returning();
     return row;
   }
