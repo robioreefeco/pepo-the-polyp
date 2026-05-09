@@ -44,6 +44,10 @@ waitForPort = 5000
 VITE_PRIVY_APP_ID = "cmnysfvqe00ff0cjmh15ba116"
 VOCDONI_ENV = "prod"
 PINATA_GATEWAY = "teal-advisory-zebra-284.mypinata.cloud"
+GIT_AUTHOR_NAME = "robioreefeco"
+GIT_COMMITTER_NAME = "robioreefeco"
+GIT_AUTHOR_EMAIL = "robiomarine@protonmail.com"
+GIT_COMMITTER_EMAIL = "robiomarine@protonmail.com"
 
 [userenv.production]
 ORCID_REDIRECT_URI = "https://thepolyp.xyz/api/auth/orcid/callback"
